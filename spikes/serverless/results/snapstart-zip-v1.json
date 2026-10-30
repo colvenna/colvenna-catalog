@@ -1,0 +1,98 @@
+{
+ "function": "colvenna-catalog-spike-server-zip",
+ "base": "/zip",
+ "rounds": 1,
+ "concurrency": 6,
+ "mode": "snapstart",
+ "requestStatuses": [
+  200,
+  200,
+  200,
+  200,
+  200,
+  200
+ ],
+ "clientLatenciesMs": [
+  2582,
+  2574,
+  2564,
+  2878,
+  2847,
+  2876
+ ],
+ "environments": [
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": 873.8,
+   "firstInvokeDurationMs": 1552.97,
+   "billedRestoreDurationMs": 262.0,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 235.0
+  },
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": 663.69,
+   "firstInvokeDurationMs": 1749.31,
+   "billedRestoreDurationMs": 251.0,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 237.0
+  },
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": 738.2,
+   "firstInvokeDurationMs": 1655.24,
+   "billedRestoreDurationMs": 290.0,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 235.0
+  },
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": 1144.13,
+   "firstInvokeDurationMs": 1567.62,
+   "billedRestoreDurationMs": 507.0,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 241.0
+  },
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": 1164.42,
+   "firstInvokeDurationMs": 1500.22,
+   "billedRestoreDurationMs": 560.0,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 238.0
+  },
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": 1012.41,
+   "firstInvokeDurationMs": 1474.24,
+   "billedRestoreDurationMs": 467.0,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 240.0
+  },
+  {
+   "initDurationMs": 3086.25,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": null,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2894,
+   "maxMemoryUsedMb": null
+  },
+  {
+   "initDurationMs": 2779.9,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": null,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2616,
+   "maxMemoryUsedMb": null
+  }
+ ],
+ "note": "Zip package on the managed java21 runtime (java:21.mainline.v125) with the adapter as a layer and /opt/bootstrap as AWS_LAMBDA_EXEC_WRAPPER; version 1 published 2026-10-28 04:04 with SnapStart. The two entries with only initDurationMs are the snapshot initializations at publish time."
+}

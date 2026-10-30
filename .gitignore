@@ -1,0 +1,28 @@
+# git worktrees under the repository root (.worktrees/issue-<n>-<slug>)
+/.worktrees/
+
+# Build output, and the logs of scripts/ci-local.sh
+target/
+/.ci-local/
+
+# Operating system and editors
+.DS_Store
+.idea/
+*.swp
+
+# kubectl, Helm and crane (scripts/install-tools.sh)
+/.tools/
+
+# The CDK project (deploy/aws)
+node_modules/
+cdk.out/
+
+# Local state of test environments and installs: kubeconfigs, outputs, evidence (never committed)
+/.state/
+
+# Installs' configurations (deploy/config/example.env lists every key)
+/deploy/config/*.env
+!/deploy/config/example.env
+
+# Python bytecode (tests/deploy)
+__pycache__/

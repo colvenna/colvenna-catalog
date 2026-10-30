@@ -1,0 +1,1465 @@
+openapi: 3.0.3
+info:
+  title: Colvenna Catalog admin API
+  version: "1"
+  description: |
+    Colvenna Catalog's own management API: service identities (principals), their bearer tokens,
+    catalog grants, the audit log, and repairs of single tables. It is versioned apart from the
+    Apache Paimon REST API, which the server serves under `/v1` on the same port and which Paimon's
+    own OpenAPI describes.
+
+    **Authentication.** Every request carries `Authorization: Bearer <token>`, a token this API
+    issued (`colvenna_` and 43 more characters). There is no anonymous route. Before the token,
+    the server checks only what does not depend on the route: a request beyond its limits, or one
+    that comes while the database's schema is not the server's, answers 503; a path segment that
+    is not a valid name, or a malformed escape in the path or the query, 400. Then, without a
+    valid token, every path answers 401, whether or not a route is there, and no request body is
+    read before the token checks out. Only an admin principal may call this API; any other
+    principal gets 403. Admin principals hold no catalog privileges of their own: the Paimon API
+    needs a grant even for them. In the serverless form the private API's authorizer checks the
+    token too, first, and answers 401 itself to a request without a valid one. It keeps each
+    answer for 60 seconds, so a token revoked or expired, or whose principal was disabled, in the
+    last minute gets past it; the server then answers 401.
+
+    **Audit.** Each operation names, as `x-colvenna-action`, the action its audit events carry. A
+    write (POST, DELETE) whose route is found is recorded whatever its outcome, but for a body over
+    the 64 MiB limit; a read only when it is refused. A request refused for want of a valid token
+    is recorded if its path is a route, up to 20 such events a second; the rest are only logged.
+    In the serverless form, the requests the authorizer refuses never reach the server, which
+    records none of them. An event the server fails to write is logged, and the request keeps its
+    outcome.
+
+    **Responses.** Bodies are JSON (`application/json`); an operation that answers with no body
+    says so. Every response carries `X-Request-Id`, which is also the audit event's `requestId` and
+    the key to the server's log. Errors have the body of Paimon's `ErrorResponse`. In the
+    serverless form, API Gateway answers some requests itself, with a body of its own and no
+    `X-Request-Id`: 401 from the authorizer; 403 to a request from outside the API's VPC
+    endpoints; 413 to a request body over about 6 MiB, with nothing done; 503 when the authorizer
+    cannot check the token; 429, and 503, to a request beyond what the install serves at once, with
+    nothing done; 503 when the server's function failed, the request perhaps done (sent again, a
+    token issue issues a second token); and 504.
+
+    **Time.** Instants are of two kinds, as the fields say: ISO-8601 strings (`date-time`), and,
+    in principal and token listings, numbers of seconds since the Unix epoch with a fraction.
+
+    The user manual's [admin API page](../manual/admin-api.md) has `curl` examples of the common
+    operations. `AdminOpenApiTest` keeps this description and the server's routes in step.
+  license:
+    name: Apache License 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+servers:
+  - url: "{origin}/colvenna/admin/v1"
+    description: "The EKS form: the catalog's API port (8181), over TLS"
+    variables:
+      origin:
+        default: https://localhost:8181
+        description: >-
+          Scheme, host and port of the API port: a port-forward to the catalog's Service, the
+          Service's in-cluster name, or the internal NLB's.
+  - url: "https://{api}.execute-api.{region}.amazonaws.com/catalog/colvenna/admin/v1"
+    description: >-
+      The serverless form: its private REST API, reached only through the execute-api VPC
+      endpoints the install lists
+    variables:
+      api:
+        default: "<api-id>"
+        description: >-
+          The REST API's id (the ApiId output of the ColvennaCatalog<Env>Serverless stack), or
+          `<api-id>-<vpce-id>` where the endpoint has no private DNS
+      region:
+        default: us-west-2
+security:
+  - bearer: []
+tags:
+  - name: principals
+    description: Service identities
+  - name: tokens
+    description: Bearer tokens of principals
+  - name: grants
+    description: Catalog privileges of principals
+  - name: audit
+    description: The audit log
+  - name: tables
+    description: Checks and repairs of one table
+
+paths:
+  /principals:
+    get:
+      tags: [principals]
+      operationId: listPrincipals
+      x-colvenna-action: LIST_PRINCIPALS
+      summary: List principals
+      description: Every principal, disabled ones included, by name.
+      responses:
+        "200":
+          description: The principals
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [principals]
+                properties:
+                  principals:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Principal"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    post:
+      tags: [principals]
+      operationId: createPrincipal
+      x-colvenna-action: CREATE_PRINCIPAL
+      summary: Create a principal
+      description: >-
+        Creates a service identity. It can do nothing until it has a token to authenticate with
+        and, for the Paimon API, grants. Its audit event names the principal as its resource when
+        the creation succeeds, or conflicts with a principal of that name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePrincipalRequest"
+            example:
+              name: etl-writer
+              description: Nightly loads into sales
+      responses:
+        "200":
+          description: Created
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [name]
+                properties:
+                  name:
+                    type: string
+                    description: The new principal's name
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /principals/{name}/disable:
+    parameters:
+      - $ref: "#/components/parameters/PrincipalName"
+    post:
+      tags: [principals]
+      operationId: disablePrincipal
+      x-colvenna-action: DISABLE_PRINCIPAL
+      summary: Disable a principal
+      description: >-
+        Disables a principal for good: this API cannot enable it again. Its tokens stop
+        authenticating within the authentication cache period (`COLVENNA_AUTH_CACHE_TTL`, 2 seconds
+        by default), and `/token` no longer renews its per-table credentials; those already issued
+        last until they expire. Disabling a disabled principal changes nothing.
+      responses:
+        "200":
+          description: Disabled; no body
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /principals/{name}/tokens:
+    parameters:
+      - $ref: "#/components/parameters/PrincipalName"
+    get:
+      tags: [tokens]
+      operationId: listTokens
+      x-colvenna-action: LIST_TOKENS
+      summary: List a principal's tokens
+      description: >-
+        The principal's tokens, oldest first, expired and revoked ones included, without their
+        secrets. A principal that does not exist has none.
+      responses:
+        "200":
+          description: The tokens
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [tokens]
+                properties:
+                  tokens:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Token"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    post:
+      tags: [tokens]
+      operationId: issueToken
+      x-colvenna-action: ISSUE_TOKEN
+      summary: Issue a token
+      description: >-
+        Issues the principal a new token. The response holds the secret, the only time it is
+        shown: the server keeps its SHA-256 alone, and the audit log never records it. Store it
+        at once, in a file or a secret store. A disabled principal can be issued a token, but the
+        token does not authenticate.
+      requestBody:
+        required: false
+        description: May be left out, for a token of 90 days.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueTokenRequest"
+            example:
+              ttl: P30D
+              description: sales ETL, from 2026-10
+      responses:
+        "200":
+          description: Issued
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssuedToken"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /tokens/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The token's id, from its issue or a listing
+        schema:
+          type: string
+          format: uuid
+        example: 8d0c5a0e-3f43-4f7c-9a55-0f6c2d1e8b7a
+    delete:
+      tags: [tokens]
+      operationId: revokeToken
+      x-colvenna-action: REVOKE_TOKEN
+      summary: Revoke a token
+      description: >-
+        Revokes a token. It stops authenticating within the authentication cache period
+        (`COLVENNA_AUTH_CACHE_TTL`, 2 seconds by default). Per-table credentials issued with it
+        last until they expire. Revoking a revoked token records the later revocation.
+      responses:
+        "200":
+          description: Revoked; no body
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /grants:
+    get:
+      tags: [grants]
+      operationId: listGrants
+      x-colvenna-action: LIST_GRANTS
+      summary: List grants
+      description: >-
+        Grants by id, expired ones and those of other environments included; only the unexpired
+        grants of this server's environment take part in decisions.
+      parameters:
+        - name: principal
+          in: query
+          required: false
+          description: Only this principal's grants; every grant without it
+          schema:
+            type: string
+          example: etl-writer
+      responses:
+        "200":
+          description: The grants
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [grants]
+                properties:
+                  grants:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Grant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    post:
+      tags: [grants]
+      operationId: createGrant
+      x-colvenna-action: GRANT
+      summary: Grant a privilege
+      description: |
+        Allows or denies a principal one privilege level on the catalog, a database, or one table,
+        view or function. Levels nest: `MANAGE` includes `WRITE` includes `READ`. An `ALLOW`
+        permits its level and those below; a `DENY` forbids its level and those above, and wins
+        over every `ALLOW`. Branches and system tables (`orders$branch_dev`, `orders$snapshots`)
+        are judged as their table.
+
+        Every grant names its purpose, approver, approval and expiry; it stops counting once it
+        expires, and after a change, within the authentication cache period. The same principal,
+        scope, object, privilege and effect can be granted once (409 otherwise, even when the
+        first has expired): revoke the old grant first. Each grant advances the policy version
+        that decisions record; the audit event keeps the whole grant.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGrantRequest"
+            examples:
+              databaseWrite:
+                summary: Write every table of a database
+                value:
+                  principal: etl-writer
+                  scope: DATABASE
+                  database: sales
+                  privilege: WRITE
+                  purpose: Nightly loads into sales
+                  approvedBy: data-owner@example.com
+                  approval: CHG-1042
+                  expiresAt: "2027-06-30T00:00:00Z"
+              tableDeny:
+                summary: Keep a principal away from one table
+                value:
+                  principal: etl-writer
+                  scope: TABLE
+                  database: sales
+                  object: customers
+                  privilege: READ
+                  effect: DENY
+                  purpose: The ETL job needs no customer data
+                  approvedBy: data-owner@example.com
+                  approval: CHG-1042
+                  expiresAt: "2027-06-30T00:00:00Z"
+              columnRead:
+                summary: Read two columns of one table
+                value:
+                  principal: bi-reader
+                  scope: TABLE
+                  database: sales
+                  object: orders
+                  privilege: READ
+                  columns: [order_id, amount]
+                  purpose: Revenue dashboard
+                  approvedBy: data-owner@example.com
+                  approval: CHG-1043
+                  expiresAt: "2027-06-30T00:00:00Z"
+      responses:
+        "200":
+          description: Granted
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Grant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /grants/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The grant's id
+        schema:
+          type: integer
+          format: int64
+        example: 42
+    delete:
+      tags: [grants]
+      operationId: revokeGrant
+      x-colvenna-action: REVOKE_GRANT
+      summary: Revoke a grant
+      description: >-
+        Deletes a grant; decisions stop counting it within the authentication cache period. The
+        audit event keeps what it granted. Per-table credentials issued under it last until they
+        expire.
+      responses:
+        "200":
+          description: Revoked; no body
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /audit:
+    get:
+      tags: [audit]
+      operationId: queryAudit
+      x-colvenna-action: QUERY_AUDIT
+      summary: Query the audit log
+      description: >-
+        Audit events, newest first, that match every filter given. Events are written once a
+        request's outcome is known, so a failed request is never recorded as succeeded; a commit
+        that answered 200 but lost its compare-and-set is `FAILED`.
+      parameters:
+        - name: principal
+          in: query
+          description: The principal that made the request
+          schema:
+            type: string
+          example: etl-writer
+        - name: action
+          in: query
+          description: >-
+            The action: an admin operation's `x-colvenna-action`, a Paimon API action
+            (`CREATE_TABLE`, `COMMIT`, `ISSUE_DATA_TOKEN`, ...), or one the server takes itself
+            (`ROLL_FORWARD_COMMIT`, `FENCE_TABLE`)
+          schema:
+            type: string
+          example: GRANT
+        - name: resourceType
+          in: query
+          description: >-
+            `CATALOG`, `DATABASE`, `TABLE`, `VIEW`, `FUNCTION`, `PRINCIPAL`, `TOKEN` or `GRANT`
+          schema:
+            type: string
+          example: GRANT
+        - name: resource
+          in: query
+          description: >-
+            The resource, exactly: `sales.orders` for a table, a principal's name, a token's id, or
+            for a grant `<principal>@<scope>:<database>[.<object>]` (`*` for the catalog)
+          schema:
+            type: string
+          example: etl-writer@DATABASE:sales
+        - name: outcome
+          in: query
+          description: How the request ended; case-insensitive
+          schema:
+            type: string
+            enum: [SUCCEEDED, FAILED, DENIED]
+          example: SUCCEEDED
+        - name: since
+          in: query
+          description: Events at or after this instant
+          schema:
+            type: string
+            format: date-time
+          example: "2026-10-01T00:00:00Z"
+        - name: until
+          in: query
+          description: Events before this instant
+          schema:
+            type: string
+            format: date-time
+          example: "2026-11-01T00:00:00Z"
+        - name: limit
+          in: query
+          description: At most this many events; values outside 1 to 1000 are taken as the nearer bound
+          schema:
+            type: integer
+            default: 100
+          example: 100
+      responses:
+        "200":
+          description: The events
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [events]
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /consistency/{database}/{table}:
+    parameters:
+      - $ref: "#/components/parameters/Database"
+      - $ref: "#/components/parameters/Table"
+    get:
+      tags: [tables]
+      operationId: checkConsistency
+      x-colvenna-action: CHECK_CONSISTENCY
+      summary: Check a table against its files
+      description: >-
+        Cross-checks the table's PostgreSQL state against its files and reports what it found,
+        for evidence after a restore or a failure. For each branch: the pointer, the highest
+        snapshot file, the commit intents still pending (as found, then after resolving them as
+        any reader would), whether the catalog's copy of the published snapshot is its file, and
+        whether every data file of the earliest and the head snapshot, of up to 18 snapshots
+        between them and of every tag exists. For the main branch it also compares the schema the
+        catalog serves with the latest schema file. Every mismatch is listed in `problems`, missing
+        data files up to 5 a branch (`dataFilesMissing` counts them all). A table whose files are
+        gone is reported so, not as an error: `no schema file in <path>, where the catalog
+        serves schema <id>`, and `<branch>: pointer snapshot <n> has no file` for each branch
+        that had a snapshot. Run it
+        on a quiet table: while a commit is in flight, a snapshot file can be ahead of the pointer
+        for a moment. A server that bounds an answer's time (`COLVENNA_REQUEST_WORK_TIME`; the
+        serverless form's 8 seconds) answers a large table's check in pages: each is the report so
+        far with a `nextPageToken`, and the check goes on where it stopped when asked again with it.
+        The last page, without a token, is the whole report; `consistent` is true only there. The
+        server keeps the check between pages, for a day; the token names it, and once the check is
+        done it answers the same report again.
+      parameters:
+        - name: pageToken
+          in: query
+          description: >-
+            The previous page's `nextPageToken`, to go on with the same check; a token of another
+            table, of one dropped since, an unknown, expired or malformed one, answers 400; one
+            another request went on with meanwhile, 409 (ask again with it)
+          schema:
+            type: string
+          example: 7c1f2e9a-4b8d-4f3a-9e61-2d5b8c0a1f47
+      responses:
+        "200":
+          description: The report, or a page of it
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsistencyReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /purges:
+    get:
+      tags: [tables]
+      operationId: listPurges
+      x-colvenna-action: LIST_PURGES
+      summary: List the files still to be deleted, of dropped tables and of removed snapshots, tags and branches
+      description: >-
+        A drop removes the table from the catalog and records its directory, in one transaction;
+        the files are deleted afterwards, by the dropping request (the EKS form) or by the purge
+        function's runs (the serverless form), and the record goes once they are gone. These are
+        the records still there, oldest first: what is left to delete, and how its purges have gone.
+        A purge that fails keeps its record and its error, and is tried again. A root with a record
+        is taken by no new table.
+
+
+        A rollback, a tag's deletion and a branch's deletion likewise record the snapshot, tag and
+        changelog files they remove before they remove them, and answer once their change is made;
+        the files those referenced are deleted afterwards in the same ways, only those that no
+        snapshot, tag or changelog of any branch references then (`filePurges`).
+      parameters:
+        - name: limit
+          in: query
+          description: At most this many records; values outside 1 to 1000 are taken as the nearer bound
+          schema:
+            type: integer
+            default: 100
+          example: 100
+      responses:
+        "200":
+          description: The records
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [purges, pending, filePurges, filePurgesPending]
+                properties:
+                  purges:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TablePurge"
+                  pending:
+                    type: integer
+                    description: How many records there are, those beyond the limit included
+                  filePurges:
+                    type: array
+                    description: The records of the files rollbacks and tag and branch deletions left, oldest first, at most `limit`
+                    items:
+                      $ref: "#/components/schemas/FilePurge"
+                  filePurgesPending:
+                    type: integer
+                    description: How many of those records there are, those beyond the limit included
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /tables/{database}/{table}/reconcile:
+    parameters:
+      - $ref: "#/components/parameters/Database"
+      - $ref: "#/components/parameters/Table"
+    post:
+      tags: [tables]
+      operationId: reconcileTable
+      x-colvenna-action: RECONCILE_TABLE
+      summary: Reconcile a table with its files
+      description: >-
+        Re-reads every branch's head and the table's schema from its files, publishes the
+        snapshots the files hold beyond the catalog's pointer, adds pointers for branches found
+        only in the files, removes those whose branch directory is gone, and lifts a fence. For
+        a table fenced by a writer outside the catalog, once that writer is stopped; and after a
+        metadata restore, to catch up with the files. Only Paimon tables with snapshot files can
+        be reconciled; a table without a schema file, whose files are gone, answers 400, and is
+        to be unregistered instead. The audit event keeps the report.
+      responses:
+        "200":
+          description: What changed
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReconcileReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /tables/{database}/{table}/unregister:
+    parameters:
+      - $ref: "#/components/parameters/Database"
+      - $ref: "#/components/parameters/Table"
+    post:
+      tags: [tables]
+      operationId: unregisterTable
+      x-colvenna-action: UNREGISTER_TABLE
+      summary: Unregister a table, keeping its files
+      description: >-
+        Removes the table from the catalog and deletes none of its files, so that its directory
+        can be registered with another catalog, or with this one again (the Paimon API's
+        register-table). Name the table itself, not a branch or a system table.
+      responses:
+        "200":
+          description: Unregistered; no body
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: >-
+        A token issued by this API (`colvenna_` and 43 base64url characters). Expired or revoked
+        tokens, unknown ones and those of disabled principals answer 401.
+
+  headers:
+    RequestId:
+      description: The request's id, as in its audit event and the server's log
+      schema:
+        type: string
+        format: uuid
+
+  parameters:
+    PrincipalName:
+      name: name
+      in: path
+      required: true
+      description: The principal's name
+      schema:
+        type: string
+      example: etl-writer
+    Database:
+      name: database
+      in: path
+      required: true
+      description: The table's database
+      schema:
+        type: string
+      example: sales
+    Table:
+      name: table
+      in: path
+      required: true
+      description: The table's name
+      schema:
+        type: string
+      example: orders
+
+  responses:
+    BadRequest:
+      description: >-
+        The request is malformed: a path segment that is not a valid name (empty, `.` or `..`, or
+        holding `/ \ ? # % *` or a control character), a body that is not JSON, a missing or
+        invalid field or parameter
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: >-
+        No bearer token, or one that is unknown, expired or revoked, or of a disabled principal
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: The principal is not an admin
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: The principal, token, grant, database or table does not exist
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: It exists already
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: >-
+        The server failed. The message is generic unless it is meant for the caller (a response
+        over `COLVENNA_MAX_RESPONSE_BYTES`, say, or a write whose connection to the metadata
+        database was lost while it committed, so that whether it took effect is unknown: check
+        before repeating it); the server's log has the details under the `X-Request-Id`
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unavailable:
+      description: >-
+        The request may be retried. Nothing was done when the server is at its request limit
+        (`COLVENNA_MAX_IN_FLIGHT_REQUESTS`) or its token lookup limit, the metadata database is
+        unavailable or its schema is not the server's, or a lock wait timed out and the change
+        was rolled back; nor when the connection to the metadata database was lost before the
+        request committed, which rolled its change back. A read whose connection was lost while
+        it committed is a 503 too: repeating it changes nothing more
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      description: Paimon's error body
+      type: object
+      additionalProperties: false
+      required: [message, resourceType, resourceName, code]
+      properties:
+        message:
+          type: string
+        resourceType:
+          type: string
+          nullable: true
+          description: What the error is about, when it is about something (`PRINCIPAL`, `TABLE`, ...)
+        resourceName:
+          type: string
+          nullable: true
+        code:
+          type: integer
+          description: The HTTP status
+
+    CreatePrincipalRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$"
+          description: >-
+            Letters, digits and `._:@-`, starting with a letter or a digit, 128 characters at most
+        description:
+          type: string
+          nullable: true
+        admin:
+          type: boolean
+          default: false
+          description: >-
+            Whether the principal may call this API. An admin has no catalog privileges unless
+            granted.
+
+    Principal:
+      type: object
+      additionalProperties: false
+      required: [name, description, admin, createdAt, createdBy, disabledAt]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        admin:
+          type: boolean
+        createdAt:
+          $ref: "#/components/schemas/EpochSeconds"
+        createdBy:
+          type: string
+          description: The admin that created it, or `bootstrap` for the first admin
+        disabledAt:
+          type: number
+          nullable: true
+          description: When it was disabled, in epoch seconds; null while it is enabled
+
+    IssueTokenRequest:
+      type: object
+      properties:
+        ttl:
+          type: string
+          default: P90D
+          description: >-
+            The token's lifetime, an ISO-8601 duration in days, hours, minutes and seconds
+            (`P30D`, `PT12H`, `P1DT12H`; not weeks, months or years): positive, 400 days at most
+        description:
+          type: string
+          nullable: true
+          description: What the token is for
+
+    IssuedToken:
+      type: object
+      additionalProperties: false
+      required: [id, principal, token, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The token's id, to list or revoke it by
+        principal:
+          type: string
+        token:
+          type: string
+          description: The secret, shown only here
+        expiresAt:
+          type: string
+          format: date-time
+
+    Token:
+      type: object
+      additionalProperties: false
+      required: [id, principal, description, createdAt, createdBy, expiresAt, revokedAt, revokedBy]
+      properties:
+        id:
+          type: string
+          format: uuid
+        principal:
+          type: string
+        description:
+          type: string
+          nullable: true
+        createdAt:
+          $ref: "#/components/schemas/EpochSeconds"
+        createdBy:
+          type: string
+        expiresAt:
+          $ref: "#/components/schemas/EpochSeconds"
+        revokedAt:
+          type: number
+          nullable: true
+          description: When it was revoked, in epoch seconds; null until then
+        revokedBy:
+          type: string
+          nullable: true
+
+    EpochSeconds:
+      type: number
+      description: An instant, in seconds since the Unix epoch with a fraction (`1761663128.123456`)
+
+    CreateGrantRequest:
+      type: object
+      required: [principal, scope, privilege, purpose, approvedBy, approval, expiresAt]
+      properties:
+        principal:
+          type: string
+          description: The principal granted to; it must exist
+        scope:
+          type: string
+          enum: [CATALOG, DATABASE, TABLE, VIEW, FUNCTION]
+          description: What the grant applies to; case-insensitive
+        database:
+          type: string
+          nullable: true
+          description: Required for every scope but `CATALOG`, which takes none
+        object:
+          type: string
+          nullable: true
+          description: The table, view or function; required for those scopes, refused for the others
+        privilege:
+          type: string
+          enum: [READ, WRITE, MANAGE]
+          description: >-
+            Case-insensitive. `READ`: read tables, views and functions, their snapshots, tags,
+            branches, consumers and partitions, check queries, and take per-table credentials
+            (read-only ones). `WRITE`: commit and roll back, add and remove tags, branches and
+            partitions, reset consumers (read-write credentials). `MANAGE`: create, alter, rename
+            and drop databases, tables, views and functions, register and replace tables, roll
+            back schemas.
+        effect:
+          type: string
+          enum: [ALLOW, DENY]
+          default: ALLOW
+          description: Case-insensitive
+        columns:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: >-
+            Only for a table `READ` `ALLOW`: the only columns readable, unless another table-level
+            allow without columns applies
+        purpose:
+          type: string
+        environment:
+          type: string
+          description: >-
+            Defaults to this server's environment (`COLVENNA_ENVIRONMENT`); a grant for another
+            environment is kept but takes no part in this server's decisions
+        approvedBy:
+          type: string
+          description: Who approved it
+        approval:
+          type: string
+          description: The approval's reference, a change or ticket number say
+        expiresAt:
+          type: string
+          format: date-time
+          description: When it stops counting; in the future
+
+    Grant:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - principal
+        - scope
+        - database
+        - object
+        - privilege
+        - effect
+        - columns
+        - purpose
+        - environment
+        - approvedBy
+        - approval
+        - expiresAt
+        - createdAt
+        - createdBy
+      properties:
+        id:
+          type: integer
+          format: int64
+        principal:
+          type: string
+        scope:
+          type: string
+          enum: [CATALOG, DATABASE, TABLE, VIEW, FUNCTION]
+        database:
+          type: string
+          nullable: true
+        object:
+          type: string
+          nullable: true
+        privilege:
+          type: string
+          enum: [READ, WRITE, MANAGE]
+        effect:
+          type: string
+          enum: [ALLOW, DENY]
+        columns:
+          type: array
+          nullable: true
+          items:
+            type: string
+        purpose:
+          type: string
+        environment:
+          type: string
+        approvedBy:
+          type: string
+        approval:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          description: The admin that granted it
+
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required: [id, time, requestId, principal, action, resourceType, resource, outcome, httpStatus, detail]
+      properties:
+        id:
+          type: integer
+          format: int64
+        time:
+          type: string
+          format: date-time
+        requestId:
+          type: string
+          description: The request's `X-Request-Id`
+        principal:
+          type: string
+          nullable: true
+          description: Who made the request; null when it carried no valid token
+        action:
+          type: string
+        resourceType:
+          type: string
+        resource:
+          type: string
+          nullable: true
+          description: >-
+            What the action was on, as the `resource` filter takes it: for example `sales.orders`
+            for a table, a principal's name, a token's id, or for a grant made or revoked
+            `<principal>@<scope>:<database>[.<object>]` (`*` for the catalog). A request on a
+            table, a view or a function names it `<database>.<name>` whether it succeeded,
+            failed or was refused (a create, the new object once the body is read; a rename, its
+            source), so that `resource=sales.orders` finds them all; a branch's or a system
+            table's requests name it as the path does (`sales.orders$branch_b`). Null when the request names nothing, as a listing of the principals or a
+            query of the audit log does. A request that fails or is refused may name less, or
+            nothing: a principal's creation without a valid name, or refused for want of an admin
+            token, names none. A lookup of a table by id names the id, and the table only when it
+            was allowed.
+        outcome:
+          type: string
+          enum: [SUCCEEDED, FAILED, DENIED]
+          description: >-
+            `DENIED` for a refused request: without a valid token (401), or not permitted (403:
+            no grant allows it, a deny forbids it, or a principal that is not an admin called
+            the admin API); and for a lookup of a table by id that the caller may not read, which
+            answers 404, as if there were no such table
+        httpStatus:
+          type: integer
+        detail:
+          type: object
+          additionalProperties: true
+          description: >-
+            What the action recorded: for a decision on a catalog object, allowed or refused, the
+            policy version (`policyVersion`), the privilege needed (`privilege`: none for an
+            allowed listing, which shows only what the caller may see; `READ` for a listing
+            refused because the caller can see nothing of the database) and the grants it relied
+            on (`grants`): the allows that permitted it (for columns `/auth` refused, the allow
+            that limits the columns), or the denies that refused it; for a grant or its
+            revocation the whole grant; for a commit its snapshot; for a refusal or a failure the
+            error. Never a secret.
+
+    ConsistencyReport:
+      type: object
+      additionalProperties: false
+      required: [table, path, state, problems, consistent]
+      properties:
+        table:
+          type: string
+          description: "`<database>.<table>`"
+        path:
+          type: string
+          description: The table's root
+        state:
+          type: string
+          enum: [ACTIVE, FENCED]
+        schemaIdCatalog:
+          type: integer
+          format: int64
+          description: The schema id the catalog serves (Paimon file tables only, as below)
+        schemaIdFiles:
+          type: integer
+          format: int64
+          nullable: true
+          description: The latest schema file's id; null when the table has no schema file
+        branches:
+          type: array
+          items:
+            $ref: "#/components/schemas/BranchConsistency"
+        problems:
+          type: array
+          items:
+            type: string
+          description: >-
+            Every mismatch found, missing data files up to 5 a branch; empty for a consistent
+            table
+        consistent:
+          type: boolean
+          description: Whether the check is done (no `nextPageToken`) and `problems` is empty
+        nextPageToken:
+          type: string
+          nullable: true
+          description: >-
+            Set on a page of a check that is not done: ask again with it as `pageToken`. It names
+            the check, which the server keeps
+
+    TablePurge:
+      type: object
+      additionalProperties: false
+      required: [id, tableId, table, path, droppedAt, droppedBy, requestId, attempts, lastAttemptAt, lastError, notBefore]
+      properties:
+        id:
+          type: integer
+          format: int64
+        tableId:
+          type: string
+          format: uuid
+          description: The dropped table's id
+        table:
+          type: string
+          description: "`<database>.<table>` when it was dropped"
+        path:
+          type: string
+          description: The directory still to be deleted, the table's root
+        droppedAt:
+          type: string
+          format: date-time
+        droppedBy:
+          type: string
+          description: The principal that dropped the table
+        requestId:
+          type: string
+          nullable: true
+          description: The drop's request id
+        attempts:
+          type: integer
+          description: Purges tried so far
+        lastAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastError:
+          type: string
+          nullable: true
+          description: Why the last purge failed; null if none did
+        notBefore:
+          type: string
+          format: date-time
+          description: >-
+            When a purge may take it next: a purge under way holds it for 20 minutes, a failed one
+            leaves it due at once
+
+    FilePurge:
+      type: object
+      additionalProperties: false
+      required: [id, tableId, table, path, branch, operation, target, createdAt, createdBy, requestId, applied, roots, attempts, lastAttemptAt, lastError, dueAt, notBefore]
+      properties:
+        id:
+          type: integer
+          format: int64
+        tableId:
+          type: string
+          format: uuid
+        table:
+          type: string
+          description: "`<database>.<table>` when the operation ran"
+        path:
+          type: string
+          description: The table's root, under which the files are deleted
+        branch:
+          type: string
+          description: The branch the operation changed
+        operation:
+          type: string
+          enum: [ROLLBACK, DROP_TAG, DROP_BRANCH]
+        target:
+          type: string
+          description: >-
+            What the operation was asked for: `snapshot:<id>` or `tag:<name>` (a rollback),
+            `tag:<name>`, `branch:<name>`. A request sent again for the same target goes on with
+            the record it began
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          description: The principal that sent the operation
+        requestId:
+          type: string
+          nullable: true
+          description: The request id of the request that began the record
+        applied:
+          type: boolean
+          description: >-
+            Whether the operation took effect. A record not applied (its request stopped after
+            recording) is due 20 minutes after it was made; its purge deletes only what no
+            snapshot, tag, changelog or branch pointer references then
+        roots:
+          type: integer
+          description: >-
+            The snapshot, tag and changelog files recorded, whose files may be deleted, and for a
+            branch's deletion the branch's latest schema, to read its manifests by
+        attempts:
+          type: integer
+          description: Purges tried so far
+        lastAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastError:
+          type: string
+          nullable: true
+          description: Why the last purge failed; null if none did
+        dueAt:
+          type: string
+          format: date-time
+          description: >-
+            When it is due: an hour after a rollback or a branch's deletion took effect (a job
+            restoring from an older checkpoint may commit the files again until then), at once
+            after a tag's, 20 minutes and that hour after it was made if it never took effect. A
+            later rollback or branch deletion of the table holds it back until its own hour has
+            passed. The backlog alarm counts from here
+        notBefore:
+          type: string
+          format: date-time
+          description: >-
+            When a purge may take it next: its due time, or 20 minutes on while a purge is under
+            way; a failed purge leaves it due at once
+
+    BranchConsistency:
+      type: object
+      additionalProperties: false
+      required: [branch, found, pointerSnapshot, highestSnapshotFile, pendingIntents]
+      properties:
+        branch:
+          type: string
+        found:
+          type: object
+          additionalProperties: false
+          required: [pointerSnapshot, pendingIntents]
+          description: The pointer and the pending intents as found, before the check resolved any
+          properties:
+            pointerSnapshot:
+              type: integer
+              format: int64
+              nullable: true
+            pendingIntents:
+              type: integer
+        pointerSnapshot:
+          type: integer
+          format: int64
+          nullable: true
+          description: The snapshot the catalog publishes
+        highestSnapshotFile:
+          type: integer
+          format: int64
+          nullable: true
+        pendingIntents:
+          type: integer
+        headRowsInDataFiles:
+          type: integer
+          format: int64
+        headRecordCount:
+          type: integer
+          format: int64
+        retainedSnapshots:
+          type: integer
+          format: int64
+        snapshotsChecked:
+          type: integer
+        tagsChecked:
+          type: integer
+        dataFilesChecked:
+          type: integer
+        dataFilesMissing:
+          type: integer
+
+    ReconcileReport:
+      type: object
+      additionalProperties: false
+      required: [table, stateBefore, schemaIdBefore, schemaIdAfter, branches]
+      properties:
+        table:
+          type: string
+        stateBefore:
+          type: string
+          enum: [ACTIVE, FENCED]
+        schemaIdBefore:
+          type: integer
+          format: int64
+        schemaIdAfter:
+          type: integer
+          format: int64
+        branches:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [branch]
+            description: >-
+              A branch's pointer before and after, or, for a pointer whose branch is gone,
+              `removed`
+            properties:
+              branch:
+                type: string
+              before:
+                type: integer
+                format: int64
+                nullable: true
+              after:
+                type: integer
+                format: int64
+                nullable: true
+              removed:
+                type: boolean

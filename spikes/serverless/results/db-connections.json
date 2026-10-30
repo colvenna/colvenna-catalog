@@ -1,0 +1,9 @@
+{
+ "measured": "2026-10-28, after three cold-start rounds of 5 environments each on the container form (2048 MB), before reaping",
+ "database": "RDS PostgreSQL 16, db.t4g.micro",
+ "maxConnections": 79,
+ "idleServerConnections": 58,
+ "serverPoolsPerEnvironment": "main 2 + autonomous 1 + audit 1 + auth 1 = 5 (COVE_JDBC_POOL_SIZE=2, COVE_JDBC_AUX_POOL_SIZE=1)",
+ "error": "FATAL: remaining connection slots are reserved for roles with privileges of the \"rds_reserved\" role",
+ "note": "Environments from earlier configurations kept their connections open while frozen; reserved concurrency (10) limits concurrent invocations, not the environments that still hold connections."
+}

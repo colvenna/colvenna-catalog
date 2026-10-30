@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "colvenna-catalog.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "colvenna-catalog.selector" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "colvenna-catalog.labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      # The preStop wait, the server's drain and its wait for requests in flight (values shutdown.*),
+      # with time to spare: past this the kubelet kills the container.
+      {{- $preStop := include "colvenna-catalog.seconds" (dict "Values" .Values "key" "preStopSeconds") }}
+      {{- $drain := include "colvenna-catalog.seconds" (dict "Values" .Values "key" "drainSeconds") }}
+      {{- $timeout := include "colvenna-catalog.seconds" (dict "Values" .Values "key" "timeoutSeconds") }}
+      terminationGracePeriodSeconds: {{ add $preStop $drain $timeout 10 }}
+      securityContext:
+        runAsNonRoot: true
+        # The image's ubuntu user; Hadoop's login needs a passwd entry for the UID.
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # One replica per node while nodes allow: a lost node takes at most its share of replicas.
+      # Counted per ReplicaSet, so a rolling update spreads the new replicas, not old and new. With
+      # fewer than minDomains eligible nodes, a replica waits for another rather than join one.
+      {{- $minNodes := min .Values.replicas .Values.eligibleNodes }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: {{ .Values.spreadAcrossNodes | ternary "DoNotSchedule" "ScheduleAnyway" }}
+          {{- if and .Values.spreadAcrossNodes (gt (int $minNodes) 1) }}
+          minDomains: {{ $minNodes }}
+          {{- end }}
+          labelSelector:
+            matchLabels:
+              {{- include "colvenna-catalog.selector" . | nindent 14 }}
+          matchLabelKeys: [pod-template-hash]
+      containers:
+        - name: colvenna-catalog
+          image: "{{ required "image.repository" .Values.image.repository }}@{{ required "image.digest" .Values.image.digest }}"
+          imagePullPolicy: IfNotPresent
+          args: ["serve"]
+          ports:
+            - name: https
+              containerPort: 8181
+            - name: metrics
+              containerPort: 9100
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-config
+          env:
+            - name: COLVENNA_JDBC_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databaseSecret }}
+                  key: username
+            - name: COLVENNA_JDBC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databaseSecret }}
+                  key: password
+            - name: COLVENNA_TLS_KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.tlsSecret }}
+                  key: password
+          # Kubernetes runs preStop, then sends SIGTERM; meanwhile it takes the pod out of the Service's
+          # endpoints. The wait lets every node's rules drop the pod before the server stops (#64).
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "{{ $preStop }}"]
+          # The health port listens on 127.0.0.1 only, so the probes run inside the container.
+          readinessProbe:
+            exec:
+              command: ["curl", "-fsS", "-o", "/dev/null", "--max-time", "2", "http://127.0.0.1:8182/readyz"]
+            timeoutSeconds: 3
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            exec:
+              command: ["curl", "-fsS", "-o", "/dev/null", "--max-time", "2", "http://127.0.0.1:8182/healthz"]
+            timeoutSeconds: 3
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/colvenna-catalog/tls
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.databaseCaConfigMap }}
+            - name: db-ca
+              mountPath: /etc/colvenna-catalog/db-ca
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ .Values.tlsSecret }}
+            items:
+              - key: keystore.p12
+                path: keystore.p12
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.databaseCaConfigMap }}
+        - name: db-ca
+          configMap:
+            name: {{ .Values.databaseCaConfigMap }}
+        {{- end }}

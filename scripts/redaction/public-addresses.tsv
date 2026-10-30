@@ -1,0 +1,18 @@
+# The public IPv4 literals redaction.py allows (#99, as Colvenna Lake's #300 does), each with its reason:
+# <path glob> TAB <address> TAB <reason>. Anything else that reads as a public address is refused:
+# documents write a placeholder and tests an address of the documentation ranges (192.0.2.0/24,
+# 198.51.100.0/24, 203.0.113.0/24, RFC 5737). Only what is not an address goes here.
+THIRD_PARTY_NOTICES.md	1.1.10.12	snappy-java's version 1.1.10.12, not an address
+THIRD_PARTY_NOTICES.md	1.1.10.8	snappy-java's version 1.1.10.8 (in Apache Paimon's jars), not an address
+THIRD_PARTY_NOTICES.md	21.0.12.1	The Eclipse Temurin JRE's version 21.0.12.1+1, not an address
+docs/security/scans.md	1.1.10.12	snappy-java's version 1.1.10.12, not an address
+docs/security/scans.md	1.1.10.8	snappy-java's version 1.1.10.8 (in Apache Paimon's jars), not an address
+docs/security/scans.md	21.0.12.1	The Eclipse Temurin JRE's version 21.0.12.1+1, not an address
+pom.xml	1.1.10.12	snappy-java's version 1.1.10.12, not an address
+scripts/security/test_bundled_sbom.py	1.1.10.8	snappy-java's version 1.1.10.8, as a jar's NOTICE names it, not an address
+deploy/lib/catalog.sh	4.2.1.2	RFC 5280's section 4.2.1.2, not an address
+deploy/lib/catalog.sh	4.2.1.3	RFC 5280's section 4.2.1.3, not an address
+deploy/lib/catalog.sh	4.2.1.9	RFC 5280's section 4.2.1.9, not an address
+docs/manual/install.md	4.2.1.3	RFC 5280's section 4.2.1.3, not an address
+tests/compat/compatlib/sanitize.py	17.0.20.1	A JDK's version (jdk-17.0.20.1), which the sanitizer must not take for an address
+tests/compat/test_sanitize.py	17.0.20.1	A JDK's version (jdk-17.0.20.1), which the sanitizer must not take for an address

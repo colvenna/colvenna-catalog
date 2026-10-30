@@ -1,0 +1,37 @@
+{{- $region := required "region" .Values.region }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  labels:
+    {{- include "colvenna-catalog.labels" . | nindent 4 }}
+data:
+  COLVENNA_PORT: "8181"
+  COLVENNA_HEALTH_PORT: "8182"
+  # Requests, latency and commits by outcome, for scraping from monitoring namespaces.
+  COLVENNA_METRICS_PORT: "9100"
+  COLVENNA_WAREHOUSE_NAME: {{ .Values.warehouse.name | quote }}
+  COLVENNA_ENVIRONMENT: {{ .Values.environment | quote }}
+  COLVENNA_WAREHOUSE_ROOT: {{ required "warehouse.root" .Values.warehouse.root | quote }}
+  COLVENNA_JDBC_URL: {{ required "database.url" .Values.database.url | quote }}
+  COLVENNA_JDBC_POOL_SIZE: {{ .Values.database.poolSize | quote }}
+  COLVENNA_JDBC_AUX_POOL_SIZE: {{ .Values.database.auxPoolSize | quote }}
+  COLVENNA_TLS_KEYSTORE: /etc/colvenna-catalog/tls/keystore.p12
+  # How the server stops after the preStop wait (values shutdown.*; #64).
+  COLVENNA_SHUTDOWN_DRAIN: {{ printf "PT%sS" (include "colvenna-catalog.seconds" (dict "Values" .Values "key" "drainSeconds")) | quote }}
+  COLVENNA_SHUTDOWN_TIMEOUT: {{ printf "PT%sS" (include "colvenna-catalog.seconds" (dict "Values" .Values "key" "timeoutSeconds")) | quote }}
+  AWS_REGION: {{ $region | quote }}
+  COLVENNA_FILEIO_S3_REGION: {{ $region | quote }}
+  COLVENNA_FILEIO_S3_AWS_CREDENTIALS_PROVIDER: software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider
+  COLVENNA_DATA_TOKEN_MODE: {{ .Values.dataTokens.mode | quote }}
+  {{- if eq .Values.dataTokens.mode "aws-sts" }}
+  COLVENNA_DATA_TOKEN_ROLE_ARN: {{ required "dataTokens.roleArn" .Values.dataTokens.roleArn | quote }}
+  COLVENNA_DATA_TOKEN_REGION: {{ $region | quote }}
+  COLVENNA_DATA_TOKEN_DURATION: {{ .Values.dataTokens.duration | quote }}
+  {{- end }}
+  {{- with .Values.fileIoOptions }}
+  COLVENNA_FILEIO_OPTIONS: {{ include "colvenna-catalog.pairs" . | quote }}
+  {{- end }}
+  {{- with .Values.clientOverrides }}
+  COLVENNA_CLIENT_OVERRIDES: {{ include "colvenna-catalog.pairs" . | quote }}
+  {{- end }}

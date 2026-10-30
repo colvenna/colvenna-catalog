@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Flink 1.20.5 (the matrix's image) with Paimon 2.0.0: the catalog flow, the renewal flow, and the
+     Paimon-level tools (a seed writer, the probe of a pod's own identity). -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.colvenna.catalog.uat</groupId>
+    <artifactId>uat-flows</artifactId>
+    <version>0.1.0</version>
+  </parent>
+  <artifactId>flink</artifactId>
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-streaming-java</artifactId>
+      <version>1.20.5</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-table-api-java-bridge</artifactId>
+      <version>1.20.5</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.paimon</groupId>
+      <artifactId>paimon-bundle</artifactId>
+      <version>${paimon.version}</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+  <build>
+    <finalName>uat-flink</finalName>
+  </build>
+</project>

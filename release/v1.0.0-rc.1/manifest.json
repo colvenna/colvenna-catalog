@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "candidate": "v1.0.0-rc.1",
+  "source": {
+    "repository": "https://github.com/amliuyong/colvenna-catalog",
+    "built_from": "2afb93e40a97734f4e3ed3f67c53100fddb01d14",
+    "tag": "v1.0.0-rc.1 points at built_from with release/v1.0.0-rc.1/ added, nothing else"
+  },
+  "generated": "2026-10-28T08:11:21Z",
+  "image": {
+    "repository": "colvenna-catalog-release/colvenna-catalog",
+    "tag": "v1.0.0-rc.1",
+    "digest": "sha256:4aff08682fc587db4f825f96d9734c82d1b03ba720e935882b15552c15f2efd6",
+    "platform": "linux/amd64"
+  },
+  "chart": {
+    "name": "colvenna-catalog",
+    "path": "deploy/helm/colvenna-catalog",
+    "tree": "f52312b73f22732cc2c18956a29bcbd7b4ad4181",
+    "version": "1.0.0-rc.1",
+    "appVersion": "v1.0.0-rc.1",
+    "repository": "colvenna-catalog-release/charts/colvenna-catalog",
+    "digest": "sha256:1d45b659313afd7ce02106b884929fff3a3d5e16ca22b4fb2e445e60c91dbcf3"
+  },
+  "installer": {
+    "install": {
+      "path": "install.sh",
+      "blob": "7a83ee0906b07ebc68eb3bfa41287d86b5cbdc5a"
+    },
+    "uninstall": {
+      "path": "uninstall.sh",
+      "blob": "a6562cf4563c855e2dfebe506659827afff8c286"
+    },
+    "lib": {
+      "path": "deploy/lib",
+      "tree": "51f3fa67e077498e1c40f01f90a456314d84798d"
+    }
+  },
+  "cdk": {
+    "path": "deploy/aws",
+    "tree": "ae9fc143a4860ba0530e6b3b42413634689dd919"
+  },
+  "uat_cases": {
+    "path": "docs/uat/cases.md",
+    "status": "absent"
+  },
+  "required_cases": [],
+  "configurations": {
+    "forms": [
+      "eks"
+    ],
+    "regions": [
+      "us-west-2",
+      "us-east-2"
+    ]
+  }
+}

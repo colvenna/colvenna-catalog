@@ -1,0 +1,22 @@
+{
+ "measured": "2026-10-28, driver inside the spike VPC, through the private REST API. Database wide holds 14 tables of 10,000 STRING columns each (created in the first run). The server answered 200 to both pages (access log); for the 1000-row page the Lambda Runtime API refused the response (\"413 Payload Too Large\") and API Gateway returned 502.",
+ "result": {
+  "createStatuses": [],
+  "tableDetailsPage5": {
+   "status": 200,
+   "ms": 257,
+   "responseBytes": 2496440,
+   "head": "{\"tableDetails\":[{\"id\":\"e499d1c3-4a76-44bb-8d8c-3eebfa06bed5\",\"database\":\"wide\",\"name\":\"t00\",\"path\":\"s3://<bucket>/wareho"
+  },
+  "tableDetailsPage1000": {
+   "status": 502,
+   "ms": 668,
+   "responseBytes": 36,
+   "head": "{\"message\": \"Internal server error\"}"
+  },
+  "getOneWideTable": {
+   "status": 200,
+   "responseBytes": 499279
+  }
+ }
+}

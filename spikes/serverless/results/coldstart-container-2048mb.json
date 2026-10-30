@@ -1,0 +1,179 @@
+{
+ "function": "colvenna-catalog-spike-server",
+ "base": "/",
+ "rounds": 3,
+ "concurrency": 5,
+ "mode": "on-demand",
+ "requestStatuses": [
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200
+ ],
+ "clientLatenciesMs": [
+  4944,
+  4534,
+  4438,
+  4175,
+  4319,
+  3834,
+  4322,
+  4379,
+  4121,
+  2763,
+  2636,
+  3903,
+  4068,
+  4259,
+  3632
+ ],
+ "environments": [
+  {
+   "initDurationMs": 2969.38,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 498.67,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2825,
+   "maxMemoryUsedMb": 211.0
+  },
+  {
+   "initDurationMs": 2995.6,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 613.15,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2847,
+   "maxMemoryUsedMb": 241.0
+  },
+  {
+   "initDurationMs": 3519.24,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 720.78,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 3366,
+   "maxMemoryUsedMb": 229.0
+  },
+  {
+   "initDurationMs": 3184.57,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 652.05,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2974,
+   "maxMemoryUsedMb": 237.0
+  },
+  {
+   "initDurationMs": 3036.61,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 564.03,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2871,
+   "maxMemoryUsedMb": 221.0
+  },
+  {
+   "initDurationMs": 2129.72,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 414.03,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2031,
+   "maxMemoryUsedMb": 235.0
+  },
+  {
+   "initDurationMs": 3014.83,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 614.32,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2835,
+   "maxMemoryUsedMb": 222.0
+  },
+  {
+   "initDurationMs": 3227.32,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 632.75,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 3079,
+   "maxMemoryUsedMb": 214.0
+  },
+  {
+   "initDurationMs": 3486.18,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 652.14,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 3315,
+   "maxMemoryUsedMb": 221.0
+  },
+  {
+   "initDurationMs": 3340.88,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 623.47,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 3158,
+   "maxMemoryUsedMb": 215.0
+  },
+  {
+   "initDurationMs": 2078.31,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 336.35,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 1980,
+   "maxMemoryUsedMb": 221.0
+  },
+  {
+   "initDurationMs": 3145.49,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 718.22,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2999,
+   "maxMemoryUsedMb": 234.0
+  },
+  {
+   "initDurationMs": 2861.84,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 555.48,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2753,
+   "maxMemoryUsedMb": 238.0
+  },
+  {
+   "initDurationMs": 3077.7,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 593.77,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2947,
+   "maxMemoryUsedMb": 215.0
+  },
+  {
+   "initDurationMs": 3365.78,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 662.18,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 3234,
+   "maxMemoryUsedMb": 221.0
+  }
+ ],
+ "note": "Second run, with the idle server connections of earlier environments closed before each round (driver action reap)."
+}

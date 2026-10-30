@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="660" height="160" viewBox="0 0 660 160"
+     role="img" aria-labelledby="colvenna-catalog-light-title colvenna-catalog-light-desc">
+  <title id="colvenna-catalog-light-title">Colvenna Catalog</title>
+  <desc id="colvenna-catalog-light-desc">Three concentric teal flow lines form a C; the innermost line flows into a gold result point. Colvenna Catalog wordmark and tagline for light backgrounds.</desc>
+
+  <defs>
+    <linearGradient id="colvenna-catalog-light-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#11556B"/>
+      <stop offset="1" stop-color="#062533"/>
+    </linearGradient>
+    <linearGradient id="colvenna-catalog-light-flow" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#1BB59E"/>
+      <stop offset="1" stop-color="#4FF2D6"/>
+    </linearGradient>
+    <g id="colvenna-catalog-light-mark">
+      <rect width="256" height="256" rx="56" fill="url(#colvenna-catalog-light-bg)"/>
+      <path d="M193.9 183.3 A86 86 0 1 1 193.9 72.7" fill="none" stroke="url(#colvenna-catalog-light-flow)" stroke-opacity="1" stroke-width="15" stroke-linecap="round"/>
+      <path d="M166.2 176.9 A62 62 0 1 1 181.7 97.0" fill="none" stroke="url(#colvenna-catalog-light-flow)" stroke-opacity=".8" stroke-width="15" stroke-linecap="round"/>
+      <path d="M143.5 162.7 A38 38 0 1 1 164.7 118.2" fill="none" stroke="url(#colvenna-catalog-light-flow)" stroke-opacity=".6" stroke-width="15" stroke-linecap="round"/>
+      <circle cx="186.7" cy="114.2" r="12" fill="#F5CB68"/>
+    </g>
+  </defs>
+  <use href="#colvenna-catalog-light-mark" transform="translate(8 16) scale(.5)"/>
+  <text x="162" y="85" fill="#123D4A" font-family="Arial, Helvetica, sans-serif"
+        font-size="59" font-weight="700" letter-spacing="-1.7">Colvenna<tspan
+        dx="16" font-weight="400">Catalog</tspan></text>
+  <text x="165" y="118" fill="#52707A" font-family="Arial, Helvetica, sans-serif"
+        font-size="12" font-weight="600" letter-spacing="1.8">OPEN REST CATALOG · EKS + SERVERLESS</text>
+</svg>

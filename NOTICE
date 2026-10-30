@@ -1,0 +1,61 @@
+Colvenna Catalog
+Copyright 2026 Colvenna Catalog contributors
+
+This repository contains the Colvenna Catalog source code, deployment code,
+documentation and original brand assets, licensed under the Apache License,
+Version 2.0 (see LICENSE).
+
+Third-party components keep their own licenses. See THIRD_PARTY_NOTICES.md
+for the third-party material in this repository, the content of the
+server's image, the images and tools the install and the test environments
+run, and the packages the deployment installs.
+
+The server's image keeps this NOTICE, LICENSE and THIRD_PARTY_NOTICES.md in
+/licenses/, and in /licenses/third-party/ the license texts of the components
+it carries without a license file of their own, which THIRD_PARTY_NOTICES.md
+lists.
+
+deploy/aws/test-env/lbc-iam-policy.json is the IAM policy of the AWS Load
+Balancer Controller v3.6.0 (kubernetes-sigs/aws-load-balancer-controller,
+docs/install/iam_policy.json), unmodified, licensed under the Apache License,
+Version 2.0.
+
+The server's image (Dockerfile) contains, unmodified, the Apache Paimon 2.0.0
+jars paimon-api, paimon-common, paimon-core, paimon-format, paimon-s3 and
+paimon-codegen-loader, licensed under the Apache License, Version 2.0, whose
+NOTICE reads:
+
+  Apache Paimon
+  Copyright 2023-2026 The Apache Software Foundation
+
+  This product includes software developed at
+  The Apache Software Foundation (http://www.apache.org/).
+
+and the Apache Paimon-shade 0.8.0 jars paimon-shade-guava-30,
+paimon-shade-jackson-2 and paimon-shade-caffeine-2, licensed under the Apache
+License, Version 2.0, whose NOTICE reads:
+
+  Apache Paimon-shade
+  Copyright 2023-2024 The Apache Software Foundation
+
+  This product includes software developed at
+  The Apache Software Foundation (http://www.apache.org/).
+
+The image also contains, unmodified, the AWS Lambda Web Adapter 1.1.0
+(awslabs/aws-lambda-web-adapter), which only Lambda starts, licensed under the
+Apache License, Version 2.0, whose NOTICE reads:
+
+  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+The Paimon jars bundle further third-party software, which each jar's
+META-INF/NOTICE lists and THIRD_PARTY_NOTICES.md records. The image also
+contains, unmodified, among others: Apache Commons IO, Apache Commons Lang,
+Apache Commons Math, and Apache HttpComponents Client and Core, each
+Copyright The Apache Software Foundation; and the AWS SDK for Java 2.0,
+Copyright Amazon.com, Inc. or its affiliates. Each of these jars carries its
+own LICENSE and NOTICE under META-INF/, which apply to it.
+
+Apache, Apache Paimon, and Paimon are either registered trademarks or
+trademarks of The Apache Software Foundation in the United States and/or other
+countries. Colvenna Catalog is not affiliated with or endorsed by The Apache
+Software Foundation.

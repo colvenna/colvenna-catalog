@@ -1,0 +1,55 @@
+COMPAT-INFO {"engine":"flink","engineVersion":"1.20.5","paimonVersion":"2.1.0","paimonJar":"paimon-flink-1.20-2.1.0.jar","dataTokens":true}
+COMPAT-STEP - create-database OK 171ms 
+COMPAT-STEP pk create-table OK 691ms 
+COMPAT-STEP pk insert ids 1..100 OK 17331ms 
+COMPAT-STEP pk upsert ids 91..110 OK 8335ms 
+2026-10-28T12:27:52.172Z WARN  MetricGroup - The operator name Source: t_pk[127] -> Calc[128] -> ConstraintEnforcer[129] -> RowKindSetter[129] -> Map exceeded the 80 characters length limit and was truncated.
+COMPAT-STEP pk delete ids 1..5 OK 11379ms 
+COMPAT-STEP pk count-snapshots OK 2461ms 
+COMPAT-STEP pk read-rows OK 4903ms 
+COMPAT-STEP pk read-sum OK 4661ms 
+COMPAT-STEP pk read-upserted OK 3593ms 
+COMPAT-STEP pk read-deleted OK 4437ms 
+COMPAT-FIXTURE {"table":"pk","name":"t_pk","checks":[{"name":"rows","expression":"count(*)","where":"","expected":105},{"name":"sum","expression":"sum(amount)","where":"","expected":26090},{"name":"upserted","expression":"sum(amount)","where":"id = 100","expected":1100},{"name":"deleted","expression":"count(*)","where":"id <= 5","expected":0}]}
+COMPAT-INFO {"ambientRefusal":"AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261028122711_4166_fixture.db/t_pk/schema/schema-0: org.apache.hadoop.fs.s3a.auth.NoAuthWithAWSException: No AWS Credentials provided by TemporaryAWSCredentialsProvider SimpleAWSCredentialsProvider EnvironmentVariableCredentialsProvider IAMInstanceCredentialsProvider : software.amazon.awssdk.cor...","table":"t_pk"}
+COMPAT-STEP pk probe-own-identity OK 165ms 
+COMPAT-STEP pk-dv create-table OK 493ms 
+COMPAT-STEP pk-dv insert ids 1..100 OK 9999ms 
+COMPAT-STEP pk-dv upsert ids 91..110 OK 13632ms 
+2026-10-28T12:28:47.785Z WARN  MetricGroup - The operator name Source: t_pk_dv[285] -> Calc[286] -> ConstraintEnforcer[287] -> RowKindSetter[287] -> Map exceeded the 80 characters length limit and was truncated.
+COMPAT-STEP pk-dv delete ids 1..5 OK 20852ms 
+COMPAT-STEP pk-dv insert ids 111..120, left uncompacted OK 10515ms 
+COMPAT-STEP pk-dv count-snapshots OK 3110ms 
+COMPAT-STEP pk-dv count-deletion-vectors OK 1961ms 
+COMPAT-STEP pk-dv count-level-0-files OK 4583ms 
+COMPAT-STEP pk-dv read-rows OK 6770ms 
+COMPAT-STEP pk-dv read-sum OK 5694ms 
+COMPAT-STEP pk-dv read-upserted OK 5236ms 
+COMPAT-STEP pk-dv read-deleted OK 5183ms 
+COMPAT-STEP pk-dv read-uncompacted OK 4576ms 
+COMPAT-FIXTURE {"table":"pk-dv","name":"t_pk_dv","checks":[{"name":"rows","expression":"count(*)","where":"","expected":115},{"name":"sum","expression":"sum(amount)","where":"","expected":27245},{"name":"upserted","expression":"sum(amount)","where":"id = 100","expected":1100},{"name":"deleted","expression":"count(*)","where":"id <= 5","expected":0},{"name":"uncompacted","expression":"count(*)","where":"id > 110","expected":10}]}
+COMPAT-INFO {"ambientRefusal":"AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261028122711_4166_fixture.db/t_pk_dv/schema/schema-0: org.apache.hadoop.fs.s3a.auth.NoAuthWithAWSException: No AWS Credentials provided by TemporaryAWSCredentialsProvider SimpleAWSCredentialsProvider EnvironmentVariableCredentialsProvider IAMInstanceCredentialsProvider : software.amazon.awssdk....","table":"t_pk_dv"}
+COMPAT-STEP pk-dv probe-own-identity OK 163ms 
+COMPAT-STEP append create-table OK 557ms 
+COMPAT-STEP append insert ids 1..100 OK 5527ms 
+COMPAT-STEP append insert ids 91..110 OK 5192ms 
+COMPAT-STEP append count-snapshots OK 2110ms 
+COMPAT-STEP append read-rows OK 2528ms 
+COMPAT-STEP append read-sum OK 3048ms 
+COMPAT-STEP append read-duplicates OK 3259ms 
+COMPAT-FIXTURE {"table":"append","name":"t_append","checks":[{"name":"rows","expression":"count(*)","where":"","expected":120},{"name":"sum","expression":"sum(amount)","where":"","expected":27060},{"name":"duplicates","expression":"count(*)","where":"id = 100","expected":2}]}
+COMPAT-INFO {"ambientRefusal":"AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261028122711_4166_fixture.db/t_append/schema/schema-0: org.apache.hadoop.fs.s3a.auth.NoAuthWithAWSException: No AWS Credentials provided by TemporaryAWSCredentialsProvider SimpleAWSCredentialsProvider EnvironmentVariableCredentialsProvider IAMInstanceCredentialsProvider : software.amazon.awssdk...","table":"t_append"}
+COMPAT-STEP append probe-own-identity OK 141ms 
+COMPAT-RESULT {"table":"pk","op":"write","status":"PASS","detail":"3 writes committed (insert ids 1..100, upsert ids 91..110, delete ids 1..5); 3 snapshots"}
+COMPAT-RESULT {"table":"pk","op":"read","status":"PASS","detail":"rows=105, sum=26090, upserted=1100, deleted=0"}
+COMPAT-RESULT {"table":"pk","op":"credentials","status":"PASS","detail":"the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"}
+COMPAT-RESULT {"table":"pk","op":"ddl","status":"PASS","detail":"created; kept for the readers"}
+COMPAT-RESULT {"table":"pk-dv","op":"write","status":"PASS","detail":"4 writes committed (insert ids 1..100, upsert ids 91..110, delete ids 1..5, insert ids 111..120, left uncompacted); 7 snapshots; 2 deletion vector index files, 2 level-0 files"}
+COMPAT-RESULT {"table":"pk-dv","op":"read","status":"PASS","detail":"rows=115, sum=27245, upserted=1100, deleted=0, uncompacted=10"}
+COMPAT-RESULT {"table":"pk-dv","op":"credentials","status":"PASS","detail":"the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"}
+COMPAT-RESULT {"table":"pk-dv","op":"ddl","status":"PASS","detail":"created; kept for the readers"}
+COMPAT-RESULT {"table":"append","op":"write","status":"PASS","detail":"2 writes committed (insert ids 1..100, insert ids 91..110); 2 snapshots"}
+COMPAT-RESULT {"table":"append","op":"read","status":"PASS","detail":"rows=120, sum=27060, duplicates=2"}
+COMPAT-RESULT {"table":"append","op":"credentials","status":"PASS","detail":"the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"}
+COMPAT-RESULT {"table":"append","op":"ddl","status":"PASS","detail":"created; kept for the readers"}
+Certificate was added to keystore

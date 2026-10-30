@@ -1,0 +1,343 @@
+COMPAT-READER-INFO bundled paimon-api-1.4.2.jar
+COMPAT-READER-INFO bundled paimon-codegen-loader-1.4.2.jar
+COMPAT-READER-INFO bundled paimon-common-1.4.2.jar
+COMPAT-READER-INFO bundled paimon-core-1.4.2.jar
+COMPAT-READER-INFO bundled paimon-format-1.4.2.jar
+COMPAT-READER-INFO bundled paimon-jindo-1.4.2.jar
+COMPAT-READER-INFO bundled paimon-s3-1.4.2.jar
+COMPAT-READER-INFO bundled paimon-shade-caffeine-2-2.9.3-0.8.0.jar
+COMPAT-READER-INFO bundled paimon-shade-guava-30-30.1.1-jre-0.8.0.jar
+COMPAT-READER-INFO bundled paimon-shade-jackson-2-2.14.2-0.8.0.jar
+COMPAT-READ-STEP {"ok": true, "step": "frontend"}
+COMPAT-READ-STEP {"error": "", "ok": true, "step": "add-backend"}
+COMPAT-READ-STEP {"ok": true, "step": "backend alive"}
+COMPAT-READ-INFO {"engineVersion": "doris version doris-4.1.5-release-917b20be838", "error": ""}
+COMPAT-READ {"check": "create-catalog", "error": "", "output": "", "properties": ["paimon.catalog.type", "paimon.rest.data-token.enabled", "paimon.rest.token", "paimon.rest.token.provider", "type", "uri", "warehouse"], "rc": 0, "table": "-"}
+COMPAT-READ {"check": "list-tables", "error": "", "output": "t_append\nt_pk\nt_pk_dv", "rc": 0, "table": "-"}
+COMPAT-READ-PLAN {"error": "", "rc": 0, "splits": ["paimonNativeReadSplits=0/2"], "table": "pk"}
+COMPAT-READ {"check": "rows", "error": "", "expected": 105, "output": "105", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028122711_4166_fixture`.`t_pk`", "table": "pk"}
+COMPAT-READ {"check": "sum", "error": "", "expected": 26090, "output": "26090", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261028122711_4166_fixture`.`t_pk`", "table": "pk"}
+COMPAT-READ {"check": "upserted", "error": "", "expected": 1100, "output": "1100", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261028122711_4166_fixture`.`t_pk` WHERE id = 100", "table": "pk"}
+COMPAT-READ {"check": "deleted", "error": "", "expected": 0, "output": "0", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028122711_4166_fixture`.`t_pk` WHERE id <= 5", "table": "pk"}
+COMPAT-READ-PLAN {"error": "", "rc": 0, "splits": ["paimonNativeReadSplits=4/4"], "table": "pk-dv"}
+COMPAT-READ {"check": "rows", "error": "", "expected": 115, "output": "105", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028122711_4166_fixture`.`t_pk_dv`", "table": "pk-dv"}
+COMPAT-READ {"check": "sum", "error": "", "expected": 27245, "output": "26090", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261028122711_4166_fixture`.`t_pk_dv`", "table": "pk-dv"}
+COMPAT-READ {"check": "upserted", "error": "", "expected": 1100, "output": "1100", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261028122711_4166_fixture`.`t_pk_dv` WHERE id = 100", "table": "pk-dv"}
+COMPAT-READ {"check": "deleted", "error": "", "expected": 0, "output": "0", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028122711_4166_fixture`.`t_pk_dv` WHERE id <= 5", "table": "pk-dv"}
+COMPAT-READ {"check": "uncompacted", "error": "", "expected": 10, "output": "0", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028122711_4166_fixture`.`t_pk_dv` WHERE id > 110", "table": "pk-dv"}
+COMPAT-READ-PLAN {"error": "", "rc": 0, "splits": ["paimonNativeReadSplits=2/2"], "table": "append"}
+COMPAT-READ {"check": "rows", "error": "", "expected": 120, "output": "120", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028122711_4166_fixture`.`t_append`", "table": "append"}
+COMPAT-READ {"check": "sum", "error": "", "expected": 27060, "output": "27060", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261028122711_4166_fixture`.`t_append`", "table": "append"}
+COMPAT-READ {"check": "duplicates", "error": "", "expected": 2, "output": "2", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028122711_4166_fixture`.`t_append` WHERE id = 100", "table": "append"}
+COMPAT-READ-JNI {"check": "rows", "error": "", "expected": 105, "output": "105", "rc": 0, "table": "pk"}
+COMPAT-READ-JNI {"check": "sum", "error": "", "expected": 26090, "output": "26090", "rc": 0, "table": "pk"}
+COMPAT-READ-JNI {"check": "upserted", "error": "", "expected": 1100, "output": "1100", "rc": 0, "table": "pk"}
+COMPAT-READ-JNI {"check": "deleted", "error": "", "expected": 0, "output": "0", "rc": 0, "table": "pk"}
+COMPAT-READ-JNI {"check": "rows", "error": "", "expected": 115, "output": "105", "rc": 0, "table": "pk-dv"}
+COMPAT-READ-JNI {"check": "sum", "error": "", "expected": 27245, "output": "26090", "rc": 0, "table": "pk-dv"}
+COMPAT-READ-JNI {"check": "upserted", "error": "", "expected": 1100, "output": "1100", "rc": 0, "table": "pk-dv"}
+COMPAT-READ-JNI {"check": "deleted", "error": "", "expected": 0, "output": "0", "rc": 0, "table": "pk-dv"}
+COMPAT-READ-JNI {"check": "uncompacted", "error": "", "expected": 10, "output": "0", "rc": 0, "table": "pk-dv"}
+COMPAT-READ-JNI {"check": "rows", "error": "", "expected": 120, "output": "120", "rc": 0, "table": "append"}
+COMPAT-READ-JNI {"check": "sum", "error": "", "expected": 27060, "output": "27060", "rc": 0, "table": "append"}
+COMPAT-READ-JNI {"check": "duplicates", "error": "", "expected": 2, "output": "2", "rc": 0, "table": "append"}
+COMPAT-READ-DONE {}
+COMPAT-ENGINE-LOG /opt/apache-doris/fe/log/fe.warn.log
+	at org.apache.doris.qe.MysqlConnectProcessor.processOnce(MysqlConnectProcessor.java:429)
+	at org.apache.doris.mysql.ReadListener.lambda$handleEvent$0(ReadListener.java:55)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 12:30:42,947 WARN (mysql-nio-pool-1|213) [StmtExecutor.executeByNereids():845] Nereids plan query failed:
+select @@version_comment limit 1
+errCode = 2, detailMessage = No backend available as scan node, please check the status of your backends.[1793190630300: not alive]
+	at org.apache.doris.nereids.trees.plans.distribute.worker.BackendDistributedPlanWorkerManager.randomAvailableWorker(BackendDistributedPlanWorkerManager.java:180)
+	at org.apache.doris.nereids.trees.plans.distribute.SelectedWorkers.tryToSelectRandomUsedWorker(SelectedWorkers.java:63)
+	at org.apache.doris.nereids.trees.plans.distribute.worker.job.UnassignedQueryConstantJob.computeAssignedJobs(UnassignedQueryConstantJob.java:43)
+	at org.apache.doris.nereids.trees.plans.distribute.worker.job.AssignedJobBuilder.buildJobs(AssignedJobBuilder.java:48)
+	at org.apache.doris.nereids.trees.plans.distribute.DistributePlanner.plan(DistributePlanner.java:102)
+	at org.apache.doris.nereids.NereidsPlanner.doDistribute(NereidsPlanner.java:751)
+	at org.apache.doris.nereids.NereidsPlanner.distribute(NereidsPlanner.java:720)
+	at org.apache.doris.nereids.NereidsPlanner.lambda$plan$0(NereidsPlanner.java:167)
+	at org.apache.doris.nereids.NereidsPlanner.planWithLock(NereidsPlanner.java:265)
+	at org.apache.doris.nereids.NereidsPlanner.plan(NereidsPlanner.java:163)
+	at org.apache.doris.qe.StmtExecutor.executeByNereids(StmtExecutor.java:842)
+	at org.apache.doris.qe.StmtExecutor.execute(StmtExecutor.java:617)
+	at org.apache.doris.qe.StmtExecutor.queryRetry(StmtExecutor.java:545)
+	at org.apache.doris.qe.StmtExecutor.execute(StmtExecutor.java:526)
+	at org.apache.doris.qe.ConnectProcessor.executeQuery(ConnectProcessor.java:363)
+	at org.apache.doris.qe.ConnectProcessor.handleQuery(ConnectProcessor.java:236)
+	at org.apache.doris.qe.MysqlConnectProcessor.handleQuery(MysqlConnectProcessor.java:256)
+	at org.apache.doris.qe.MysqlConnectProcessor.dispatch(MysqlConnectProcessor.java:285)
+	at org.apache.doris.qe.MysqlConnectProcessor.processOnce(MysqlConnectProcessor.java:429)
+	at org.apache.doris.mysql.ReadListener.lambda$handleEvent$0(ReadListener.java:55)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 12:30:42,947 WARN (mysql-nio-pool-1|213) [StmtExecutor.execute():628] Analyze failed. stmt[5, ae87fab8549747b6-aaccec8ee05dad5d]
+errCode = 2, detailMessage = No backend available as scan node, please check the status of your backends.[1793190630300: not alive]
+	at org.apache.doris.qe.StmtExecutor.executeByNereids(StmtExecutor.java:846)
+	at org.apache.doris.qe.StmtExecutor.execute(StmtExecutor.java:617)
+	at org.apache.doris.qe.StmtExecutor.queryRetry(StmtExecutor.java:545)
+	at org.apache.doris.qe.StmtExecutor.execute(StmtExecutor.java:526)
+	at org.apache.doris.qe.ConnectProcessor.executeQuery(ConnectProcessor.java:363)
+	at org.apache.doris.qe.ConnectProcessor.handleQuery(ConnectProcessor.java:236)
+	at org.apache.doris.qe.MysqlConnectProcessor.handleQuery(MysqlConnectProcessor.java:256)
+	at org.apache.doris.qe.MysqlConnectProcessor.dispatch(MysqlConnectProcessor.java:285)
+	at org.apache.doris.qe.MysqlConnectProcessor.processOnce(MysqlConnectProcessor.java:429)
+	at org.apache.doris.mysql.ReadListener.lambda$handleEvent$0(ReadListener.java:55)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 12:30:42,967 WARN (InternalSchemaInitializer|168) [InternalCatalog.createOlapTable():3389] create table failed [1793190630304] - errCode = 2, detailMessage = replication num should be less than the number of available backends. replication num is 1, available backend num is 0
+2026-10-28 12:30:42,968 WARN (InternalSchemaInitializer|168) [InternalCatalog.createOlapTable():3405] drop table
+org.apache.doris.common.MetaNotFoundException: errCode = 7, detailMessage = table not found, tableId=1793190630302
+	at org.apache.doris.catalog.DatabaseIf.lambda$getTableOrMetaException$2(DatabaseIf.java:172)
+	at org.apache.doris.catalog.DatabaseIf.getTableOrException(DatabaseIf.java:156)
+	at org.apache.doris.catalog.DatabaseIf.getTableOrMetaException(DatabaseIf.java:172)
+	at org.apache.doris.datasource.InternalCatalog.dropTable(InternalCatalog.java:1056)
+	at org.apache.doris.datasource.InternalCatalog.createOlapTable(InternalCatalog.java:3399)
+	at org.apache.doris.datasource.InternalCatalog.createTable(InternalCatalog.java:1258)
+	at org.apache.doris.catalog.Env.createTable(Env.java:3629)
+	at org.apache.doris.nereids.trees.plans.commands.CreateTableCommand.run(CreateTableCommand.java:93)
+	at org.apache.doris.catalog.InternalSchemaInitializer.createTable(InternalSchemaInitializer.java:518)
+	at org.apache.doris.catalog.InternalSchemaInitializer.createTbl(InternalSchemaInitializer.java:319)
+	at org.apache.doris.catalog.InternalSchemaInitializer.run(InternalSchemaInitializer.java:92)
+2026-10-28 12:30:42,984 WARN (InternalSchemaInitializer|168) [InternalCatalog.createOlapTable():3389] create table failed [1793190630321] - errCode = 2, detailMessage = replication num should be less than the number of available backends. replication num is 1, available backend num is 0
+2026-10-28 12:30:42,985 WARN (InternalSchemaInitializer|168) [InternalCatalog.createOlapTable():3405] drop table
+org.apache.doris.common.MetaNotFoundException: errCode = 7, detailMessage = table not found, tableId=1793190630319
+	at org.apache.doris.catalog.DatabaseIf.lambda$getTableOrMetaException$2(DatabaseIf.java:172)
+	at org.apache.doris.catalog.DatabaseIf.getTableOrException(DatabaseIf.java:156)
+	at org.apache.doris.catalog.DatabaseIf.getTableOrMetaException(DatabaseIf.java:172)
+	at org.apache.doris.datasource.InternalCatalog.dropTable(InternalCatalog.java:1056)
+	at org.apache.doris.datasource.InternalCatalog.createOlapTable(InternalCatalog.java:3399)
+	at org.apache.doris.datasource.InternalCatalog.createTable(InternalCatalog.java:1258)
+	at org.apache.doris.catalog.Env.createTable(Env.java:3629)
+	at org.apache.doris.nereids.trees.plans.commands.CreateTableCommand.run(CreateTableCommand.java:93)
+	at org.apache.doris.catalog.InternalSchemaInitializer.createTable(InternalSchemaInitializer.java:518)
+	at org.apache.doris.catalog.InternalSchemaInitializer.createTbl(InternalSchemaInitializer.java:344)
+	at org.apache.doris.catalog.InternalSchemaInitializer.run(InternalSchemaInitializer.java:92)
+2026-10-28 12:30:43,031 WARN (InternalSchemaInitializer|168) [InternalCatalog.createOlapTable():3389] create table failed [] - errCode = 2, detailMessage = replication num should be less than the number of available backends. replication num is 1, available backend num is 0
+2026-10-28 12:30:43,031 WARN (InternalSchemaInitializer|168) [InternalCatalog.createOlapTable():3405] drop table
+org.apache.doris.common.MetaNotFoundException: errCode = 7, detailMessage = table not found, tableId=1793190630336
+	at org.apache.doris.catalog.DatabaseIf.lambda$getTableOrMetaException$2(DatabaseIf.java:172)
+	at org.apache.doris.catalog.DatabaseIf.getTableOrException(DatabaseIf.java:156)
+	at org.apache.doris.catalog.DatabaseIf.getTableOrMetaException(DatabaseIf.java:172)
+	at org.apache.doris.datasource.InternalCatalog.dropTable(InternalCatalog.java:1056)
+	at org.apache.doris.datasource.InternalCatalog.createOlapTable(InternalCatalog.java:3399)
+	at org.apache.doris.datasource.InternalCatalog.createTable(InternalCatalog.java:1258)
+	at org.apache.doris.catalog.Env.createTable(Env.java:3629)
+	at org.apache.doris.nereids.trees.plans.commands.CreateTableCommand.run(CreateTableCommand.java:93)
+	at org.apache.doris.catalog.InternalSchemaInitializer.createTable(InternalSchemaInitializer.java:518)
+	at org.apache.doris.catalog.InternalSchemaInitializer.createTbl(InternalSchemaInitializer.java:409)
+	at org.apache.doris.catalog.InternalSchemaInitializer.run(InternalSchemaInitializer.java:92)
+2026-10-28 12:30:48,010 ERROR (mysql-nio-pool-1|213) [DistributePlanner.plan():126] Failed to build distribute plans: {}
+errCode = 2, detailMessage = No backend available as scan node, please check the status of your backends.[1793190630300: not alive]
+	at org.apache.doris.nereids.trees.plans.distribute.worker.BackendDistributedPlanWorkerManager.randomAvailableWorker(BackendDistributedPlanWorkerManager.java:180)
+	at org.apache.doris.nereids.trees.plans.distribute.SelectedWorkers.tryToSelectRandomUsedWorker(SelectedWorkers.java:63)
+	at org.apache.doris.nereids.trees.plans.distribute.worker.job.UnassignedQueryConstantJob.computeAssignedJobs(UnassignedQueryConstantJob.java:43)
+	at org.apache.doris.nereids.trees.plans.distribute.worker.job.AssignedJobBuilder.buildJobs(AssignedJobBuilder.java:48)
+	at org.apache.doris.nereids.trees.plans.distribute.DistributePlanner.plan(DistributePlanner.java:102)
+	at org.apache.doris.nereids.NereidsPlanner.doDistribute(NereidsPlanner.java:751)
+	at org.apache.doris.nereids.NereidsPlanner.distribute(NereidsPlanner.java:720)
+	at org.apache.doris.nereids.NereidsPlanner.lambda$plan$0(NereidsPlanner.java:167)
+	at org.apache.doris.nereids.NereidsPlanner.planWithLock(NereidsPlanner.java:265)
+	at org.apache.doris.nereids.NereidsPlanner.plan(NereidsPlanner.java:163)
+	at org.apache.doris.qe.StmtExecutor.executeByNereids(StmtExecutor.java:842)
+	at org.apache.doris.qe.StmtExecutor.execute(StmtExecutor.java:617)
+	at org.apache.doris.qe.StmtExecutor.queryRetry(StmtExecutor.java:545)
+	at org.apache.doris.qe.StmtExecutor.execute(StmtExecutor.java:526)
+	at org.apache.doris.qe.ConnectProcessor.executeQuery(ConnectProcessor.java:363)
+	at org.apache.doris.qe.ConnectProcessor.handleQuery(ConnectProcessor.java:236)
+	at org.apache.doris.qe.MysqlConnectProcessor.handleQuery(MysqlConnectProcessor.java:256)
+	at org.apache.doris.qe.MysqlConnectProcessor.dispatch(MysqlConnectProcessor.java:285)
+	at org.apache.doris.qe.MysqlConnectProcessor.processOnce(MysqlConnectProcessor.java:429)
+	at org.apache.doris.mysql.ReadListener.lambda$handleEvent$0(ReadListener.java:55)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 12:30:48,010 WARN (mysql-nio-pool-1|213) [StmtExecutor.executeByNereids():845] Nereids plan query failed:
+select @@version_comment limit 1
+errCode = 2, detailMessage = No backend available as scan node, please check the status of your backends.[1793190630300: not alive]
+	at org.apache.doris.nereids.trees.plans.distribute.worker.BackendDistributedPlanWorkerManager.randomAvailableWorker(BackendDistributedPlanWorkerManager.java:180)
+	at org.apache.doris.nereids.trees.plans.distribute.SelectedWorkers.tryToSelectRandomUsedWorker(SelectedWorkers.java:63)
+	at org.apache.doris.nereids.trees.plans.distribute.worker.job.UnassignedQueryConstantJob.computeAssignedJobs(UnassignedQueryConstantJob.java:43)
+	at org.apache.doris.nereids.trees.plans.distribute.worker.job.AssignedJobBuilder.buildJobs(AssignedJobBuilder.java:48)
+	at org.apache.doris.nereids.trees.plans.distribute.DistributePlanner.plan(DistributePlanner.java:102)
+	at org.apache.doris.nereids.NereidsPlanner.doDistribute(NereidsPlanner.java:751)
+	at org.apache.doris.nereids.NereidsPlanner.distribute(NereidsPlanner.java:720)
+	at org.apache.doris.nereids.NereidsPlanner.lambda$plan$0(NereidsPlanner.java:167)
+	at org.apache.doris.nereids.NereidsPlanner.planWithLock(NereidsPlanner.java:265)
+	at org.apache.doris.nereids.NereidsPlanner.plan(NereidsPlanner.java:163)
+	at org.apache.doris.qe.StmtExecutor.executeByNereids(StmtExecutor.java:842)
+	at org.apache.doris.qe.StmtExecutor.execute(StmtExecutor.java:617)
+	at org.apache.doris.qe.StmtExecutor.queryRetry(StmtExecutor.java:545)
+	at org.apache.doris.qe.StmtExecutor.execute(StmtExecutor.java:526)
+	at org.apache.doris.qe.ConnectProcessor.executeQuery(ConnectProcessor.java:363)
+	at org.apache.doris.qe.ConnectProcessor.handleQuery(ConnectProcessor.java:236)
+	at org.apache.doris.qe.MysqlConnectProcessor.handleQuery(MysqlConnectProcessor.java:256)
+	at org.apache.doris.qe.MysqlConnectProcessor.dispatch(MysqlConnectProcessor.java:285)
+	at org.apache.doris.qe.MysqlConnectProcessor.processOnce(MysqlConnectProcessor.java:429)
+	at org.apache.doris.mysql.ReadListener.lambda$handleEvent$0(ReadListener.java:55)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 12:30:48,011 WARN (mysql-nio-pool-1|213) [StmtExecutor.execute():628] Analyze failed. stmt[7, 5a94cdda48774e80-823fd74893dd26df]
+errCode = 2, detailMessage = No backend available as scan node, please check the status of your backends.[1793190630300: not alive]
+	at org.apache.doris.qe.StmtExecutor.executeByNereids(StmtExecutor.java:846)
+	at org.apache.doris.qe.StmtExecutor.execute(StmtExecutor.java:617)
+	at org.apache.doris.qe.StmtExecutor.queryRetry(StmtExecutor.java:545)
+	at org.apache.doris.qe.StmtExecutor.execute(StmtExecutor.java:526)
+	at org.apache.doris.qe.ConnectProcessor.executeQuery(ConnectProcessor.java:363)
+	at org.apache.doris.qe.ConnectProcessor.handleQuery(ConnectProcessor.java:236)
+	at org.apache.doris.qe.MysqlConnectProcessor.handleQuery(MysqlConnectProcessor.java:256)
+	at org.apache.doris.qe.MysqlConnectProcessor.dispatch(MysqlConnectProcessor.java:285)
+	at org.apache.doris.qe.MysqlConnectProcessor.processOnce(MysqlConnectProcessor.java:429)
+	at org.apache.doris.mysql.ReadListener.lambda$handleEvent$0(ReadListener.java:55)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 12:30:48,042 WARN (InternalSchemaInitializer|168) [InternalCatalog.createOlapTable():3389] create table failed [1793190630342] - errCode = 2, detailMessage = replication num should be less than the number of available backends. replication num is 1, available backend num is 0
+2026-10-28 12:30:48,043 WARN (InternalSchemaInitializer|168) [InternalCatalog.createOlapTable():3405] drop table
+org.apache.doris.common.MetaNotFoundException: errCode = 7, detailMessage = table not found, tableId=1793190630340
+	at org.apache.doris.catalog.DatabaseIf.lambda$getTableOrMetaException$2(DatabaseIf.java:172)
+	at org.apache.doris.catalog.DatabaseIf.getTableOrException(DatabaseIf.java:156)
+	at org.apache.doris.catalog.DatabaseIf.getTableOrMetaException(DatabaseIf.java:172)
+	at org.apache.doris.datasource.InternalCatalog.dropTable(InternalCatalog.java:1056)
+	at org.apache.doris.datasource.InternalCatalog.createOlapTable(InternalCatalog.java:3399)
+	at org.apache.doris.datasource.InternalCatalog.createTable(InternalCatalog.java:1258)
+	at org.apache.doris.catalog.Env.createTable(Env.java:3629)
+	at org.apache.doris.nereids.trees.plans.commands.CreateTableCommand.run(CreateTableCommand.java:93)
+	at org.apache.doris.catalog.InternalSchemaInitializer.createTable(InternalSchemaInitializer.java:518)
+	at org.apache.doris.catalog.InternalSchemaInitializer.createTbl(InternalSchemaInitializer.java:319)
+	at org.apache.doris.catalog.InternalSchemaInitializer.run(InternalSchemaInitializer.java:92)
+2026-10-28 12:30:48,052 WARN (InternalSchemaInitializer|168) [InternalCatalog.createOlapTable():3389] create table failed [1793190630359] - errCode = 2, detailMessage = replication num should be less than the number of available backends. replication num is 1, available backend num is 0
+2026-10-28 12:30:48,053 WARN (InternalSchemaInitializer|168) [InternalCatalog.createOlapTable():3405] drop table
+org.apache.doris.common.MetaNotFoundException: errCode = 7, detailMessage = table not found, tableId=1793190630357
+	at org.apache.doris.catalog.DatabaseIf.lambda$getTableOrMetaException$2(DatabaseIf.java:172)
+	at org.apache.doris.catalog.DatabaseIf.getTableOrException(DatabaseIf.java:156)
+	at org.apache.doris.catalog.DatabaseIf.getTableOrMetaException(DatabaseIf.java:172)
+	at org.apache.doris.datasource.InternalCatalog.dropTable(InternalCatalog.java:1056)
+	at org.apache.doris.datasource.InternalCatalog.createOlapTable(InternalCatalog.java:3399)
+	at org.apache.doris.datasource.InternalCatalog.createTable(InternalCatalog.java:1258)
+	at org.apache.doris.catalog.Env.createTable(Env.java:3629)
+	at org.apache.doris.nereids.trees.plans.commands.CreateTableCommand.run(CreateTableCommand.java:93)
+	at org.apache.doris.catalog.InternalSchemaInitializer.createTable(InternalSchemaInitializer.java:518)
+	at org.apache.doris.catalog.InternalSchemaInitializer.createTbl(InternalSchemaInitializer.java:344)
+	at org.apache.doris.catalog.InternalSchemaInitializer.run(InternalSchemaInitializer.java:92)
+2026-10-28 12:30:48,065 WARN (InternalSchemaInitializer|168) [InternalCatalog.createOlapTable():3389] create table failed [] - errCode = 2, detailMessage = replication num should be less than the number of available backends. replication num is 1, available backend num is 0
+2026-10-28 12:30:48,065 WARN (InternalSchemaInitializer|168) [InternalCatalog.createOlapTable():3405] drop table
+org.apache.doris.common.MetaNotFoundException: errCode = 7, detailMessage = table not found, tableId=1793190630373
+	at org.apache.doris.catalog.DatabaseIf.lambda$getTableOrMetaException$2(DatabaseIf.java:172)
+	at org.apache.doris.catalog.DatabaseIf.getTableOrException(DatabaseIf.java:156)
+	at org.apache.doris.catalog.DatabaseIf.getTableOrMetaException(DatabaseIf.java:172)
+	at org.apache.doris.datasource.InternalCatalog.dropTable(InternalCatalog.java:1056)
+	at org.apache.doris.datasource.InternalCatalog.createOlapTable(InternalCatalog.java:3399)
+	at org.apache.doris.datasource.InternalCatalog.createTable(InternalCatalog.java:1258)
+	at org.apache.doris.catalog.Env.createTable(Env.java:3629)
+	at org.apache.doris.nereids.trees.plans.commands.CreateTableCommand.run(CreateTableCommand.java:93)
+	at org.apache.doris.catalog.InternalSchemaInitializer.createTable(InternalSchemaInitializer.java:518)
+	at org.apache.doris.catalog.InternalSchemaInitializer.createTbl(InternalSchemaInitializer.java:409)
+	at org.apache.doris.catalog.InternalSchemaInitializer.run(InternalSchemaInitializer.java:92)
+2026-10-28 12:30:53,293 WARN (mysql-nio-pool-1|213) [HadoopUtils.getHadoopConfiguration():154] Could not find Hadoop configuration via any of the supported methods
+2026-10-28 12:30:55,572 WARN (mysql-nio-pool-1|213) [HadoopUtils.getHadoopConfiguration():154] Could not find Hadoop configuration via any of the supported methods
+2026-10-28 12:31:11,540 WARN (mysql-nio-pool-1|213) [HadoopUtils.getHadoopConfiguration():154] Could not find Hadoop configuration via any of the supported methods
+2026-10-28 12:31:17,893 WARN (mysql-nio-pool-0|205) [HadoopUtils.getHadoopConfiguration():154] Could not find Hadoop configuration via any of the supported methods
+COMPAT-ENGINE-LOG /opt/apache-doris/fe/log/fe.out
+StdoutLogger 2026-10-28 12:30:22,987 Using Java version 17
+StdoutLogger 2026-10-28 12:30:22,993 Added missing Java option: -Dhadoop.shell.setsid.enabled=false
+StdoutLogger 2026-10-28 12:30:23,003 Added missing Java option: -Dsun.security.krb5.debug=true
+StdoutLogger 2026-10-28 12:30:23,051 -Dfile.encoding=UTF-8 -Djavax.security.auth.useSubjectCredsOnly=false -Xmx1024m -Xms1024m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/opt/apache-doris/fe/log -Xlog:gc*:/opt/apache-doris/fe/log/fe.gc.log.20261028-123022:time,uptime:filecount=10,filesize=50M -Darrow.enable_null_check_for_get=false --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED --add-opens=java.management/sun.management=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.xml/com.sun.org.apache.xerces.internal.jaxp=ALL-UNNAMED -Dhadoop.shell.setsid.enabled=false -Dsun.security.krb5.debug=true
+StdoutLogger 2026-10-28 12:30:23,124 start time: Wed Oct 28 12:30:23 UTC 2026
+Picked up JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/work/doris-fe-cacerts -Djavax.net.ssl.trustStorePassword=<REDACTED>
+WARNING: Unknown module: org.apache.arrow.memory.core specified to --add-opens
+StdoutLogger 2026-10-28 12:30:26,815 =====
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Auto Generated. DO NOT MODIFY IT! -->
+<Configuration status="info" packages="org.apache.doris.common">
+  <Appenders>
+    <Console name="Console" target="SYSTEM_ERR">
+      <PatternLayout charset="UTF-8">
+        <Pattern><!--REPLACED BY RUNTIME LOG MARKER-->%d{yyyy-MM-dd HH:mm:ss,SSS} %p (%t|%tid) [%C{1}.%M():%L] %m%n</Pattern>
+      </PatternLayout>
+    </Console>
+    <Console name="AuditConsole" target="SYSTEM_ERR">
+      <PatternLayout charset="UTF-8">
+        <Pattern><!--REPLACED BY AUDIT LOG MARKER-->%d{yyyy-MM-dd HH:mm:ss,SSS} [%c{1}] %m%n</Pattern>
+      </PatternLayout>
+    </Console>
+    <RollingFile name="Sys" fileName="/opt/apache-doris/fe/log/fe.log" filePattern="/opt/apache-doris/fe/log/fe.log.%d{yyyyMMdd}-%i" immediateFlush="false">
+      <PatternLayout charset="UTF-8">
+        <Pattern><!--REPLACED BY RUNTIME LOG MARKER-->%d{yyyy-MM-dd HH:mm:ss,SSS} %p (%t|%tid) [%C{1}.%M():%L] %m%n</Pattern>
+      </PatternLayout>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10" fileIndex="max">
+        <Delete basePath="/opt/apache-doris/fe/log/" maxDepth="1">
+          <IfFileName glob="fe.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="SysWF" fileName="/opt/apache-doris/fe/log/fe.warn.log" filePattern="/opt/apache-doris/fe/log/fe.warn.log.%d{yyyyMMdd}-%i" immediateFlush="false">
+      <PatternLayout charset="UTF-8">
+        <Pattern><!--REPLACED BY RUNTIME LOG MARKER-->%d{yyyy-MM-dd HH:mm:ss,SSS} %p (%t|%tid) [%C{1}.%M():%L] %m%n</Pattern>
+      </PatternLayout>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10" fileIndex="max">
+        <Delete basePath="/opt/apache-doris/fe/log/" maxDepth="1">
+          <IfFileName glob="fe.warn.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="AuditFile" fileName="/opt/apache-doris/fe/log/fe.audit.log" filePattern="/opt/apache-doris/fe/log/fe.audit.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8">
+        <Pattern><!--REPLACED BY AUDIT LOG MARKER-->%d{yyyy-MM-dd HH:mm:ss,SSS} [%c{1}] %m%n</Pattern>
+      </PatternLayout>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="90" fileIndex="max">
+        <Delete basePath="/opt/apache-doris/fe/log/" maxDepth="1">
+          <IfFileName glob="fe.audit.log.*" />
+          <IfLastModified age="30d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+  </Appenders>
+  <Loggers>
+    <AsyncRoot level="INFO" includeLocation="true">
+      <AppenderRef ref="Sys"/>
+
+      <AppenderRef ref="SysWF" level="WARN"/>
+
+      <!--REPLACED BY CONSOLE APPENDER-->
+    </AsyncRoot>
+    <Logger name="audit" level="ERROR" additivity="false">
+      <AppenderRef ref="AuditFile"/>
+
+      <!--REPLACED BY AUDIT CONSOLE LOGGER-->
+    </Logger>
+    <Logger name='audit.slow_query' level='INFO'/><Logger name='audit.query' level='INFO'/><Logger name='audit.load' level='INFO'/><Logger name='audit.stream_load' level='INFO'/>
+  </Loggers>
+</Configuration>
+=====
+==============================
+2026-10-28T12:30:26.983115434Z main INFO Starting LoggerContext[name=5ffd2b27] with configuration Log4jConfig[location=stream (3444 bytes, unknown location), lastModified=1970-01-01T00:00:00Z]...
+2026-10-28T12:30:26.985757705Z main WARN The use of package scanning to locate Log4j plugins is deprecated.
+Please remove the `packages` attribute from your configuration file.
+See https://logging.apache.org/log4j/2.x/faq.html#package-scanning for details.
+2026-10-28T12:30:27.339160730Z main INFO Starting configuration Log4jConfig[location=stream (3444 bytes, unknown location), lastModified=1970-01-01T00:00:00Z]...
+2026-10-28T12:30:27.383146933Z main INFO Configuration Log4jConfig[location=stream (3444 bytes, unknown location), lastModified=1970-01-01T00:00:00Z] started.
+2026-10-28T12:30:27.383484985Z main INFO Stopping configuration org.apache.logging.log4j.core.config.DefaultConfiguration@5f8e8a9d...
+2026-10-28T12:30:27.383646642Z main INFO Configuration org.apache.logging.log4j.core.config.DefaultConfiguration@5f8e8a9d stopped.
+2026-10-28T12:30:27.383924450Z main INFO LoggerContext[name=5ffd2b27] started with configuration Log4jConfig[location=stream (3444 bytes, unknown location), lastModified=1970-01-01T00:00:00Z].
+Certificate was added to keystore

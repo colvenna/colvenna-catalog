@@ -1,0 +1,64 @@
+# Locally: after `pre-commit install`, every commit is checked; `pre-commit run --all-files` checks
+# everything. CI runs the same configuration (.github/workflows/ci.yml), as does scripts/ci-local.sh.
+# pre-commit install puts in the commit-msg hook too: a commit message holds no deployment value (#99).
+default_install_hook_types: [pre-commit, commit-msg]
+# Only the hooks that say so run on a commit message (the redaction check); the rest on files.
+default_stages: [pre-commit, pre-push, manual]
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # The compatibility matrix's raw results are kept as the engines printed them, and the license
+      # texts the image carries (licenses/) as their projects publish them.
+      - id: trailing-whitespace
+        exclude: ^(docs/compat/runs/|licenses/)
+      - id: end-of-file-fixer
+        exclude: ^(docs/compat/runs/|licenses/)
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        exclude: ^(docs/compat/runs/|licenses/)
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+        # Helm templates are Go templates, not YAML, until rendered; aws-test renders and lints them.
+        exclude: ^deploy/helm/[^/]+/templates/
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.3
+    hooks:
+      - id: markdownlint-cli2
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+
+  # The project's old name stays gone (#31) but where scripts/rename/exceptions.tsv allows it, with
+  # its reason; see scripts/rename/old_name.py (Colvenna Lake's check). Files only: never the commit
+  # message, which may cite the import's provenance.
+  - repo: local
+    hooks:
+      - id: old-name
+        name: no old name
+        entry: python3 scripts/rename/old_name.py
+        language: system
+        stages: [pre-commit, pre-push, manual]
+
+  # The maintainers' deployment values stay out of the repository (#99, Colvenna Lake's check): what to
+  # look for comes from the local install configurations and .state/redaction-values, never from the
+  # repository; see scripts/redaction/redaction.py.
+  - repo: local
+    hooks:
+      - id: deployment-values
+        name: no deployment values
+        entry: python3 scripts/redaction/redaction.py
+        language: system
+        types: [text]
+        stages: [pre-commit, pre-push, manual]
+      - id: deployment-values-in-commit-message
+        name: no deployment values in the commit message
+        entry: python3 scripts/redaction/redaction.py
+        language: system
+        stages: [commit-msg]

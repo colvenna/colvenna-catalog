@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Spark 3.5.9 (Scala 2.12, the matrix's image) with Paimon 2.0.0: the catalog flow's Spark side and
+     the renewal flow's. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.colvenna.catalog.uat</groupId>
+    <artifactId>uat-flows</artifactId>
+    <version>0.1.0</version>
+  </parent>
+  <artifactId>spark</artifactId>
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql_2.12</artifactId>
+      <version>3.5.9</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.paimon</groupId>
+      <artifactId>paimon-bundle</artifactId>
+      <version>${paimon.version}</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+  <build>
+    <finalName>uat-spark</finalName>
+  </build>
+</project>

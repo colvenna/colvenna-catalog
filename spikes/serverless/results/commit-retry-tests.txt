@@ -1,0 +1,22 @@
+Server tests run for constraint 3 (retried commits take effect once), 2026-10-28, on origin/main 42dbd5a:
+mvn -B -Dtest='CommitProtocolTest,RetryConsistencyTest' test  (JDK 21, Testcontainers PostgreSQL 16)
+
+com.covelake.catalog.CommitProtocolTest: tests=11 failures=0 errors=0 skipped=0 time=19.22s
+  pass  writerOfADroppedTableCannotCommitToItsReplacement  (0.865s)
+  pass  snapshotWrittenOutsideTheCatalogFencesTheTable  (1.212s)
+  pass  writersOnTwoReplicasLoseNoCommit  (5.306s)
+  pass  abandonedIntentIsClosedAfterItsTimeout  (0.485s)
+  pass  concurrentWritersLoseNoCommit  (4.534s)
+  pass  replayedCommitRequestIsIdempotent  (0.77s)
+  pass  lostCommitResponseResolvesToOneCommit  (0.976s)
+  pass  lateWriteOfAClosedIntentFencesTheTable  (0.708s)
+  pass  ofTwoConflictingCompactionsOnlyOneIsPublished  (2.345s)
+  pass  crashBeforePublishLeavesNoSnapshotAndTheRetryCommits  (0.958s)
+  pass  crashAfterPublishRollsTheCommitForward  (1.037s)
+com.covelake.catalog.RetryConsistencyTest: tests=6 failures=0 errors=0 skipped=0 time=15.848s
+  pass  createDatabase  (10.51s)
+  pass  lostReadResponseIsRetriedTransparently  (0.665s)
+  pass  createTable  (0.779s)
+  pass  renameTable  (2.599s)
+  pass  dropTableIsRetriedByTheClientAndReportsTheTableGone  (0.543s)
+  pass  alterTableAddColumn  (0.674s)

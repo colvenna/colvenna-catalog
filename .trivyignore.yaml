@@ -1,0 +1,32 @@
+# Trivy findings that are false positives here, each with its reason (#18); trivy.yaml names this file.
+# Only verified false positives belong here: a real finding is fixed, or stays visible and is handled
+# in docs/security/scans.md. Each entry is pinned to the rule and the file.
+misconfigurations:
+  # --- the chart (deploy/helm/colvenna-catalog) ------------------------------------------------------
+  - id: KSV-0109
+    paths:
+      - deploy/helm/colvenna-catalog/templates/configmap.yaml
+    statement: >-
+      Matched on the key name COLVENNA_DATA_TOKEN_MODE: its value is a mode (disabled or aws-sts), not
+      a secret. The chart puts no secret in the ConfigMap; the database credentials and the TLS key
+      store come from Secrets (databaseSecret, tlsSecret)
+  - id: KSV-01010
+    paths:
+      - deploy/helm/colvenna-catalog/templates/configmap.yaml
+    statement: >-
+      Matched on the key names COLVENNA_PORT, COLVENNA_HEALTH_PORT, COLVENNA_METRICS_PORT and
+      COLVENNA_TLS_KEYSTORE: port numbers and the key store's path in the pod, not its content
+  - id: KSV-0110
+    paths:
+      - deploy/helm/colvenna-catalog/templates/deployment.yaml
+    statement: >-
+      The templates name no namespace: Helm puts every object in the release's namespace, which
+      install.sh passes as --namespace (COLVENNA_NAMESPACE, colvenna-catalog by default)
+  # --- Dockerfiles ------------------------------------------------------------------------------------
+  - id: DS-0026
+    paths:
+      - Dockerfile
+      - tests/serverless/driver/Dockerfile
+    statement: >-
+      Neither runtime reads a Docker HEALTHCHECK: on EKS the chart's readiness and liveness probes
+      check the health port, and Lambda checks nothing in the image

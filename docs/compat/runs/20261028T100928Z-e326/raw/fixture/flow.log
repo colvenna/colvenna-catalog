@@ -1,0 +1,51 @@
+Certificate was added to keystore
+COMPAT-INFO {"engine":"flink","engineVersion":"1.20.5","paimonVersion":"2.1.0","paimonJar":"paimon-flink-1.20-2.1.0.jar","dataTokens":true}
+COMPAT-STEP - create-database OK 121ms 
+COMPAT-STEP pk create-table OK 598ms 
+COMPAT-STEP pk insert ids 1..100 OK 17844ms 
+COMPAT-STEP pk upsert ids 91..110 OK 4948ms 
+2026-10-28T10:10:25.960Z WARN  MetricGroup - The operator name Source: t_pk[127] -> Calc[128] -> ConstraintEnforcer[129] -> RowKindSetter[129] -> Map exceeded the 80 characters length limit and was truncated.
+COMPAT-STEP pk delete ids 1..5 OK 6659ms 
+COMPAT-STEP pk count-snapshots OK 2692ms 
+COMPAT-STEP pk read-rows OK 3440ms 
+COMPAT-STEP pk read-sum OK 3645ms 
+COMPAT-STEP pk read-upserted OK 2868ms 
+COMPAT-STEP pk read-deleted OK 3408ms 
+COMPAT-FIXTURE {"table":"pk","name":"t_pk","checks":[{"name":"rows","expression":"count(*)","where":"","expected":105},{"name":"sum","expression":"sum(amount)","where":"","expected":26090},{"name":"upserted","expression":"sum(amount)","where":"id = 100","expected":1100},{"name":"deleted","expression":"count(*)","where":"id <= 5","expected":0}]}
+COMPAT-INFO {"table":"t_pk","ambientRefusal":"AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261028100928_e326_fixture.db/t_pk/schema/schema-0: org.apache.hadoop.fs.s3a.auth.NoAuthWithAWSException: No AWS Credentials provided by TemporaryAWSCredentialsProvider SimpleAWSCredentialsProvider EnvironmentVariableCredentialsProvider IAMInstanceCredentialsProvider : software.amazon.awssdk.cor..."}
+COMPAT-STEP pk probe-own-identity OK 1139ms 
+COMPAT-STEP pk-dv create-table OK 477ms 
+COMPAT-STEP pk-dv insert ids 1..100 OK 6513ms 
+COMPAT-STEP pk-dv upsert ids 91..110 OK 6236ms 
+2026-10-28T10:11:02.283Z WARN  MetricGroup - The operator name Source: t_pk_dv[285] -> Calc[286] -> ConstraintEnforcer[287] -> RowKindSetter[287] -> Map exceeded the 80 characters length limit and was truncated.
+COMPAT-STEP pk-dv delete ids 1..5 OK 7810ms 
+COMPAT-STEP pk-dv count-snapshots OK 2085ms 
+COMPAT-STEP pk-dv read-rows OK 2185ms 
+COMPAT-STEP pk-dv read-sum OK 2959ms 
+COMPAT-STEP pk-dv read-upserted OK 2872ms 
+COMPAT-STEP pk-dv read-deleted OK 2933ms 
+COMPAT-FIXTURE {"table":"pk-dv","name":"t_pk_dv","checks":[{"name":"rows","expression":"count(*)","where":"","expected":105},{"name":"sum","expression":"sum(amount)","where":"","expected":26090},{"name":"upserted","expression":"sum(amount)","where":"id = 100","expected":1100},{"name":"deleted","expression":"count(*)","where":"id <= 5","expected":0}]}
+COMPAT-INFO {"table":"t_pk_dv","ambientRefusal":"AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261028100928_e326_fixture.db/t_pk_dv/schema/schema-0: org.apache.hadoop.fs.s3a.auth.NoAuthWithAWSException: No AWS Credentials provided by TemporaryAWSCredentialsProvider SimpleAWSCredentialsProvider EnvironmentVariableCredentialsProvider IAMInstanceCredentialsProvider : software.amazon.awssdk...."}
+COMPAT-STEP pk-dv probe-own-identity OK 1110ms 
+COMPAT-STEP append create-table OK 460ms 
+COMPAT-STEP append insert ids 1..100 OK 4577ms 
+COMPAT-STEP append insert ids 91..110 OK 3063ms 
+COMPAT-STEP append count-snapshots OK 1881ms 
+COMPAT-STEP append read-rows OK 2119ms 
+COMPAT-STEP append read-sum OK 2451ms 
+COMPAT-STEP append read-duplicates OK 2418ms 
+COMPAT-FIXTURE {"table":"append","name":"t_append","checks":[{"name":"rows","expression":"count(*)","where":"","expected":120},{"name":"sum","expression":"sum(amount)","where":"","expected":27060},{"name":"duplicates","expression":"count(*)","where":"id = 100","expected":2}]}
+COMPAT-INFO {"table":"t_append","ambientRefusal":"AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261028100928_e326_fixture.db/t_append/schema/schema-0: org.apache.hadoop.fs.s3a.auth.NoAuthWithAWSException: No AWS Credentials provided by TemporaryAWSCredentialsProvider SimpleAWSCredentialsProvider EnvironmentVariableCredentialsProvider IAMInstanceCredentialsProvider : software.amazon.awssdk..."}
+COMPAT-STEP append probe-own-identity OK 1086ms 
+COMPAT-RESULT {"table":"pk","op":"write","status":"PASS","detail":"3 writes committed (insert ids 1..100, upsert ids 91..110, delete ids 1..5); 3 snapshots"}
+COMPAT-RESULT {"table":"pk","op":"read","status":"PASS","detail":"rows=105, sum=26090, upserted=1100, deleted=0"}
+COMPAT-RESULT {"table":"pk","op":"credentials","status":"PASS","detail":"the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"}
+COMPAT-RESULT {"table":"pk","op":"ddl","status":"PASS","detail":"created; kept for the readers"}
+COMPAT-RESULT {"table":"pk-dv","op":"write","status":"PASS","detail":"3 writes committed (insert ids 1..100, upsert ids 91..110, delete ids 1..5); 6 snapshots"}
+COMPAT-RESULT {"table":"pk-dv","op":"read","status":"PASS","detail":"rows=105, sum=26090, upserted=1100, deleted=0"}
+COMPAT-RESULT {"table":"pk-dv","op":"credentials","status":"PASS","detail":"the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"}
+COMPAT-RESULT {"table":"pk-dv","op":"ddl","status":"PASS","detail":"created; kept for the readers"}
+COMPAT-RESULT {"table":"append","op":"write","status":"PASS","detail":"2 writes committed (insert ids 1..100, insert ids 91..110); 2 snapshots"}
+COMPAT-RESULT {"table":"append","op":"read","status":"PASS","detail":"rows=120, sum=27060, duplicates=2"}
+COMPAT-RESULT {"table":"append","op":"credentials","status":"PASS","detail":"the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"}
+COMPAT-RESULT {"table":"append","op":"ddl","status":"PASS","detail":"created; kept for the readers"}

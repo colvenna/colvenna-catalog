@@ -1,0 +1,46 @@
+{
+  "$comment": "The compatibility matrix's cells (README.md). Images are the engines' official ones, pinned by the digest of their multi-architecture index; jars come from Maven Central, pinned by SHA-256 (checked against Central's SHA-1 when pinned, 2026-10-28). A cell is an engine version and the Paimon client it runs; the deployment form is the run's (--form). declared.tsv says what each cell is declared to be before a run.",
+  "mavenRepository": "https://repo1.maven.org/maven2",
+  "images": {
+    "flink-1.20": "docker.io/library/flink:1.20.5-scala_2.12-java17@sha256:43dd7275e12a8e7fb1c02524e4ce4bd18213171ac0e12c432aaccc5c4af0ba11",
+    "flink-2.2": "docker.io/library/flink:2.2.1-scala_2.12-java17@sha256:c95f48391db3e191345549b4d06406c08616fe8f99ee57fa4f4c44268c912a46",
+    "spark-3.5": "docker.io/apache/spark:3.5.9-scala2.12-java17-ubuntu@sha256:5eb9236efcfee5e447d6fe30cf8376e2ca4f79671350ed89f990f9b3e84b954c",
+    "spark-4.1": "docker.io/apache/spark:4.1.3-scala2.13-java17-ubuntu@sha256:7aab81b306013f40152e720d20e149a0c1f163f27fc17e4e5220bf860bf82aa2",
+    "doris-fe": "docker.io/apache/doris:fe-4.1.5@sha256:bd0149d76fd02429ee4ab751f34c16948fbf761a886070489fdebf7b2069305c",
+    "doris-be": "docker.io/apache/doris:be-4.1.5@sha256:10d282e1bd685f8c0d71b3b42bbd0841bbb20909de2cd847923f00378b6b9a11",
+    "starrocks": "docker.io/starrocks/allin1-ubuntu:4.1.6@sha256:5cbf09c4c788d2ca41a8e38599b650f04dbc6af0de51ebda0952770fb8333e5d",
+    "curl": "docker.io/curlimages/curl:8.16.0@sha256:463eaf6072688fe96ac64fa623fe73e1dbe25d8ad6c34404a669ad3ce1f104b6",
+    "maven": "docker.io/library/maven:3.9.11-eclipse-temurin-21@sha256:6fdc855a6ed81d288ca7ca37ac6ff5e9308b612485c0801d70b25a858c83d237"
+  },
+  "jars": {
+    "paimon-flink-1.20-2.0.0.jar": {"path": "org/apache/paimon/paimon-flink-1.20/2.0.0/paimon-flink-1.20-2.0.0.jar", "sha256": "e5279526e6373a5fdeca36a8fc17b5951ea3f0238f7a30bb6d95ec4dd5af6a80"},
+    "paimon-flink-1.20-2.1.0.jar": {"path": "org/apache/paimon/paimon-flink-1.20/2.1.0/paimon-flink-1.20-2.1.0.jar", "sha256": "0fac73639a7bfd40e3cb0c170a560b33e9820490b2df7cdc0942046510884e6b"},
+    "paimon-flink-2.2-2.1.0.jar": {"path": "org/apache/paimon/paimon-flink-2.2/2.1.0/paimon-flink-2.2-2.1.0.jar", "sha256": "43a6416a241ab736fb6ed2b6061a37fc5cca5ba8737d77eac1b977f859107dd1"},
+    "paimon-spark-3.5_2.12-2.0.0.jar": {"path": "org/apache/paimon/paimon-spark-3.5_2.12/2.0.0/paimon-spark-3.5_2.12-2.0.0.jar", "sha256": "473ef102a43726dcac1d72a311896b7b4f021cdce25f3b54cf077e0260e49f3f"},
+    "paimon-spark-3.5_2.12-2.1.0.jar": {"path": "org/apache/paimon/paimon-spark-3.5_2.12/2.1.0/paimon-spark-3.5_2.12-2.1.0.jar", "sha256": "4878001af06050a23b69964a298bc4b88246270f437d85d462a4824d47e4d988"},
+    "paimon-spark-4.1_2.13-2.1.0.jar": {"path": "org/apache/paimon/paimon-spark-4.1_2.13/2.1.0/paimon-spark-4.1_2.13-2.1.0.jar", "sha256": "cea37d8cec5bb90bef8fe712a927c607c3d1a370be35aea719803d8693fef026"},
+    "paimon-s3-2.0.0.jar": {"path": "org/apache/paimon/paimon-s3/2.0.0/paimon-s3-2.0.0.jar", "sha256": "a5f79d5c5d60e14e6da7366f3f34f65a489495644e44a205291611af56ce52f0"},
+    "paimon-s3-2.1.0.jar": {"path": "org/apache/paimon/paimon-s3/2.1.0/paimon-s3-2.1.0.jar", "sha256": "5fbc5bad63220230c8e30c16c828af10aa03ea67f203b1e23e3e325b92571633"},
+    "paimon-hadoop-uber-2.0.0.jar": {"path": "org/apache/paimon/paimon-hadoop-uber/2.0.0/paimon-hadoop-uber-2.0.0.jar", "sha256": "fd88b93d8f8834535bde7d5ff7acc33a7765aed9e65d99f0830eff833ff3a918"},
+    "paimon-hadoop-uber-2.1.0.jar": {"path": "org/apache/paimon/paimon-hadoop-uber/2.1.0/paimon-hadoop-uber-2.1.0.jar", "sha256": "54290a429afd0a5c106ea285dc4c5c1bc2376d11f911b149d143e5ecca1fa004"}
+  },
+  "fixtureWriter": "flink-1.20-paimon-2.1.0",
+  "cells": [
+    {"id": "flink-1.20-paimon-2.0.0", "kind": "flink", "slug": "flink120_p200", "engine": "Flink", "engineVersion": "1.20.5", "paimon": "2.0.0",
+     "images": ["flink-1.20"], "flow": "compat-flink.jar", "jars": ["paimon-flink-1.20-2.0.0.jar", "paimon-s3-2.0.0.jar", "paimon-hadoop-uber-2.0.0.jar"]},
+    {"id": "flink-1.20-paimon-2.1.0", "kind": "flink", "slug": "flink120_p210", "engine": "Flink", "engineVersion": "1.20.5", "paimon": "2.1.0",
+     "images": ["flink-1.20"], "flow": "compat-flink.jar", "jars": ["paimon-flink-1.20-2.1.0.jar", "paimon-s3-2.1.0.jar", "paimon-hadoop-uber-2.1.0.jar"]},
+    {"id": "flink-2.2-paimon-2.1.0", "kind": "flink", "slug": "flink22_p210", "engine": "Flink", "engineVersion": "2.2.1", "paimon": "2.1.0",
+     "images": ["flink-2.2"], "flow": "compat-flink.jar", "jars": ["paimon-flink-2.2-2.1.0.jar", "paimon-s3-2.1.0.jar", "paimon-hadoop-uber-2.1.0.jar"]},
+    {"id": "spark-3.5-paimon-2.0.0", "kind": "spark", "slug": "spark35_p200", "engine": "Spark", "engineVersion": "3.5.9", "paimon": "2.0.0",
+     "images": ["spark-3.5"], "flow": "compat-spark-3.5.jar", "jars": ["paimon-spark-3.5_2.12-2.0.0.jar", "paimon-s3-2.0.0.jar"]},
+    {"id": "spark-3.5-paimon-2.1.0", "kind": "spark", "slug": "spark35_p210", "engine": "Spark", "engineVersion": "3.5.9", "paimon": "2.1.0",
+     "images": ["spark-3.5"], "flow": "compat-spark-3.5.jar", "jars": ["paimon-spark-3.5_2.12-2.1.0.jar", "paimon-s3-2.1.0.jar"]},
+    {"id": "spark-4.1-paimon-2.1.0", "kind": "spark", "slug": "spark41_p210", "engine": "Spark", "engineVersion": "4.1.3", "paimon": "2.1.0",
+     "images": ["spark-4.1"], "flow": "compat-spark-4.1.jar", "jars": ["paimon-spark-4.1_2.13-2.1.0.jar", "paimon-s3-2.1.0.jar"]},
+    {"id": "doris-4.1.5", "kind": "doris", "slug": "doris415", "engine": "Doris", "engineVersion": "4.1.5", "paimon": "1.4.2 (bundled)",
+     "images": ["doris-fe", "doris-be"]},
+    {"id": "starrocks-4.1.6", "kind": "starrocks", "slug": "starrocks416", "engine": "StarRocks", "engineVersion": "4.1.6", "paimon": "1.3.1 (bundled)",
+     "images": ["starrocks"]}
+  ]
+}

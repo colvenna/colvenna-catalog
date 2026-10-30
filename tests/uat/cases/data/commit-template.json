@@ -1,0 +1,31 @@
+{
+ "tableId": "96976680-f79c-485a-8c84-cbc0f5dfde77",
+ "baseSnapshotUuid": null,
+ "snapshot": {
+  "version": 3,
+  "uuid": "f24cecb6-41ce-492c-81c7-1ef1f294d043",
+  "id": 1,
+  "schemaId": 0,
+  "baseManifestList": "manifest-list-54549922-8fdf-4125-a41b-d675381e1dd1-0",
+  "baseManifestListSize": 1006,
+  "deltaManifestList": "manifest-list-54549922-8fdf-4125-a41b-d675381e1dd1-1",
+  "deltaManifestListSize": 1110,
+  "commitUser": "c4fb8c24-94ed-44e0-9f88-d6921f0f00f9",
+  "commitIdentifier": 9223372036854775807,
+  "commitKind": "APPEND",
+  "timeMillis": 1793157542773,
+  "totalRecordCount": 8,
+  "deltaRecordCount": 8,
+  "nextRowId": 0
+ },
+ "statistics": [
+  {
+   "spec": {},
+   "recordCount": 8,
+   "fileSizeInBytes": 333,
+   "fileCount": 1,
+   "lastFileCreationTime": 1793157542684,
+   "totalBuckets": 1
+  }
+ ]
+}

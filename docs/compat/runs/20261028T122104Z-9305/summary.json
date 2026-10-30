@@ -1,0 +1,10 @@
+{
+  "run": "20261028T122104Z-9305",
+  "form": "eks",
+  "completed": true,
+  "outcomes": {
+    "doris-4.1.5": "pass",
+    "starrocks-4.1.6": "pass"
+  },
+  "cleanup": "PASS"
+}

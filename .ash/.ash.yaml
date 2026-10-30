@@ -1,0 +1,46 @@
+# ASH (Automated Security Helper, v3.5.4) settings for this repository (#18): what a scan of the tracked
+# tree reports as actionable, and the findings it does not, each with its reason. Only verified false
+# positives are suppressed: a real finding is fixed, or stays visible and is handled in
+# docs/security/scans.md, which has the whole procedure. Scan a clean export of the tree, never the
+# working copy, so that dependencies and build outputs stay out:
+#   git archive HEAD | tar -x -C <dir>; <ash-repo>/ash --source-dir <dir> --output-dir <out> --format json
+# No suppression names a line (#72): one pinned to a line stops matching when the code moves. Here, a
+# suppression names the rule and the file, for a finding that holds for the whole file. A false positive
+# of one line is marked on that line instead, with its reason, and the mark moves with it:
+#   - detect-secrets, and checkov's secret checks, which use it: "pragma: allowlist secret - <reason>" in
+#     the line's comment (a line that has the same value again needs its own);
+#   - bandit: "# nosec <rule> - <reason>".
+# A real secret written on another line is still reported. scripts/security/test_ash_config.py checks
+# that no entry names a line, and that the premises of the whole-file checkov entries hold.
+project_name: colvenna-catalog
+fail_on_findings: true
+global_settings:
+  severity_threshold: MEDIUM
+  suppressions:
+    # --- detect-secrets: files of digests only (every other secret rule still reports in them) -------
+    - rule_id: SECRET-HEX-HIGH-ENTROPY-STRING
+      path: "release/*/manifest.json"
+      reason: "A release manifest: commit ids, git tree and blob ids, which install.sh --release checks the tree against"
+    - rule_id: SECRET-HEX-HIGH-ENTROPY-STRING
+      path: "docs/compat/runs/**"
+      reason: "The compatibility matrix's run records: the matrix's commit ids and the SHA-256 digests of the cells and declarations each run judged"
+    - rule_id: SECRET-HEX-HIGH-ENTROPY-STRING
+      path: tests/compat/cells.json
+      reason: "The matrix's pins: the SHA-256 of every jar it downloads, which backends.py checks before using one"
+    # --- checkov: Dockerfiles -------------------------------------------------------------------------
+    - rule_id: CKV_DOCKER_2
+      path: Dockerfile
+      reason: "Neither runtime reads a Docker HEALTHCHECK: on EKS the chart's readiness and liveness probes check the health port, and Lambda checks nothing in the image"
+    - rule_id: CKV_DOCKER_2
+      path: tests/serverless/driver/Dockerfile
+      reason: "The test driver runs only in Lambda, which reads no Docker HEALTHCHECK"
+    - rule_id: CKV_DOCKER_4
+      path: Dockerfile
+      reason: "Its one ADD fetches the RDS CA bundle with --checksum=sha256:..., so the build fails on any other content; COPY cannot fetch a URL, and a remote file is never unpacked. checkov judges the Dockerfile as a whole; test_ash_config.py holds every ADD to an https URL and a checksum"
+    - rule_id: CKV_DOCKER_7
+      path: tests/serverless/driver/Dockerfile
+      reason: "FROM ${BASE}: tests/serverless/run.sh passes the environment's server image by digest, and BASE has no default, so a build without it fails"
+    # --- checkov: the admin API's description (docs/api/admin-v1.yaml) ------------------------------
+    - rule_id: CKV_OPENAPI_21
+      path: docs/api/admin-v1.yaml
+      reason: "checkov judges the paths block as a whole, at its first array without maxItems. The arrays there are the GET listings' responses (principals, tokens, grants, audit events, purges), which the server writes, not input it reads; only an admin principal may call them, and the audit listing returns at most 1000 events. test_ash_config.py holds every array under paths to a GET response"

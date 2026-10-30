@@ -1,0 +1,188 @@
+{
+ "function": "colvenna-catalog-spike-server",
+ "base": "/",
+ "rounds": 3,
+ "concurrency": 5,
+ "mode": "on-demand",
+ "requestStatuses": [
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  200,
+  503,
+  502,
+  503,
+  502,
+  502
+ ],
+ "clientLatenciesMs": [
+  5037,
+  4963,
+  5984,
+  5976,
+  4584,
+  4143,
+  3881,
+  4428,
+  3819,
+  4302,
+  14898,
+  24729,
+  15645,
+  24171,
+  24520
+ ],
+ "environments": [
+  {
+   "initDurationMs": 3641.43,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 588.23,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 3512,
+   "maxMemoryUsedMb": 216.0
+  },
+  {
+   "initDurationMs": 3015.59,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 632.12,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2911,
+   "maxMemoryUsedMb": 235.0
+  },
+  {
+   "initDurationMs": 3486.22,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 658.62,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 3291,
+   "maxMemoryUsedMb": 227.0
+  },
+  {
+   "initDurationMs": 4461.82,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 596.55,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 4305,
+   "maxMemoryUsedMb": 227.0
+  },
+  {
+   "initDurationMs": 4380.78,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 674.24,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 4221,
+   "maxMemoryUsedMb": 218.0
+  },
+  {
+   "initDurationMs": 3235.71,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 650.47,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 3103,
+   "maxMemoryUsedMb": 219.0
+  },
+  {
+   "initDurationMs": 3062.98,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 495.25,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2917,
+   "maxMemoryUsedMb": 233.0
+  },
+  {
+   "initDurationMs": 3421.78,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 608.4,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 3292,
+   "maxMemoryUsedMb": 228.0
+  },
+  {
+   "initDurationMs": 3037.98,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 613.36,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2841,
+   "maxMemoryUsedMb": 221.0
+  },
+  {
+   "initDurationMs": 3502.76,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 634.74,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 3361,
+   "maxMemoryUsedMb": 222.0
+  },
+  {
+   "initDurationMs": 4216.53,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 10464.5,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 4011,
+   "maxMemoryUsedMb": 284.0
+  },
+  {
+   "initDurationMs": 10000.13,
+   "initTimedOut": true,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 14483.79,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 27516,
+   "maxMemoryUsedMb": 237.0
+  },
+  {
+   "initDurationMs": 9999.42,
+   "initTimedOut": true,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 13909.09,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 259.0
+  },
+  {
+   "initDurationMs": 4841.27,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 10516.01,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 4667,
+   "maxMemoryUsedMb": 249.0
+  },
+  {
+   "initDurationMs": 9999.34,
+   "initTimedOut": true,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 14235.58,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 216.0
+  },
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": null,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": null
+  }
+ ],
+ "note": "First run of three rounds. Round 3 hit the database connection limit (see db-connections.json): init waited for Hikari connections (10 s timeout), three inits timed out at the 10 s limit, requests got 502/503."
+}

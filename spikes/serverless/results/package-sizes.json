@@ -1,0 +1,37 @@
+{
+ "measured": "2026-10-28",
+ "containerImage": {
+  "manifestMediaType": "application/vnd.docker.distribution.manifest.v2+json",
+  "ecrImageSizeInBytes": 271267206,
+  "uncompressedFilesystemMiB": 495,
+  "layers": "eclipse-temurin 21 JRE (noble) ~158 MiB, server jars 188,293,903 bytes, Lambda Web Adapter 1.1.0 3,032,920 bytes",
+  "lambdaLimit": "10 GB (uncompressed image)"
+ },
+ "zipPackage": {
+  "functionUnzippedBytes": 188469085,
+  "layerUnzippedBytes": 3033063,
+  "totalUnzippedBytes": 191502148,
+  "functionZippedBytes": 168840605,
+  "layerZippedBytes": 1564870,
+  "lambdaLimit": "250 MB = 262,144,000 bytes unzipped, function and layers together; zipped uploads over 50 MB go through S3",
+  "threePaimonJarsBytes": 126499676
+ },
+ "lambda": {
+  "colvenna-catalog-spike-server": {
+   "packageType": "Image",
+   "codeSize": 0,
+   "architectures": [
+    "arm64"
+   ],
+   "runtime": null
+  },
+  "colvenna-catalog-spike-server-zip": {
+   "packageType": "Zip",
+   "codeSize": 168840605,
+   "architectures": [
+    "arm64"
+   ],
+   "runtime": "java21"
+  }
+ }
+}

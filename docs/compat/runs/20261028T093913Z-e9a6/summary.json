@@ -1,0 +1,8 @@
+{
+  "run": "20261028T093913Z-e9a6",
+  "form": "eks",
+  "outcomes": {
+    "starrocks-4.1.6": "fail"
+  },
+  "cleanup": "PASS"
+}

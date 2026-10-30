@@ -1,0 +1,30 @@
+{{- if .Values.internalLoadBalancer.enabled }}
+{{- $allowed := include "colvenna-catalog.nlbCidrs" . | fromJsonArray }}
+# An internal NLB on the API port only, for clients in the VPC outside the cluster. TCP pass-through:
+# the server terminates TLS. The AWS Load Balancer Controller provisions it (type external), with the
+# pods as targets (ip) and the clients' addresses preserved, so that the NetworkPolicy's ipBlock rule
+# for allowedCidrs is about the clients. Its security group admits the same sources. Health checks
+# come from the NLB's own addresses: install.sh lists them in healthCheckCidrs once the NLB exists.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-nlb
+  labels:
+    {{- include "colvenna-catalog.labels" . | nindent 4 }}
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: external
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internal
+    service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
+spec:
+  type: LoadBalancer
+  loadBalancerSourceRanges:
+    {{- toYaml $allowed | nindent 4 }}
+  selector:
+    {{- include "colvenna-catalog.selector" . | nindent 4 }}
+  ports:
+    - name: https
+      port: 8181
+      targetPort: https
+      protocol: TCP
+{{- end }}

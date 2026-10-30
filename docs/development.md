@@ -1,0 +1,228 @@
+# Development
+
+## Build
+
+```bash
+mvn -B clean verify
+```
+
+This compiles with Error Prone, checks formatting with spotless, and runs the unit tests and the upstream Apache Paimon 2.0.0 contract tests (`ColvennaCatalogContractTest`) against a PostgreSQL in Testcontainers. It needs JDK 21 (`JAVA_HOME` pointing at a 21) and Docker. Judge the build by the `[INFO] BUILD SUCCESS` line, never by `mvn -q` and a grep.
+
+After changing Java code, run `mvn spotless:apply` before committing (`mvn -P serverless-driver spotless:apply` for the test driver, `mvn -f tests/compat/flows/pom.xml spotless:apply` for the compatibility matrix's flows, `mvn -f tests/uat/flows/pom.xml spotless:apply` for the UAT harness's engine flows, `mvn -f tests/uat/paimon/pom.xml spotless:apply` for its Paimon tools, `mvn -f tests/performance/load/pom.xml spotless:apply` for the performance harness's load tool); the build fails on unformatted code.
+
+## The serverless form's settings
+
+The settings the Lambda form sets (the LLD's "配置项" and "无服务器形态") are tested without AWS: `NoDatabaseAtStartTest`, `LockTimeoutTest`, `ResponseLimitTest`, `LambdaListenerTest`, `ServerConfigTest`, and `CognitoDeveloperIdentityTest` with stubbed SDK clients. A test poses as a Lambda execution environment by putting `AWS_LAMBDA_RUNTIME_API` into the settings it gives `TestServers.withSettings`; the server reads nothing else to know its form.
+
+## The admin API's description
+
+[`docs/api/admin-v1.yaml`](api/admin-v1.yaml) describes `/colvenna/admin/v1` in OpenAPI 3.0, and `AdminOpenApiTest` holds it to the server:
+
+- every route of `AdminRoutes` is documented once, under the audit action it records (`x-colvenna-action`), and nothing else is;
+- each documented operation answers 401 without a token and 403 to a service identity, with an audit event of that action; every other method on a documented path is no route;
+- each operation documents the request fields, required fields and query parameters its route reads, as found in `AdminRoutes.resolve`'s source;
+- the request examples are of their schemas; run with them, every operation answers with a documented status and a body of the documented shape, and every write's audit event names a resource, a created principal its own name; the documented defaults hold; leaving out a required field answers 400 naming it.
+
+Change a route, a field or a response together with the description, and with the `curl` examples of [the admin API's manual page](manual/admin-api.md).
+
+## CI
+
+`.github/workflows/ci.yml` runs eight jobs on every pull request and on `main`: `pre-commit` (the hooks in `.pre-commit-config.yaml`, then the tests of the old-name check, `python3 -m unittest discover -s scripts/rename -p 'test_*.py'`, and of the deployment-values check, `python3 -m unittest discover -s scripts/redaction -p 'test_*.py'`), `shellcheck` (`shellcheck -x` on every tracked `*.sh`), `deploy-test` (`python3 -m unittest discover -s tests/deploy`: the deployment scripts' logic, with stub commands for AWS and Kubernetes, `deploy/lib/vpc_check.py` and the maintenance function's loop among them; then `python3 -m unittest discover -s scripts/release -p 'test_*.py'`: the release manifest's schema and validation, the third-party record and the links, see [Licenses](#licenses); then `python3 -m unittest discover -s scripts/security -p 'test_*.py'`: the security scans' listing of what Apache Paimon's jars bundle, and how ASH's false positives are suppressed: no entry of `.ash/.ash.yaml` names a line, the premises of its whole-file entries hold, and each detect-secrets mark gives its reason, see [Security scans](#security-scans)), `aws-test` (`scripts/aws-test.sh`: the CDK project's type check and tests, the chart's tests among them; every stack synthesized with placeholder inputs, the serverless form's network (new and existing), images and serverless stacks among them, so cdk-nag, CDK's template validation and the forbidden-resource guard gate it; and `helm lint`), `verify` (the build above, then `mvn -B -P serverless-driver clean verify`: the serverless live test's driver, `tests/serverless/driver`, compiled with the server's dependencies under the same Error Prone and spotless gates, into `target/serverless-driver/`), `compat-test` (the compatibility matrix offline: its declarations checked, its runner's tests, and its engine flows built; see [`tests/compat/README.md`](../tests/compat/README.md)) and `uat-test` (the UAT harness offline: `tests/uat/uat.py check` holds its cases to the cases document, then its tests, then its engine flows built, `mvn -B -f tests/uat/flows/pom.xml clean verify`, and its Paimon tools, `mvn -B -f tests/uat/paimon/pom.xml clean verify`; see [`tests/uat/README.md`](../tests/uat/README.md)) and `perf-test` (the performance harness offline: `tests/performance/perf.py check` holds its targets to [the performance terms](performance/terms.md), cell by cell, then its tests, then its load tool built, `mvn -B -f tests/performance/load/pom.xml clean verify`; see [`tests/performance/README.md`](../tests/performance/README.md)).
+
+`scripts/install-tools.sh` installs the pinned kubectl, Helm and crane into `.tools/`; the deployment scripts and the chart's tests use them from there. Install the hooks locally with `pre-commit install`, which puts in the commit-msg hook too.
+
+When GitHub Actions cannot run, `scripts/ci-local.sh` runs the same jobs on the current `HEAD`. It refuses to run (exit 2) on a dirty tree, when a tool the jobs need is not on `PATH`, or without a running Docker, and fails (exit 1) if a job fails or leaves changes behind. Run it on the pull request's exact head SHA and paste its output into the pull request; the release notes record CI as waived. It is no substitute for UAT or the performance acceptance.
+
+## Test environments
+
+The compatibility matrix, UAT and installer tests run only in this repository's own test environments: `tests/environment/up.sh <name> <region>` brings one up and `down.sh` takes it down (see [`tests/environment/README.md`](../tests/environment/README.md)). They are never shared with other repositories' environments.
+
+The serverless form needs no cluster: `install.sh` with `COLVENNA_FORM=serverless` and `COLVENNA_NETWORK=create` makes its own VPC. Its live test runs against such an install: `tests/serverless/run.sh <env> <region>` deploys a driver function into the catalog's VPC (`deploy/aws/test-env/driver-stack.ts`; its role has no S3 permission) and runs the Paimon 2.0.0 client's create, commit and read cycle through the private API with per-table credentials, the unauthenticated and unauthorized refusals, and cold starts, then checks from the host that the API is unreachable from outside. Take it down with `tests/serverless/down.sh <env> <region>` before `uninstall.sh --delete-data`; `tests/serverless/verify-clean.sh <env> <region>` then proves nothing of the environment is left.
+
+## Releasing
+
+A release candidate is named `v<major>.<minor>.<patch>-rc.<n>`, `v1.0.0-rc.1` say. It is two things in the release registry, the server's image and its Helm chart, pinned by digest in the candidate's manifest, and the commit they were built from. `release/<candidate>/` holds:
+
+| File | What it is |
+| --- | --- |
+| `manifest.json` | The manifest ([`scripts/release/manifest.py`](../scripts/release/manifest.py) defines it; schema 1). It records the commit the candidate is built from, B (`source.built_from`). It records the image's repository, tag and digest (`linux/amd64`), and the chart's name, version, repository and OCI digest. It records the git objects of the chart directory (`chart.tree`), `install.sh`, `uninstall.sh`, `deploy/lib` and the CDK app (`deploy/aws`). It records the UAT cases document `docs/uat/cases.md` (its commit and blob, or `absent`) and the required cases it lists, and the performance terms `docs/performance/terms.md` (`performance`: its commit and blob, or `absent`), whose targets the candidate's performance acceptance is judged by. Last come the supported configurations: the deployment forms (`eks`, `serverless`, or both) and two or more standard Regions. It names no registry, no account and no identity |
+| `notes.md` | The release notes, from [`release/notes-template.md`](../release/notes-template.md): at the tag, the candidate's identity only. The deliverables' state, the reports and the verdict are added on `main` later, linking immutable versions only |
+
+`python3 scripts/release/manifest.py validate <manifest>` checks a manifest field by field. With `--go`, it also says what the candidate still lacks to be a candidate for GO. A candidate built from a commit without `docs/uat/cases.md` or `docs/performance/terms.md` (`v1.0.0-rc.1` has neither) records them as absent, and the required case set as empty: it can be installed and tried, but it can never be GO. [The UAT cases](uat/cases.md) list the required cases in a table between `<!-- required-cases:start -->` and `<!-- required-cases:end -->` (their section 7), one case ID (`UAT-<AREA>-<nn>`) at the start of each row; `scripts/release/test_uat_cases.py` checks that the table parses and names only cases the document defines. The performance acceptance's scenarios and targets, which the requester confirmed on 2026-10-29, are in [the performance terms](performance/terms.md).
+
+### The release registry
+
+The CDK stack `ColvennaCatalogRelease` ([`deploy/aws/src/release-stack.ts`](../deploy/aws/src/release-stack.ts)) holds two ECR repositories in the maintainer's account:
+
+- `colvenna-catalog-release/colvenna-catalog`: the server's image, tagged `<candidate>`;
+- `colvenna-catalog-release/charts/colvenna-catalog`: the Helm chart as an OCI artifact, tagged with its version, the candidate without its `v` (`1.0.0-rc.1`). The chart directory's own `Chart.yaml` keeps version `0.1.0`; the release packages it with the candidate's version, so each candidate's chart has a tag of its own. The chart directory's git tree (`chart.tree`) says whether two candidates' charts are the same.
+
+Tags never move and nothing is removed: the stack keeps both repositories when it is deleted, has no lifecycle rule, and no environment's install or uninstall touches it (the environment name `release` is reserved). Without pull accounts, there is no repository policy, and only the registry's own account reads it, by IAM. Other accounts are listed in `COLVENNA_RELEASE_PULL_ACCOUNTS` (12-digit IDs). Each repository then gets one statement letting those accounts' IAM principals (`arn:aws:iam::<ACCOUNT_ID>:root`) pull, with `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer` and `ecr:BatchCheckLayerAvailability`. They can never push, delete or list, and the policy is never open to `*`. The CDK tests check both rules for every repository. An installer in a pull account also needs, in its own account, those three actions on the release's repositories and `ecr:GetAuthorizationToken`. That last one can only be granted on `*`, and gives access to no repository by itself.
+
+```bash
+AWS_PROFILE=<profile> scripts/release/deploy-registry.sh                         # us-west-2, no other account
+COLVENNA_RELEASE_PULL_ACCOUNTS=<ACCOUNT_ID>,<ACCOUNT_ID> scripts/release/deploy-registry.sh   # these may pull
+```
+
+Each deploy sets the list anew, from a clean, committed tree; `COLVENNA_RELEASE_REGION` moves the registry to another Region. The registry's address, `<ACCOUNT_ID>.dkr.ecr.<region>.amazonaws.com`, is never written into the repository: the maintainer gives it to whoever installs.
+
+### Making a candidate
+
+1. On B, a clean commit of `main`, make the candidate:
+
+   ```bash
+   AWS_PROFILE=<profile> scripts/release/make-manifest.sh v1.0.0-rc.1
+   ```
+
+   It builds from B exactly (`git archive`). It builds the image for `linux/amd64` (`mvn package`, then `docker buildx`, labelled `org.opencontainers.image.revision=<B>`) and pushes it. For the chart, it copies B's chart directory and sets the copy's `Chart.yaml` to version `1.0.0-rc.1` and appVersion `v1.0.0-rc.1`, adding the annotation `colvenna-catalog/source-commit: <B>`. It packages the copy (`helm package`), checks that the package holds exactly the copy's files, and pushes it (`helm push … oci://<registry>/colvenna-catalog-release/charts`). Then it writes `release/v1.0.0-rc.1/manifest.json`, validated and checked against B. It verifies what it pushed as an install does (see [Verifying a candidate](#verifying-a-candidate)), recording the result in `release.txt` of its evidence, and writes `notes.md`. `RELEASE_REGIONS` (default `us-west-2,us-east-2`) gives the Regions the candidate is accepted in, and `RELEASE_FORMS` (default `eks`) the deployment forms: name `serverless` only for a candidate whose serverless form has passed. A run that stopped can run again: an image already under the tag must carry B's label, and a chart already under the version must hold the same files; otherwise the candidate's name is spent. Evidence, including who ran it, goes to `.state/release/<candidate>/`.
+
+2. Commit the two files alone on top of B, merge that pull request, and tag the merged commit, C:
+
+   ```bash
+   git switch -c release-v1.0.0-rc.1 <B>
+   git add release/v1.0.0-rc.1 && git commit -m "release: v1.0.0-rc.1"
+   # once merged, C is the commit on main that adds only release/v1.0.0-rc.1/ to B
+   git diff --name-only <B> <C>        # only release/v1.0.0-rc.1/manifest.json and notes.md
+   git tag -a v1.0.0-rc.1 -m "v1.0.0-rc.1: built from <B>" <C>
+   git push origin v1.0.0-rc.1
+   ```
+
+   This pull request is the one exception to [Delivering a change](#delivering-a-change): its branch is `release-<candidate>`, not an issue's, and it is never rebased. Between B and that merge, nothing else may be merged into `main`. C must differ from B under `release/v1.0.0-rc.1/` alone, or `install.sh --release` refuses the tag and the candidate must be made again from the new `main`.
+
+### Installing a candidate
+
+From a checkout of the tag, with `COLVENNA_RELEASE_REGISTRY=<ACCOUNT_ID>.dkr.ecr.<region>.amazonaws.com` in the install's configuration:
+
+```bash
+git checkout v1.0.0-rc.1
+AWS_PROFILE=<profile> ./install.sh --config deploy/config/<env>.env --release v1.0.0-rc.1
+```
+
+Before it changes anything, `install.sh --release` checks:
+
+- the tree is clean;
+- the tree differs from B under `release/<candidate>/` alone;
+- the manifest is valid and pins the tree's own git objects;
+- the release registry holds the image and the chart by digest. It reads them with `ecr:BatchGetImage`, as a pull account does;
+- the image and the chart are B's (see [Verifying a candidate](#verifying-a-candidate));
+- the candidate is accepted in the configuration's form (`COLVENNA_FORM` is in its manifest's `configurations.forms`).
+
+These run before anything about the cluster is checked. Any one failing refuses the install (exit 3). It then installs as from source, but builds nothing. It installs the CDK app's packages afresh with `npm ci` from the tag's lockfile: `deploy/aws/node_modules` is git-ignored, so the one an earlier checkout left could otherwise stand in for the release's. It copies the image by digest (`crane copy`) into the environment's own repository, tagged `<candidate>`; a tag holding another digest is never moved. It pulls the chart by digest (`helm pull oci://<registry>/colvenna-catalog-release/charts/colvenna-catalog@<digest>`) and installs that package with the copied image. The pods carry the candidate's name (`colvenna-catalog/release`) beside B (`colvenna-catalog/source-sha`); the stacks carry B as their `SourceSha` tag. The serverless form takes the same image: Lambda runs container images only from an ECR repository of its own account and Region, so the image is copied by digest into the environment's repository (the images stack's), and the functions run that digest. Its chart is verified like the image, and not installed.
+
+Any registry holding the same digests can serve as `COLVENNA_RELEASE_REGISTRY`. Another project that runs the chart itself, Colvenna Lake for one, takes both by digest from the manifest:
+
+```bash
+crane copy <registry>/colvenna-catalog-release/colvenna-catalog@<image.digest> <its own repository>:<candidate>
+helm pull oci://<registry>/colvenna-catalog-release/charts/colvenna-catalog@<chart.digest>
+```
+
+It then sets the chart's `image.repository` (its own copy) and `image.digest` (`image.digest`), as `install.sh` does.
+
+### Verifying a candidate
+
+The digests in the manifest say what to fetch; the image's label and the chart's annotation say which commit it was made from. From a clean checkout of the tag:
+
+```bash
+COLVENNA_RELEASE_REGISTRY=<ACCOUNT_ID>.dkr.ecr.<region>.amazonaws.com scripts/release/verify-artifacts.sh v1.0.0-rc.1
+```
+
+It makes the checks `install.sh --release` makes before it installs, with the same functions (`deploy/lib/release.sh`), and installs nothing; exit 3 names what is not the candidate's:
+
+- the checkout is the tag's, as above;
+- the image, read by `image.digest`, carries the label `org.opencontainers.image.revision` = `source.built_from` (B), and is for `linux/amd64`;
+- the chart, pulled by `chart.digest`, has the manifest's version, and is annotated `colvenna-catalog/source-commit` = B;
+- the chart holds exactly B's `deploy/helm/colvenna-catalog` (git tree `chart.tree`) as a release packages it. Only `Chart.yaml`'s version, appVersion and that annotation differ. So `chart.digest` is `chart.tree`'s.
+
+By hand, with crane and Helm logged into the registry, the two labels are:
+
+```bash
+crane config <registry>/colvenna-catalog-release/colvenna-catalog@<image.digest> \
+  | jq -r '.config.Labels["org.opencontainers.image.revision"]'                 # = source.built_from
+helm show chart oci://<registry>/colvenna-catalog-release/charts/colvenna-catalog@<chart.digest> \
+  | grep 'colvenna-catalog/source-commit'                                       # = source.built_from
+```
+
+### Trial candidates
+
+A trial of the tooling uses a name no real candidate will take, `v0.0.0-rc.<n>`. Its manifest is never committed to `main`, and it is removed from the registry afterwards, by tag (the chart's tag is its version):
+
+```bash
+python3 scripts/release/manifest.py names v0.0.0-rc.1 | while IFS=$'\t' read -r _ repository tag; do
+  aws ecr batch-delete-image --region "${COLVENNA_RELEASE_REGION:-us-west-2}" --repository-name "$repository" \
+    --image-ids "imageTag=$tag"
+done
+```
+
+### What is not proven yet
+
+- Cross-account pulls. There is one AWS account so far. That another account can pull and cannot push rests on the repository policy's text (read back after a deploy) and on the CDK tests. No second account has pulled a candidate, and no push from a pull account has been tried.
+- `make-manifest.sh`'s rerun path has run against the registry once, on a trial candidate whose image and chart were both already pushed: it kept both, rebuilt nothing, and wrote the same manifest. A rerun after a run that stopped between the two pushes has not been tried.
+- The serverless form's `install.sh --release`: the image copied by digest into the environment's repository for Lambda. It is covered by the offline tests (`tests/deploy`) and the CDK tests; no candidate has been installed in the serverless form yet. UAT-DEP-01 runs it live ([UAT cases](uat/cases.md), #21).
+- The serverless form with `COLVENNA_NETWORK=existing`: the user's VPC, endpoints and database taken as given, as the preflight (`deploy/lib/vpc_check.py`) judges them. Only offline tests so far; the live installs used `COLVENNA_NETWORK=create`. UAT-DEP-02 runs it live ([UAT cases](uat/cases.md), #21).
+- The EKS form's restore of the metadata database onto a new instance ([user manual](manual/user.md#62-restoring), section 6.2): the restored instance's preflight, the guards against moving the install off its database, and `uninstall.sh --delete-data`'s refusal while the restored instance is there are covered by the offline tests; UAT-DEP-10 runs it live ([UAT cases](uat/cases.md), #21). The database refusals that need a database set up wrong (publicly accessible, `rds.force_ssl=0`) and an Aurora cluster are offline only.
+
+## Licenses
+
+[NOTICE](../NOTICE) carries the attributions the repository and the server's image owe. [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) records every third-party component with its license, and the findings. Three of its tables are the license scan's:
+
+```bash
+python3 scripts/release/licenses.py scan            # compares the record with a fresh scan; exit 1 on a difference
+python3 scripts/release/licenses.py scan --update   # rewrites the three tables and the pom stamp from the scan
+```
+
+The scan needs Maven, JDK 21 and Maven Central. It resolves the server's runtime dependencies, the jars `mvn package` copies into `target/lib/` and the Dockerfile into the image, with the licenses their POMs declare (license-maven-plugin 2.5.0). It reads what each of those jars says it bundles (its `META-INF/NOTICE`, the license files it keeps for bundled projects, and the `pom.properties` of other projects it keeps), and the CDK app's lockfile. The raw results go to `.state/licenses/<time>/`. After `--update`, review the diff and the record's findings, and add to NOTICE any new component whose own notice asks for attribution.
+
+The server's image, which both forms run, keeps `LICENSE`, `NOTICE` and `THIRD_PARTY_NOTICES.md` in `/licenses/`, and in `/licenses/third-party/` the license texts of what it carries without a license file of its own. Those texts are in [`licenses/`](../licenses/), verbatim as their projects publish them, and the record's fourth table, "License texts in the image", says which component each is for. That table is kept by hand. The scan fails while a jar it finds without a license or notice file has no row there, so a new such jar needs its text in `licenses/` and its row, with the text's source. A built image is checked with:
+
+```bash
+python3 scripts/release/licenses.py image <image>    # exit 1 unless its /licenses/ is the record's and the tree's
+```
+
+`scripts/security/scan.sh` runs this on the image it builds.
+
+The offline tests in `scripts/release/` (the `deploy-test` job) hold the record to the tree:
+
+- the scan was made at the current `pom.xml` (the java table's marker holds its git blob), and every dependency `pom.xml` declares is in that table;
+- the npm table is the lockfile;
+- every image pinned by digest, every Dockerfile's `FROM`, every tool `scripts/install-tools.sh` downloads, the test environments' AWS Load Balancer Controller and every `pip install` pin is named;
+- the Dockerfile copies into `/licenses/` exactly `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md` and the texts the texts table names, and the server's stage takes them; each row of that table is a jar of the java table, at its version and license, or an image the Dockerfile copies from, with a text of every license it may be taken under; its jars are those the findings name.
+
+So a change to `pom.xml`, the lockfile or a pin fails CI until the record follows it. The same tests check that no tracked file links to another repository of the series, which are private until each goes public, and that every relative link of the Markdown files resolves. Three places are not checked: the executed plans in `docs/superpowers/plans/`, kept with the names of their time (one of them holds a URL template, not a link, to Colvenna Lake's repository; see the [rename record](rename.md#例外)); `docs/rename.md`, which names this repository's former name; and the `v1.0.0-rc.1` manifest, released with the repository's address before it moved to the colvenna organization. A link to this repository at the address of the clone's origin is its own: until the move, the documents link its issues there. The owner of the address the `v1.0.0-rc.1` manifest records is one of the series' too, so that once the repository has moved, a link to its old address, or to another repository of that owner, is found.
+
+## Security scans
+
+`ASH_REPO=<ash-repo> scripts/security/scan.sh <out dir>` (`<ash-repo>`: a clone of ASH at its tag `v3.5.4`) runs every security scan on `HEAD` and keeps the raw results outside the repository: ASH over the tracked tree, Trivy over the tree and the chart, the server's image (Trivy and grype), what Apache Paimon's jars bundle, cdk-nag's report of every synthesis, and the license listings. [`docs/security/scans.md`](security/scans.md) says what each scan covers and cannot see, how a finding is handled (fixed; suppressed in `.ash/.ash.yaml` or `.trivyignore.yaml` only when it is a verified false positive, with its reason; otherwise left visible and handled in the record), and holds the current baseline. A candidate's scans run on B, and their record is `docs/security/<candidate>.md`, which the release notes link.
+
+## Delivering a change
+
+[CONTRIBUTING.md](../CONTRIBUTING.md) has these steps with their commands, and the rules every change follows.
+
+1. Every change starts from an issue.
+2. Work in a dedicated worktree, `.worktrees/issue-<n>-<slug>`, on the branch `codex/issue-<n>-<slug>`; never commit on `main`.
+3. Open one pull request for the issue, with the validation it ran.
+4. Review, and CI (or `scripts/ci-local.sh` on the exact SHA), must pass on a branch rebased onto the current `main`.
+5. Merge that exact SHA, then remove the worktree and the branch.
+
+The one exception is a release candidate's pull request ([Making a candidate](#making-a-candidate)). Its commit adds `release/<candidate>/` to B, the commit the candidate's image and chart were built from, and nothing else, because `install.sh --release` refuses a tag that differs from B anywhere else. So it is on a `release-<candidate>` branch made at B, it is not rebased onto a newer `main`, and nothing else merges before it. CI ran on B.
+
+## Porting fixes from Colvenna Lake
+
+This repository is the only place colvenna-catalog is developed. Until Colvenna Lake finishes its current release, Colvenna Lake changes its own copy of `colvenna-catalog/` only for problems that block that release, and every such fix is ported here. A ported commit carries the line `Ported-from: colvenna-lake@<full sha>`.
+
+Colvenna Lake's operator, CLI and console call this server over HTTP, and Colvenna Lake will run this repository's release instead of its own copy. So the server keeps Colvenna Lake's contract exactly: the management API under `/colvenna/admin/v1`, `colvenna_` tokens, the `colvenna_catalog_*` metrics, the `COLVENNA_*` settings, and the migration chain (`V1`, `V2`, ...) with its `colvenna_schema_version` table.
+
+## The old name
+
+The product's former name and identifiers (see the [README](../README.md)) stay gone. The pre-commit hook `old-name` ([`scripts/rename/old_name.py`](../scripts/rename/old_name.py), Colvenna Lake's check) refuses them in any tracked file's text or path, including a hexadecimal literal that spells the name, except on the lines [`scripts/rename/exceptions.tsv`](../scripts/rename/exceptions.tsv) allows, each with its reason: only the naming history, the import's provenance, the plans executed before the rename, the rename record, the serverless spike's raw results, and the check's own files. `python3 scripts/rename/old_name.py --all` checks every tracked file. Ordinary words that start the same way (cover, recover, discover) are not hits.
+
+## Placeholders only
+
+Documents, issues, pull requests and commit messages use placeholders (`<ACCOUNT_ID>`, `example.com`, `<ARN>`) instead of account IDs, ARNs, real domains or internal addresses. Values for a real deployment live only in local, git-ignored configuration.
+
+The pre-commit hooks `deployment-values` and `deployment-values-in-commit-message` ([`scripts/redaction/redaction.py`](../scripts/redaction/redaction.py), Colvenna Lake's check, #99) refuse them in every text file and in the commit message. What to look for comes from local files only, never from the repository, not even as a hash: the deployment's own settings of every `deploy/config/<env>.env` in every worktree of the clone (the account, bucket, database endpoint and admin secret, release registry, VPC, subnets and API endpoints; not the environment's name, which the tests use as fixtures), and `.state/redaction-values`, one value a line, for what no configuration holds, such as the maintainers' domains and the role and instance that ran an install. Whatever the values, it also refuses:
+
+- a 12-digit number, an account ID's form, that is neither AWS's documentation example nor a synthetic one of the tests (`123456789012`, `111122223333`, `444455556666`, `210987654321`, `777788889999`) nor AWS's own, outside a UUID; an ARN or ECR registry of such an account;
+- an internal IPv4 address or `ip-10-…` host name that is not a CIDR;
+- a public IPv4 address outside the documentation ranges (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`), with or without a prefix length.
+
+A test line whose made-up account, ARN or internal address is the point (a check that refuses it, a sanitizer that redacts it) says `redaction: allow` and why, which never spares a local value. Only [`scripts/redaction/public-addresses.tsv`](../scripts/redaction/public-addresses.tsv) allows a public address, by file and address, each with its reason: versions and section numbers that read as addresses. `python3 scripts/redaction/redaction.py --all` checks every tracked file.

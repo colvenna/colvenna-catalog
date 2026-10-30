@@ -1,0 +1,30 @@
+{
+ "measured": "2026-10-28, driver inside the spike VPC, through the private REST API; second run (the table existed, snapshot 1 to 2)",
+ "result": {
+  "tablePathShape": "spikedb.db/t1",
+  "loadSnapshotBefore": {
+   "status": 200,
+   "ms": 76,
+   "body": "{\"snapshot\":{\"snapshot\":{\"version\":3,\"uuid\":\"0df59df5-2ece-4324-8b37-cde1748bbee1\",\"id\":1,\"schemaId\":0,\"baseManifestList"
+  },
+  "commit": {
+   "status": 200,
+   "ms": 279,
+   "body": "{\"success\":true}"
+  },
+  "loadSnapshotAfter": {
+   "status": 200,
+   "ms": 76,
+   "body": "{\"snapshot\":{\"snapshot\":{\"version\":3,\"uuid\":\"5bc56661-ce9d-4e98-ba66-c9a854f05b9e\",\"id\":2,\"schemaId\":0,\"baseManifestList\":\"manifest-list-54549922-8fdf-4125-a41b"
+  },
+  "pointer": {
+   "snapshotId": 2,
+   "snapshotUuid": "5bc56661-ce9d-4e98-ba66-c9a854f05b9e"
+  },
+  "listTables": {
+   "status": 200,
+   "ms": 54,
+   "body": "{\"tables\":[\"t1\"],\"nextPageToken\":null}"
+  }
+ }
+}

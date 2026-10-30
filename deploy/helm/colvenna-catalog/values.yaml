@@ -1,0 +1,111 @@
+# Image pinned by digest; install.sh fills it from the release (or the build) it installs.
+image:
+  repository: ""
+  digest: ""
+
+replicas: 2
+# true: a replica never joins another on a node while some eligible node (one the node selector
+# allows) holds none, even if that node accepts no pods for now (cordoned for a drain, say); the
+# replica waits instead. Nor while fewer eligible nodes exist than the chart keeps the replicas
+# apart across, min(replicas, eligibleNodes) (a lost node not replaced yet): the scheduler counts
+# only the nodes there are, and never moves a running pod, so a replica placed beside the other then
+# would stay there once the node is back. false: spreading is only preferred, and a replica shares a
+# node rather than wait. With fewer eligible nodes than replicas, both spread as evenly as the nodes
+# allow.
+spreadAcrossNodes: true
+# How many nodes the node selector allows; install.sh counts them. With one, every replica runs on it.
+eligibleNodes: 2
+
+# Kubernetes identity; the IRSA role is the EKS stack's ServerRoleArn.
+serviceAccount:
+  name: colvenna-catalog
+  roleArn: ""
+
+# Grants count only in the environment they were made for (COLVENNA_ENVIRONMENT); install.sh sets it
+# to the install's COLVENNA_ENV.
+environment: dev
+
+warehouse:
+  # Name clients pass as `warehouse`; also the REST path prefix.
+  name: colvenna
+  # Managed area, e.g. s3://<bucket>/warehouse
+  root: ""
+
+# The environment's AWS region; install.sh sets it (COLVENNA_REGION).
+region: ""
+
+database:
+  # JDBC URL of the metadata database; credentials come from databaseSecret.
+  url: ""
+  poolSize: 16
+  auxPoolSize: 4
+# Secret with keys `username` and `password`.
+databaseSecret: colvenna-catalog-db  # pragma: allowlist secret - the Secret's name, not a value
+# ConfigMap with key `ca.pem`: CA bundle the JDBC URL's sslrootcert points at
+# (/etc/colvenna-catalog/db-ca/ca.pem). Empty to mount nothing.
+databaseCaConfigMap: ""
+
+# Secret with keys `keystore.p12` and `password` for the HTTPS port.
+tlsSecret: colvenna-catalog-tls  # pragma: allowlist secret - the Secret's name, not a value
+
+# Per-table data credentials: `disabled`, or `aws-sts` to assume dataTokens.roleArn
+# (the EKS stack's DataRoleArn) with a session policy limited to the table root.
+dataTokens:
+  mode: disabled
+  roleArn: ""
+  # ISO-8601, between PT1H30M and PT12H.
+  duration: PT3H
+
+# Extra server-side FileIO options as k=v pairs.
+fileIoOptions: {}
+
+# Options forced on every client through /v1/config.
+clientOverrides: {}
+
+# How a replica stops, as when a rolling update replaces it (#64). Kubernetes takes a terminating pod
+# out of the Service's endpoints at the same time as it starts to stop the pod, and every node's
+# Service rules follow a moment later: until they do, new connections may still reach the pod.
+shutdown:
+  # The preStop hook waits this long before the server is told to stop (SIGTERM); the server serves as
+  # usual meanwhile, so connections that still reach it are answered.
+  preStopSeconds: 15
+  # Then the server fails its readiness, closes each connection after its answer (clients reconnect,
+  # to the other replicas), and goes on taking new connections this long (COLVENNA_SHUTDOWN_DRAIN).
+  drainSeconds: 5
+  # Then it stops taking connections and gives requests in flight up to this long to finish
+  # (COLVENNA_SHUTDOWN_TIMEOUT). The pod's terminationGracePeriodSeconds is the three, plus 10.
+  timeoutSeconds: 20
+
+podAnnotations: {}
+
+nodeSelector: {}
+tolerations: []
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+
+# Namespaces whose pods may call the API port carry this label.
+clientNamespaceLabel:
+  key: colvenna-catalog/client
+  value: "true"
+
+# Pods in namespaces with this label may scrape the metrics port.
+metricsClientLabel: colvenna-catalog/monitoring
+
+# An internal Network Load Balancer on the API port, for clients in the VPC outside the cluster
+# (EMR, say). TCP pass-through: the server still terminates TLS, so its certificate must name the
+# load balancer's DNS name. Needs the AWS Load Balancer Controller in the cluster. The clients'
+# addresses are preserved; the NLB's security group and the NetworkPolicy admit allowedCidrs to the
+# API port. They must be listed, each with a prefix longer than 0, and must hold no pod address (with
+# the VPC CNI, pods take theirs from the nodes' subnets): an ipBlock over them admits every pod there. healthCheckCidrs are the NLB's own
+# addresses (one per subnet, /32 or /128), which its health checks come from; install.sh fills them
+# in once the NLB exists.
+internalLoadBalancer:
+  enabled: false
+  allowedCidrs: []
+  healthCheckCidrs: []

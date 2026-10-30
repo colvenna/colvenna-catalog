@@ -1,0 +1,16 @@
+{
+  "config": {
+    "default": true,
+    // 中文段落不折行是仓库惯例
+    "MD013": false,
+    // front matter 的 title 与正文一级标题并存是仓库惯例，不算两个一级标题
+    "MD025": { "front_matter_title": "" },
+    // README 顶部品牌区用 HTML 排版 logo（按深浅色模式切换）、简介与徽章
+    "MD033": { "allowed_elements": ["p", "img", "a", "picture", "source", "strong"] },
+    // 首个标题前允许有前置内容；README 以横向标志代替一级标题，另在该文件内关闭 MD041
+    "MD041": { "allow_preamble": true }
+  },
+  // 手动全量运行 markdownlint-cli2 "**/*.md" 时跳过 .gitignore 忽略的文件；
+  // pre-commit 与 CI 只传入 git 跟踪的文件，不受此项影响
+  "gitignore": true
+}

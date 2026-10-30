@@ -1,0 +1,53 @@
+## Outside the VPC (the maintainer's host, another region's VPC), 2026-10-28
+### 1. The private API's hostname from outside the spike VPC
+$ curl https://<api-id>.execute-api.us-west-2.amazonaws.com/spike/v1/config
+curl: (6) Could not resolve host: <api-id>.execute-api.us-west-2.amazonaws.com
+http_status=000
+$ dig +short <api-id>.execute-api.us-west-2.amazonaws.com
+### 2. Lambda Function URLs of every spike function
+colvenna-catalog-spike-cred-probe-vpc: 0 URL configs
+colvenna-catalog-spike-server: 0 URL configs
+colvenna-catalog-spike-cred-probe: 0 URL configs
+colvenna-catalog-spike-authorizer: 0 URL configs
+colvenna-catalog-spike-driver: 0 URL configs
+### 3. Unauthenticated Cognito identity (unsigned GetId)
+
+aws: [ERROR]: An error occurred (NotAuthorizedException) when calling the GetId operation: Unauthenticated access is not supported for this identity pool.
+### 4. Unsigned GetOpenIdTokenForDeveloperIdentity
+
+aws: [ERROR]: An error occurred (MissingAuthenticationTokenException) when calling the GetOpenIdTokenForDeveloperIdentity operation: Missing Authentication Token
+### 5. Anonymous S3 read of the spike bucket
+list: http_status=403
+get: http_status=403
+### 6. Identity pool configuration
+{
+    "AllowUnauthenticatedIdentities": false,
+    "AllowClassicFlow": false,
+    "DeveloperProviderName": "colvenna-catalog-spike.catalog",
+    "SupportedLoginProviders": null,
+    "CognitoIdentityProviders": null,
+    "OpenIdConnectProviderARNs": null,
+    "SamlProviderARNs": null
+}
+roles attached: null
+### 7. API endpoint configuration and policy
+{
+    "endpointTypes": [
+        "PRIVATE"
+    ],
+    "policy": "{\\\"Version\\\":\\\"2012-10-17\\\",\\\"Statement\\\":[{\\\"Sid\\\":\\\"OnlyThroughTheSpikeEndpoint\\\",\\\"Effect\\\":\\\"Allow\\\",\\\"Principal\\\":\\\"*\\\",\\\"Action\\\":\\\"execute-api:Invoke\\\",\\\"Resource\\\":\\\"<ARN>\\/*\\\",\\\"Condition\\\":{\\\"StringEquals\\\":{\\\"aws:SourceVpce\\\":\\\"<vpce-id>\\\"}}},{\\\"Sid\\\":\\\"DenyEverythingElse\\\",\\\"Effect\\\":\\\"Deny\\\",\\\"Principal\\\":\\\"*\\\",\\\"Action\\\":\\\"execute-api:Invoke\\\",\\\"Resource\\\":\\\"<ARN>\\/*\\\",\\\"Condition\\\":{\\\"StringNotEquals\\\":{\\\"aws:SourceVpce\\\":\\\"<vpce-id>\\\"}}}]}"
+}
+[
+    {
+        "type": "REQUEST",
+        "identitySource": "method.request.header.Authorization",
+        "ttl": 30
+    }
+]
+/ []
+/{proxy+} ['ANY']
+{
+    "authorizationType": "CUSTOM",
+    "integrationType": "AWS_PROXY",
+    "timeoutMs": 29000
+}

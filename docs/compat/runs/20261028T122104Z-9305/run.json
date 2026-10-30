@@ -1,0 +1,57 @@
+{
+  "run": "20261028T122104Z-9305",
+  "form": "eks",
+  "backend": "kubernetes",
+  "region": "us-west-2",
+  "catalog": "colvenna-catalog from source d988467c547a, install.sh on EKS 1.36",
+  "started": "2026-10-28T12:21:04.251443+00:00",
+  "finished": "2026-10-28T12:27:09.522664+00:00",
+  "matrixCommit": "404d7ec57ce5f00632a5b8b034aae064dacc4e43",
+  "matrixTreeDirty": false,
+  "cellsSha256": "64d158a1b00642589bbbf60c1fdfe89ba5af66e9223f3e3610b10084e08d923f",
+  "declaredSha256": "f0ec9806c3abd959b7f6679a4efce7cd93dcbdb178bc316d788dd28f75654858",
+  "dataTokens": true,
+  "databasePrefix": "compat_20261028122104_9305_",
+  "serverLog": "kubectl",
+  "cells": [
+    "doris-4.1.5",
+    "starrocks-4.1.6"
+  ],
+  "engineIdentity": "pods of the namespace's default service account (no IRSA role, no service account token): the node's own role is all they could reach",
+  "fixture": {
+    "writer": "spark-3.5-paimon-2.0.0",
+    "database": "compat_20261028122104_9305_fixture",
+    "tables": [
+      "pk",
+      "pk-dv",
+      "append"
+    ],
+    "writes": {
+      "pk": "3 writes committed (insert ids 1..100, upsert ids 91..110, delete ids 1..5); 3 snapshots",
+      "pk-dv": "4 writes committed (insert ids 1..100, upsert ids 91..110, delete ids 1..5, insert ids 111..120, left uncompacted); 7 snapshots; 2 deletion vector index files, 2 level-0 files",
+      "append": "2 writes committed (insert ids 1..100, insert ids 91..110); 2 snapshots"
+    },
+    "ownIdentityProbe": {
+      "pk": [
+        "PASS",
+        "the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"
+      ],
+      "pk-dv": [
+        "PASS",
+        "the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"
+      ],
+      "append": [
+        "PASS",
+        "the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"
+      ]
+    }
+  },
+  "cleanup": {
+    "status": "PASS",
+    "dropped": [
+      "compat_20261028122104_9305_fixture"
+    ],
+    "remaining": []
+  },
+  "completed": true
+}

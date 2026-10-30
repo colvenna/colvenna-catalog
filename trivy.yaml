@@ -1,0 +1,16 @@
+# Trivy's settings for a scan of this repository (#18): `trivy fs .` from the root of a clean export of
+# the tree (git archive), never of a working copy with build outputs. docs/security/scans.md has the
+# whole procedure. The chart is rendered with the values the server requires (as scripts/aws-test.sh
+# lints it) and the internal NLB on, so that every template is in the scan.
+ignorefile: .trivyignore.yaml
+misconfiguration:
+  helm:
+    set:
+      - image.repository=r
+      - image.digest=sha256:0
+      - warehouse.root=s3://bucket/warehouse
+      - region=us-west-2
+      - database.url=jdbc:postgresql://db/colvenna_catalog
+      - serviceAccount.roleArn=arn:aws:iam::111122223333:role/r
+      - internalLoadBalancer.enabled=true
+      - internalLoadBalancer.allowedCidrs={10.0.0.0/16}

@@ -1,0 +1,167 @@
+{
+ "measured": "2026-10-28, driver inside the spike VPC, through the private REST API to the container-image server function ($LATEST, 2048 MB). createDatabase bodies are padded with one option value of x characters (no JSON escaping); commit bodies are the Paimon 2.0.0 commit template with N partition statistics (dt=2026-NNNNN), as the client sends them.",
+ "result": {
+  "createDatabase": [
+   {
+    "bodyBytes": 1000000,
+    "status": 200,
+    "ms": 878,
+    "response": "",
+    "databaseExistsAfter": 200
+   },
+   {
+    "bodyBytes": 5000000,
+    "status": 200,
+    "ms": 744,
+    "response": "",
+    "databaseExistsAfter": 200
+   },
+   {
+    "bodyBytes": 5800000,
+    "status": 200,
+    "ms": 612,
+    "response": "",
+    "databaseExistsAfter": 200
+   },
+   {
+    "bodyBytes": 6100000,
+    "status": 200,
+    "ms": 482,
+    "response": "",
+    "databaseExistsAfter": 200
+   },
+   {
+    "bodyBytes": 6400000,
+    "status": 413,
+    "ms": 285,
+    "response": "{\"message\": \"Request Too Long\"}",
+    "databaseExistsAfter": 404
+   },
+   {
+    "bodyBytes": 9000000,
+    "status": 413,
+    "ms": 212,
+    "response": "{\"message\": \"Request Too Long\"}",
+    "databaseExistsAfter": 404
+   },
+   {
+    "bodyBytes": 10400000,
+    "status": 413,
+    "ms": 213,
+    "response": "{\"message\": \"Request Too Long\"}",
+    "databaseExistsAfter": 404
+   },
+   {
+    "bodyBytes": 11000000,
+    "status": 413,
+    "ms": 124,
+    "response": "HTTP content length exceeded 10485760 bytes.",
+    "databaseExistsAfter": 404
+   }
+  ],
+  "commit": [
+   {
+    "partitions": 10000,
+    "bodyBytes": 1360582,
+    "bodyBytesInEvent": 1520634,
+    "status": 200,
+    "ms": 2169,
+    "response": "{\"success\":true}",
+    "pointerBefore": {
+     "snapshotId": null,
+     "snapshotUuid": null
+    },
+    "pointerAfter": {
+     "snapshotId": 1,
+     "snapshotUuid": "8982c60f-7a9b-4a1e-b475-43afae53cce9"
+    },
+    "intents": 1
+   },
+   {
+    "partitions": 36000,
+    "bodyBytes": 4896616,
+    "bodyBytesInEvent": 5472670,
+    "status": 200,
+    "ms": 1284,
+    "response": "{\"success\":true}",
+    "pointerBefore": {
+     "snapshotId": 1,
+     "snapshotUuid": "8982c60f-7a9b-4a1e-b475-43afae53cce9"
+    },
+    "pointerAfter": {
+     "snapshotId": 2,
+     "snapshotUuid": "d09e0c4b-f185-4125-a7b8-159d93ed467b"
+    },
+    "intents": 2
+   },
+   {
+    "partitions": 40000,
+    "bodyBytes": 5440616,
+    "bodyBytesInEvent": 6080670,
+    "status": 200,
+    "ms": 876,
+    "response": "{\"success\":true}",
+    "pointerBefore": {
+     "snapshotId": 2,
+     "snapshotUuid": "d09e0c4b-f185-4125-a7b8-159d93ed467b"
+    },
+    "pointerAfter": {
+     "snapshotId": 3,
+     "snapshotUuid": "6cb206c1-ad04-44c6-9a04-3c41ed5cfd46"
+    },
+    "intents": 3
+   },
+   {
+    "partitions": 41000,
+    "bodyBytes": 5576616,
+    "bodyBytesInEvent": 6232670,
+    "status": 200,
+    "ms": 602,
+    "response": "{\"success\":true}",
+    "pointerBefore": {
+     "snapshotId": 3,
+     "snapshotUuid": "6cb206c1-ad04-44c6-9a04-3c41ed5cfd46"
+    },
+    "pointerAfter": {
+     "snapshotId": 4,
+     "snapshotUuid": "f092eaf3-7354-4e1a-b6a4-77ebbe765dba"
+    },
+    "intents": 4
+   },
+   {
+    "partitions": 42000,
+    "bodyBytes": 5712616,
+    "bodyBytesInEvent": 6384670,
+    "status": 413,
+    "ms": 224,
+    "response": "{\"message\": \"Request Too Long\"}",
+    "pointerBefore": {
+     "snapshotId": 4,
+     "snapshotUuid": "f092eaf3-7354-4e1a-b6a4-77ebbe765dba"
+    },
+    "pointerAfter": {
+     "snapshotId": 4,
+     "snapshotUuid": "f092eaf3-7354-4e1a-b6a4-77ebbe765dba"
+    },
+    "intents": 4
+   },
+   {
+    "partitions": 46000,
+    "bodyBytes": 6256616,
+    "bodyBytesInEvent": 6992670,
+    "status": 413,
+    "ms": 243,
+    "response": "{\"message\": \"Request Too Long\"}",
+    "pointerBefore": {
+     "snapshotId": 4,
+     "snapshotUuid": "f092eaf3-7354-4e1a-b6a4-77ebbe765dba"
+    },
+    "pointerAfter": {
+     "snapshotId": 4,
+     "snapshotUuid": "f092eaf3-7354-4e1a-b6a4-77ebbe765dba"
+    },
+    "intents": 4
+   }
+  ]
+ }
+}

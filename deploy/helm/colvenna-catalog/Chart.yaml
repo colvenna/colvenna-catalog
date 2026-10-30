@@ -1,0 +1,6 @@
+apiVersion: v2
+name: colvenna-catalog
+description: A REST catalog server for Apache Paimon, backed by PostgreSQL.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -1,0 +1,3 @@
+# The license texts the server's image carries (licenses/) are kept verbatim, as their projects
+# publish them, trailing spaces and all (#50).
+licenses/** -whitespace

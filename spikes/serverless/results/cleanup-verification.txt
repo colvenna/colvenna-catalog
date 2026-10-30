@@ -1,0 +1,21 @@
+Cleanup verification, us-west-2, 2026-10-28T04:36:53Z, after destroy.sh (stack deleted 04:33 UTC):
+ok    tagged resources (Project=colvenna-catalog-spike): none
+note  the tagging index still lists 8 VPC endpoint(s) that no longer exist (DescribeVpcEndpoints: not found)
+ok    CloudFormation stack: none
+ok    Lambda functions: none
+ok    Lambda function URLs (never created): none
+ok    Lambda layers: none
+ok    API Gateway REST APIs: none
+ok    Cognito identity pools: none
+ok    IAM roles: none
+ok    RDS instances: none
+ok    RDS snapshots: none
+ok    RDS automated backups: none
+ok    RDS subnet groups: none
+ok    VPCs: none
+ok    VPC endpoints: none
+ok    security groups: none
+ok    network interfaces of spike security groups: none
+ok    ECR repositories: none
+ok    S3 buckets: none
+ok    log groups: none

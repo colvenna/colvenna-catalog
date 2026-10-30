@@ -1,0 +1,15 @@
+<!-- The driver's logging: never DEBUG, at which the Paimon client's HTTP wire log would print the
+     bearer token into the function's log group. -->
+<configuration>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSX} %-5level [%thread] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+  <logger name="org.apache.paimon" level="WARN"/>
+  <logger name="org.apache.hadoop" level="WARN"/>
+  <logger name="software.amazon.awssdk" level="WARN"/>
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+  </root>
+</configuration>

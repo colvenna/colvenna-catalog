@@ -1,0 +1,55 @@
+{
+ "measured": "2026-10-28, driver Lambda inside the spike VPC, through the private REST API (execute-api endpoint, REQUEST authorizer)",
+ "cases": {
+  "noAuthorizationHeader": {
+   "status": 401,
+   "ms": 17,
+   "body": "{\"message\":\"Unauthorized\"}"
+  },
+  "unknownBearerToken": {
+   "status": 401,
+   "ms": 44,
+   "body": "{\"message\":\"Unauthorized\"}"
+  },
+  "basicScheme": {
+   "status": 401,
+   "ms": 42,
+   "body": "{\"message\":\"Unauthorized\"}"
+  },
+  "emptyBearer": {
+   "status": 401,
+   "ms": 38,
+   "body": "{\"message\":\"Unauthorized\"}"
+  },
+  "revokedToken": {
+   "status": 401,
+   "ms": 36,
+   "body": "{\"message\":\"Unauthorized\"}"
+  },
+  "noAuthOnUnknownRoute": {
+   "status": 401,
+   "ms": 17,
+   "body": "{\"message\":\"Unauthorized\"}"
+  },
+  "noAuthPostCommit": {
+   "status": 401,
+   "ms": 15,
+   "body": "{\"message\":\"Unauthorized\"}"
+  },
+  "validTokenWithoutGrant": {
+   "status": 403,
+   "ms": 82,
+   "body": "{\"resourceType\":\"DATABASE\",\"resourceName\":\"spikedb\",\"message\":\"Database spikedb has no permission for spike-nogrant.\",\"code\":403}"
+  },
+  "nonAdminOnAdminApi": {
+   "status": 403,
+   "ms": 60,
+   "body": "{\"resourceType\":\"CATALOG\",\"resourceName\":null,\"message\":\"The admin API requires an admin principal.\",\"code\":403}"
+  },
+  "adminConfig": {
+   "status": 200,
+   "ms": 68,
+   "body": "{\"defaults\":{},\"overrides\":{\"prefix\":\"spike\"}}"
+  }
+ }
+}

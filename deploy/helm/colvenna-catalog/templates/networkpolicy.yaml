@@ -1,0 +1,45 @@
+# The API port accepts only pods from namespaces labelled as catalog clients (and, with the internal
+# NLB, internalLoadBalancer.allowedCidrs), the metrics port only pods from namespaces labelled for
+# monitoring. Nothing else is admitted; the health port listens on loopback and is not reachable
+# from outside the pod.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "colvenna-catalog.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "colvenna-catalog.selector" . | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{ .Values.clientNamespaceLabel.key }}: {{ .Values.clientNamespaceLabel.value | quote }}
+      ports:
+        - port: 8181
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{ .Values.metricsClientLabel }}: "true"
+      ports:
+        - port: 9100
+          protocol: TCP
+    {{- if .Values.internalLoadBalancer.enabled }}
+    # The internal NLB's clients (their addresses preserved) and its health checks (its own addresses).
+    - from:
+        {{- range (include "colvenna-catalog.nlbCidrs" . | fromJsonArray) }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+        {{- range (.Values.internalLoadBalancer.healthCheckCidrs | default list) }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      ports:
+        - port: 8181
+          protocol: TCP
+    {{- end }}

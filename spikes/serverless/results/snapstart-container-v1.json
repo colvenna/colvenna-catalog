@@ -1,0 +1,98 @@
+{
+ "function": "colvenna-catalog-spike-server-snap",
+ "base": "/snap",
+ "rounds": 1,
+ "concurrency": 6,
+ "mode": "snapstart",
+ "requestStatuses": [
+  200,
+  200,
+  200,
+  200,
+  200,
+  200
+ ],
+ "clientLatenciesMs": [
+  1573,
+  306,
+  1646,
+  1924,
+  2134,
+  249
+ ],
+ "environments": [
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 182.11,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 238.0
+  },
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": 416.01,
+   "firstInvokeDurationMs": 984.4,
+   "billedRestoreDurationMs": 6.0,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 238.0
+  },
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": 444.55,
+   "firstInvokeDurationMs": 1024.94,
+   "billedRestoreDurationMs": 7.0,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 237.0
+  },
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": 534.09,
+   "firstInvokeDurationMs": null,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": null
+  },
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": 703.24,
+   "firstInvokeDurationMs": 1255.13,
+   "billedRestoreDurationMs": 25.0,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 232.0
+  },
+  {
+   "initDurationMs": null,
+   "initTimedOut": false,
+   "restoreDurationMs": 753.97,
+   "firstInvokeDurationMs": 997.69,
+   "billedRestoreDurationMs": 179.0,
+   "processStartToListeningMs": null,
+   "maxMemoryUsedMb": 238.0
+  },
+  {
+   "initDurationMs": 2841.63,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": null,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 2672,
+   "maxMemoryUsedMb": null
+  },
+  {
+   "initDurationMs": 3432.43,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": null,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 3258,
+   "maxMemoryUsedMb": null
+  }
+ ],
+ "note": "Version 1 published 2026-10-28 03:59 with SnapStart on the container image (label com.amazonaws.lambda.feature.snapstart=Allow). An earlier single request (04:02, before this run) restored one environment: Restore Duration 553.57 ms, first request 1,139 ms in the server, with Hikari warnings that the connections taken over from the snapshot were closed. The environment with firstInvokeDurationMs 182 is that warm one. The two entries with only initDurationMs are snapshot initializations Lambda ran without an invocation. Five requests sent seconds after the stage was redeployed got 404 before /snap was served; they are not counted."
+}

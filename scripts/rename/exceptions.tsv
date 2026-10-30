@@ -1,0 +1,18 @@
+# Where the old name (#31) may still be, and why: <path glob> TAB <text on the line, or *> TAB <reason>.
+# Only the naming history, the import's provenance, the plans executed before the rename and this
+# check itself, each as narrow as it can be.
+# Anything else is renamed, not added here.
+scripts/rename/old_name.py	*	This check's own description and definitions
+scripts/rename/test_old_name.py	*	This check's tests
+scripts/rename/exceptions.tsv	*	This list of exceptions itself
+README.md	The product was called Cove Catalog	Naming history: the former name and identifiers (#26, #31)
+assets/brand/README.md	The product was called Cove Catalog	Naming history: the former name and icon (#26, #31)
+docs/design/colvenna-catalog-lld.md	imported_from: "cove-lake@6ded0b7bf6a9b4b62b7a33a2266adf9f4adb5d76"	Import provenance: the commit the LLD was imported from, under the sister project's name then
+docs/design/v1.0-design.md	命名沿革：导入时沿用改名前的 cove-catalog	Naming history: the names the import kept until #31
+docs/design/v1.0-design.md	提交信息注明来源 `cove-lake@<SHA>`（Colvenna Lake 改名之前的名字）	Import provenance: how the import commit (e37870b) names its source
+docs/superpowers/plans/2026-10-24-eks-chart-and-cdk.md	*	An executed plan (2026-10-24), kept with the names of the time (the maintainers' host paths became placeholders, #99)
+docs/superpowers/plans/2026-10-24-import-from-cove-lake.md	*	An executed plan (2026-10-24), kept with the names of the time (the maintainers' host paths became placeholders, #99), among them a URL template with <SRC> (not a link) to Colvenna Lake's repository (#50; docs/rename.md)
+docs/superpowers/plans/2026-10-24-install-eks.md	*	An executed plan (2026-10-24), kept as written: the names and paths of the time
+docs/superpowers/plans/2026-10-24-test-environment.md	*	An executed plan (2026-10-24), kept as written: the names and paths of the time
+docs/rename.md	*	The rename record of #31: every old name beside its new one
+spikes/serverless/results/*	*	The serverless spike's raw results (#12), recorded on the server before the rename

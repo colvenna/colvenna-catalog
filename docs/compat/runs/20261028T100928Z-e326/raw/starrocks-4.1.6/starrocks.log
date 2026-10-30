@@ -1,0 +1,339 @@
+Certificate was added to keystore
+COMPAT-READER-INFO bundled paimon-bundle-1.3.1.jar
+COMPAT-READER-INFO bundled paimon-oss-1.3.1.jar
+COMPAT-READER-INFO bundled paimon-s3-1.3.1.jar
+****************************************************************************************************
+*   ________  _________  ________  ________  ________  ________  ________  ___  __    ________      
+*  |\   ____\|\___   ___\\   __  \|\   __  \|\   __  \|\   __  \|\   ____\|\  \|\  \ |\   ____\     
+*  \ \  \___|\|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \|\  \ \  \___|\ \  \/  /|\ \  \___|_    
+*   \ \_____  \   \ \  \ \ \   __  \ \   _  _\ \   _  _\ \  \\\  \ \  \    \ \   ___  \ \_____  \   
+*    \|____|\  \   \ \  \ \ \  \ \  \ \  \\  \\ \  \\  \\ \  \\\  \ \  \____\ \  \\ \  \|____|\  \  
+*      ____\_\  \   \ \__\ \ \__\ \__\ \__\\ _\\ \__\\ _\\ \_______\ \_______\ \__\\ \__\____\_\  \ 
+*     |\_________\   \|__|  \|__|\|__|\|__|\|__|\|__|\|__|\|_______|\|_______|\|__| \|__|\_________\
+*     \|_________|                                                                      \|_________|
+*
+*                      ________  ___       ___       ___  ________     _____
+*                     |\   __  \|\  \     |\  \     |\  \|\   ___  \  / __  \
+*                     \ \  \|\  \ \  \    \ \  \    \ \  \ \  \\ \  \|\/_|\  \
+*                      \ \   __  \ \  \    \ \  \    \ \  \ \  \\ \  \|/ \ \  \
+*                       \ \  \ \  \ \  \____\ \  \____\ \  \ \  \\ \  \   \ \  \
+*                        \ \__\ \__\ \_______\ \_______\ \__\ \__\\ \__\   \ \__\
+*                         \|__|\|__|\|_______|\|_______|\|__|\|__| \|__|    \|__|
+*
+****************************************************************************************************
+
+StarRocks [(Blazing Fast)]> _
+
+
+2026-10-28 10:13:49+00:00 INFO running in shared_nothing mode ...
+2026-10-28 10:13:50,026 INFO Set uid to user 0 succeeded
+2026-10-28 10:13:50,030 INFO RPC interface 'supervisor' initialized
+2026-10-28 10:13:50,030 CRIT Server 'unix_http_server' running without any HTTP authentication checking
+2026-10-28 10:13:50,030 INFO supervisord started with pid 31
+2026-10-28 10:13:51,033 INFO spawned: 'beservice' with pid 550
+2026-10-28 10:13:51,036 INFO spawned: 'director' with pid 551
+2026-10-28 10:13:51,039 INFO spawned: 'feproxy' with pid 552
+2026-10-28 10:13:51,046 INFO spawned: 'feservice' with pid 553
+2026-10-28 10:13:51+00:00 INFO checking if need to perform auto registring Backend ...
+2026-10-28 10:13:52+00:00 INFO checking if FE service query port:9030 is alive or not ...
+2026-10-28 10:13:52+00:00 WARN FE service query port:9030 is NOT alive yet!
+2026-10-28 10:13:54+00:00 WARN FE service query port:9030 is NOT alive yet!
+2026-10-28 10:13:56,881 INFO success: beservice entered RUNNING state, process has stayed up for > than 5 seconds (startsecs)
+2026-10-28 10:13:56,881 INFO success: director entered RUNNING state, process has stayed up for > than 5 seconds (startsecs)
+2026-10-28 10:13:56,881 INFO success: feproxy entered RUNNING state, process has stayed up for > than 5 seconds (startsecs)
+2026-10-28 10:13:56,881 INFO success: feservice entered RUNNING state, process has stayed up for > than 5 seconds (startsecs)
+2026-10-28 10:13:56+00:00 WARN FE service query port:9030 is NOT alive yet!
+2026-10-28 10:13:58+00:00 WARN FE service query port:9030 is NOT alive yet!
+2026-10-28 10:14:00+00:00 WARN FE service query port:9030 is NOT alive yet!
+2026-10-28 10:14:02+00:00 INFO FE service query port:9030 is alive!
+2026-10-28 10:14:02+00:00 INFO generate my.cnf file ...
+2026-10-28 10:14:03+00:00 INFO check if need to add BE into FE service ...
+COMPAT-READ-STEP {"ok": true, "step": "frontend"}
+2026-10-28 10:14:06+00:00 INFO Add BE(127.0.0.1:9050) into FE service ...
+
+2026-10-28 10:14:06+00:00 INFO BE service already added into FE service ... 
+2026-10-28 10:14:06+00:00 INFO cluster initialization DONE!
+2026-10-28 10:14:06+00:00 INFO wait a few seconds for BE's heartbeat ...
+COMPAT-READ-STEP {"ok": true, "step": "backend registered"}
+COMPAT-READ-STEP {"ok": true, "step": "backend alive"}
+COMPAT-READ-STEP {"error": "", "ok": true, "step": "planner timeout 60 s"}
+COMPAT-READ-INFO {"engineVersion": "4.1.6-6862092", "error": ""}
+COMPAT-READ {"check": "create-catalog", "error": "", "output": "", "properties": ["aws.s3.access_key", "aws.s3.endpoint", "aws.s3.region", "aws.s3.secret_key", "aws.s3.use_instance_profile", "paimon.catalog.type", "paimon.catalog.warehouse", "paimon.option.token", "paimon.option.token.provider", "paimon.option.uri", "type"], "rc": 0, "table": "-"}
+COMPAT-READ {"check": "list-tables", "error": "", "output": "t_append\nt_pk\nt_pk_dv", "rc": 0, "table": "-"}
+2026-10-28 10:14:16+00:00 INFO StarRocks Cluster information details:
+*************************** 1. row ***************************
+               Id: 2
+             Name: 127.0.0.1_9010_1793182439287
+               IP: 127.0.0.1
+      EditLogPort: 9010
+         HttpPort: 8030
+        QueryPort: 9030
+          RpcPort: 9020
+             Role: LEADER
+        ClusterId: 1427941915
+             Join: true
+            Alive: true
+ReplayedJournalId: 17
+    LastHeartbeat: 2026-10-28 10:14:15
+         IsHelper: true
+           ErrMsg: 
+        StartTime: 2026-10-28 10:14:00
+          Version: 4.1.6-6862092
+*************************** 1. row ***************************
+            BackendId: 10001
+                   IP: 127.0.0.1
+        HeartbeatPort: 9050
+               BePort: 9060
+             HttpPort: 8040
+             BrpcPort: 8060
+        LastStartTime: 2026-10-28 10:14:10
+        LastHeartbeat: 2026-10-28 10:14:15
+                Alive: true
+ SystemDecommissioned: false
+ClusterDecommissioned: false
+            TabletNum: 0
+     DataUsedCapacity: 0.000 B
+        AvailCapacity: 21.981 GB
+        TotalCapacity: 39.926 GB
+              UsedPct: 44.95 %
+       MaxDiskUsedPct: 44.95 %
+               ErrMsg: 
+              Version: 4.1.6-6862092
+               Status: {"lastSuccessReportTabletsTime":"2026-10-28 10:14:10"}
+    DataTotalCapacity: 21.981 GB
+          DataUsedPct: 0.00 %
+             CpuCores: 2
+             MemLimit: 4.050GB
+    NumRunningQueries: 0
+           MemUsedPct: 0.67 %
+           CpuUsedPct: 0.4 %
+     DataCacheMetrics: Status: Normal, DiskUsage: 0B/10GB, MemUsage: 0B/829.4MB
+             Location: 
+           StatusCode: OK
+2026-10-28 10:14:16+00:00 INFO 
+2026-10-28 10:14:16+00:00 INFO 
+2026-10-28 10:14:16+00:00 INFO  * IMPORTANT NOTICE!
+
+If FE/BE state needs to be persisted, please be sure the following directories are mounted:
+* FE service meta: /data/deploy/starrocks/fe/meta
+* BE service storage: /data/deploy/starrocks/be/storage
+
+2026-10-28 10:14:16+00:00 INFO 
+2026-10-28 10:14:18+00:00 INFO FE mysql query port: 9030
+2026-10-28 10:14:18+00:00 INFO FE http service port: 8080
+2026-10-28 10:14:18+00:00 INFO 
+2026-10-28 10:14:18+00:00 INFO Enjoy the journey to StarRocks blazing-fast lake-house engine!
+COMPAT-READ {"check": "rows", "error": "", "expected": 105, "output": "105", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028100928_e326_fixture`.`t_pk`", "table": "pk"}
+COMPAT-READ {"check": "sum", "error": "", "expected": 26090, "output": "26090", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261028100928_e326_fixture`.`t_pk`", "table": "pk"}
+COMPAT-READ {"check": "upserted", "error": "", "expected": 1100, "output": "1100", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261028100928_e326_fixture`.`t_pk` WHERE id = 100", "table": "pk"}
+COMPAT-READ {"check": "deleted", "error": "", "expected": 0, "output": "0", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028100928_e326_fixture`.`t_pk` WHERE id <= 5", "table": "pk"}
+COMPAT-READ {"check": "rows", "error": "", "expected": 105, "output": "105", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028100928_e326_fixture`.`t_pk_dv`", "table": "pk-dv"}
+COMPAT-READ {"check": "sum", "error": "", "expected": 26090, "output": "26090", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261028100928_e326_fixture`.`t_pk_dv`", "table": "pk-dv"}
+COMPAT-READ {"check": "upserted", "error": "", "expected": 1100, "output": "1100", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261028100928_e326_fixture`.`t_pk_dv` WHERE id = 100", "table": "pk-dv"}
+COMPAT-READ {"check": "deleted", "error": "", "expected": 0, "output": "0", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028100928_e326_fixture`.`t_pk_dv` WHERE id <= 5", "table": "pk-dv"}
+COMPAT-READ {"check": "rows", "error": "", "expected": 120, "output": "120", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028100928_e326_fixture`.`t_append`", "table": "append"}
+COMPAT-READ {"check": "sum", "error": "", "expected": 27060, "output": "27060", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261028100928_e326_fixture`.`t_append`", "table": "append"}
+COMPAT-READ {"check": "duplicates", "error": "", "expected": 2, "output": "2", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261028100928_e326_fixture`.`t_append` WHERE id = 100", "table": "append"}
+COMPAT-READ-DONE {}
+COMPAT-ENGINE-LOG /data/deploy/starrocks/fe/log/fe.warn.log
+ 2026-10-28 10:14:00.522Z WARN (Thread-46|61) [TemporaryTableCleaner.getAliveSessions():124] listSessions return error from 127.0.0.1:9020, skip clean temporary tables
+ org.apache.thrift.TException: Invalid port 0
+	at com.starrocks.rpc.ThriftRPCRequestExecutor.call(ThriftRPCRequestExecutor.java:60)
+	at com.starrocks.rpc.ThriftRPCRequestExecutor.call(ThriftRPCRequestExecutor.java:33)
+	at com.starrocks.server.TemporaryTableCleaner.getAliveSessions(TemporaryTableCleaner.java:106)
+	at com.starrocks.server.TemporaryTableCleaner.runAfterCatalogReady(TemporaryTableCleaner.java:65)
+	at com.starrocks.common.util.FrontendDaemon.runOneCycle(FrontendDaemon.java:78)
+	at com.starrocks.common.util.Daemon.run(Daemon.java:98)
+2026-10-28 10:14:05.597Z WARN (starrocks-mysql-nio-pool-0|126) [MySQLReadListener.handleRequest():168] Exception happened in one session(com.starrocks.qe.ConnectContext@f568feb).
+ java.nio.channels.ClosedChannelException
+	at java.base/sun.nio.ch.SocketChannelImpl.ensureOpenAndConnected(SocketChannelImpl.java:215)
+	at java.base/sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:527)
+	at org.xnio.nio.NioSocketConduit.write(NioSocketConduit.java:153)
+	at org.xnio.conduits.ConduitStreamSinkChannel.write(ConduitStreamSinkChannel.java:150)
+	at org.xnio.channels.Channels.writeBlocking(Channels.java:175)
+	at com.starrocks.mysql.MysqlChannel.realNetSend(MysqlChannel.java:254)
+	at com.starrocks.mysql.MysqlChannel.send(MysqlChannel.java:242)
+	at com.starrocks.mysql.MysqlChannel.flush(MysqlChannel.java:278)
+	at com.starrocks.mysql.MysqlChannel.sendAndFlush(MysqlChannel.java:346)
+	at com.starrocks.qe.ConnectProcessor.finalizeCommand(ConnectProcessor.java:1011)
+	at com.starrocks.qe.ConnectProcessor.processOnce(ConnectProcessor.java:1321)
+	at com.starrocks.mysql.nio.MySQLReadListener.handleRequest(MySQLReadListener.java:158)
+	at com.starrocks.mysql.nio.MySQLReadListener.lambda$handleEvent$0(MySQLReadListener.java:98)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 10:14:06.297Z WARN (starrocks-mysql-nio-pool-1|127) [MySQLReadListener.handleRequest():168] Exception happened in one session(com.starrocks.qe.ConnectContext@59c4b3cf).
+ java.nio.channels.ClosedChannelException
+	at java.base/sun.nio.ch.SocketChannelImpl.ensureOpenAndConnected(SocketChannelImpl.java:215)
+	at java.base/sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:527)
+	at org.xnio.nio.NioSocketConduit.write(NioSocketConduit.java:153)
+	at org.xnio.conduits.ConduitStreamSinkChannel.write(ConduitStreamSinkChannel.java:150)
+	at org.xnio.channels.Channels.writeBlocking(Channels.java:175)
+	at com.starrocks.mysql.MysqlChannel.realNetSend(MysqlChannel.java:254)
+	at com.starrocks.mysql.MysqlChannel.send(MysqlChannel.java:242)
+	at com.starrocks.mysql.MysqlChannel.flush(MysqlChannel.java:278)
+	at com.starrocks.mysql.MysqlChannel.sendAndFlush(MysqlChannel.java:346)
+	at com.starrocks.qe.ConnectProcessor.finalizeCommand(ConnectProcessor.java:1011)
+	at com.starrocks.qe.ConnectProcessor.processOnce(ConnectProcessor.java:1321)
+	at com.starrocks.mysql.nio.MySQLReadListener.handleRequest(MySQLReadListener.java:158)
+	at com.starrocks.mysql.nio.MySQLReadListener.lambda$handleEvent$0(MySQLReadListener.java:98)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 10:14:13.182Z WARN (starrocks-mysql-nio-pool-0|126) [MySQLReadListener.handleRequest():168] Exception happened in one session(com.starrocks.qe.ConnectContext@36cb99b2).
+ java.nio.channels.ClosedChannelException
+	at java.base/sun.nio.ch.SocketChannelImpl.ensureOpenAndConnected(SocketChannelImpl.java:215)
+	at java.base/sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:527)
+	at org.xnio.nio.NioSocketConduit.write(NioSocketConduit.java:153)
+	at org.xnio.conduits.ConduitStreamSinkChannel.write(ConduitStreamSinkChannel.java:150)
+	at org.xnio.channels.Channels.writeBlocking(Channels.java:175)
+	at com.starrocks.mysql.MysqlChannel.realNetSend(MysqlChannel.java:254)
+	at com.starrocks.mysql.MysqlChannel.send(MysqlChannel.java:242)
+	at com.starrocks.mysql.MysqlChannel.flush(MysqlChannel.java:278)
+	at com.starrocks.mysql.MysqlChannel.sendAndFlush(MysqlChannel.java:346)
+	at com.starrocks.qe.ConnectProcessor.finalizeCommand(ConnectProcessor.java:1011)
+	at com.starrocks.qe.ConnectProcessor.processOnce(ConnectProcessor.java:1321)
+	at com.starrocks.mysql.nio.MySQLReadListener.handleRequest(MySQLReadListener.java:158)
+	at com.starrocks.mysql.nio.MySQLReadListener.lambda$handleEvent$0(MySQLReadListener.java:98)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 10:14:13.621Z WARN (starrocks-mysql-nio-pool-1|127) [HadoopUtils.getHadoopConfiguration():154] Could not find Hadoop configuration via any of the supported methods
+ 2026-10-28 10:14:17.811Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:17.988Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:18.104Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:18.348Z ERROR (stats-cache-refresher-1|186) [ConnectorHistogramColumnStatsCacheLoader.lambda$asyncLoadAll$1():105] com.starrocks.sql.analyzer.SemanticException: Getting analyzing error. Detail message: Unknown database '_statistics_'.
+ 2026-10-28 10:14:29.211Z WARN (starrocks-mysql-nio-pool-1|127) [MySQLReadListener.handleRequest():168] Exception happened in one session(com.starrocks.qe.ConnectContext@26918078).
+ java.nio.channels.ClosedChannelException
+	at java.base/sun.nio.ch.SocketChannelImpl.ensureOpenAndConnected(SocketChannelImpl.java:215)
+	at java.base/sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:527)
+	at org.xnio.nio.NioSocketConduit.write(NioSocketConduit.java:153)
+	at org.xnio.conduits.ConduitStreamSinkChannel.write(ConduitStreamSinkChannel.java:150)
+	at org.xnio.channels.Channels.writeBlocking(Channels.java:175)
+	at com.starrocks.mysql.MysqlChannel.realNetSend(MysqlChannel.java:254)
+	at com.starrocks.mysql.MysqlChannel.send(MysqlChannel.java:242)
+	at com.starrocks.mysql.MysqlChannel.flush(MysqlChannel.java:278)
+	at com.starrocks.mysql.MysqlChannel.sendAndFlush(MysqlChannel.java:346)
+	at com.starrocks.qe.ConnectProcessor.finalizeCommand(ConnectProcessor.java:1011)
+	at com.starrocks.qe.ConnectProcessor.processOnce(ConnectProcessor.java:1321)
+	at com.starrocks.mysql.nio.MySQLReadListener.handleRequest(MySQLReadListener.java:158)
+	at com.starrocks.mysql.nio.MySQLReadListener.lambda$handleEvent$0(MySQLReadListener.java:98)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 10:14:29.472Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:29.532Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:29.595Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:30.362Z WARN (table-keeper|90) [TableKeeper.run():65] database not exists: _statistics_
+ 2026-10-28 10:14:30.363Z WARN (table-keeper|90) [TableKeeper.run():65] database not exists: _statistics_
+ 2026-10-28 10:14:30.363Z WARN (table-keeper|90) [TableKeeper.run():65] database not exists: _statistics_
+ 2026-10-28 10:14:30.363Z WARN (table-keeper|90) [TableKeeper.run():65] database not exists: _statistics_
+ 2026-10-28 10:14:30.363Z WARN (table-keeper|90) [TableKeeper.run():65] database not exists: _statistics_
+ 2026-10-28 10:14:30.480Z WARN (starrocks-mysql-nio-pool-1|127) [MySQLReadListener.handleRequest():168] Exception happened in one session(com.starrocks.qe.ConnectContext@6dcc538e).
+ java.nio.channels.ClosedChannelException
+	at java.base/sun.nio.ch.SocketChannelImpl.ensureOpenAndConnected(SocketChannelImpl.java:215)
+	at java.base/sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:527)
+	at org.xnio.nio.NioSocketConduit.write(NioSocketConduit.java:153)
+	at org.xnio.conduits.ConduitStreamSinkChannel.write(ConduitStreamSinkChannel.java:150)
+	at org.xnio.channels.Channels.writeBlocking(Channels.java:175)
+	at com.starrocks.mysql.MysqlChannel.realNetSend(MysqlChannel.java:254)
+	at com.starrocks.mysql.MysqlChannel.send(MysqlChannel.java:242)
+	at com.starrocks.mysql.MysqlChannel.flush(MysqlChannel.java:278)
+	at com.starrocks.mysql.MysqlChannel.sendAndFlush(MysqlChannel.java:346)
+	at com.starrocks.qe.ConnectProcessor.finalizeCommand(ConnectProcessor.java:1011)
+	at com.starrocks.qe.ConnectProcessor.processOnce(ConnectProcessor.java:1321)
+	at com.starrocks.mysql.nio.MySQLReadListener.handleRequest(MySQLReadListener.java:158)
+	at com.starrocks.mysql.nio.MySQLReadListener.lambda$handleEvent$0(MySQLReadListener.java:98)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 10:14:30.657Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:30.676Z ERROR (stats-cache-refresher-4|200) [ConnectorHistogramColumnStatsCacheLoader.lambda$asyncLoadAll$1():105] com.starrocks.sql.analyzer.SemanticException: Getting analyzing error. Detail message: Unknown database '_statistics_'.
+ 2026-10-28 10:14:30.759Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:30.837Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:31.901Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:31.959Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:32.019Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:32.707Z WARN (starrocks-mysql-nio-pool-1|127) [MySQLReadListener.handleRequest():168] Exception happened in one session(com.starrocks.qe.ConnectContext@71a9971b).
+ java.nio.channels.ClosedChannelException
+	at java.base/sun.nio.ch.SocketChannelImpl.ensureOpenAndConnected(SocketChannelImpl.java:215)
+	at java.base/sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:527)
+	at org.xnio.nio.NioSocketConduit.write(NioSocketConduit.java:153)
+	at org.xnio.conduits.ConduitStreamSinkChannel.write(ConduitStreamSinkChannel.java:150)
+	at org.xnio.channels.Channels.writeBlocking(Channels.java:175)
+	at com.starrocks.mysql.MysqlChannel.realNetSend(MysqlChannel.java:254)
+	at com.starrocks.mysql.MysqlChannel.send(MysqlChannel.java:242)
+	at com.starrocks.mysql.MysqlChannel.flush(MysqlChannel.java:278)
+	at com.starrocks.mysql.MysqlChannel.sendAndFlush(MysqlChannel.java:346)
+	at com.starrocks.qe.ConnectProcessor.finalizeCommand(ConnectProcessor.java:1011)
+	at com.starrocks.qe.ConnectProcessor.processOnce(ConnectProcessor.java:1321)
+	at com.starrocks.mysql.nio.MySQLReadListener.handleRequest(MySQLReadListener.java:158)
+	at com.starrocks.mysql.nio.MySQLReadListener.lambda$handleEvent$0(MySQLReadListener.java:98)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 10:14:32.816Z WARN (starrocks-mysql-nio-pool-1|127) [HadoopUtils.getHadoopConfiguration():154] Could not find Hadoop configuration via any of the supported methods
+ 2026-10-28 10:14:33.532Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:33.535Z ERROR (stats-cache-refresher-1|186) [ConnectorHistogramColumnStatsCacheLoader.lambda$asyncLoadAll$1():105] com.starrocks.sql.analyzer.SemanticException: Getting analyzing error. Detail message: Unknown database '_statistics_'.
+ 2026-10-28 10:14:33.582Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:33.637Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:36.090Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:36.147Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:36.195Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:36.534Z WARN (starrocks-mysql-nio-pool-2|132) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:36.538Z ERROR (stats-cache-refresher-0|185) [ConnectorHistogramColumnStatsCacheLoader.lambda$asyncLoadAll$1():105] com.starrocks.sql.analyzer.SemanticException: Getting analyzing error. Detail message: Unknown database '_statistics_'.
+ 2026-10-28 10:14:36.590Z WARN (starrocks-mysql-nio-pool-2|132) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:36.646Z WARN (starrocks-mysql-nio-pool-2|132) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:36.974Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:37.023Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:37.071Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:37.265Z WARN (starrocks-mysql-nio-pool-1|127) [MySQLReadListener.handleRequest():168] Exception happened in one session(com.starrocks.qe.ConnectContext@5781c0c2).
+ java.nio.channels.ClosedChannelException
+	at java.base/sun.nio.ch.SocketChannelImpl.ensureOpenAndConnected(SocketChannelImpl.java:215)
+	at java.base/sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:527)
+	at org.xnio.nio.NioSocketConduit.write(NioSocketConduit.java:153)
+	at org.xnio.conduits.ConduitStreamSinkChannel.write(ConduitStreamSinkChannel.java:150)
+	at org.xnio.channels.Channels.writeBlocking(Channels.java:175)
+	at com.starrocks.mysql.MysqlChannel.realNetSend(MysqlChannel.java:254)
+	at com.starrocks.mysql.MysqlChannel.send(MysqlChannel.java:242)
+	at com.starrocks.mysql.MysqlChannel.flush(MysqlChannel.java:278)
+	at com.starrocks.mysql.MysqlChannel.sendAndFlush(MysqlChannel.java:346)
+	at com.starrocks.qe.ConnectProcessor.finalizeCommand(ConnectProcessor.java:1011)
+	at com.starrocks.qe.ConnectProcessor.processOnce(ConnectProcessor.java:1321)
+	at com.starrocks.mysql.nio.MySQLReadListener.handleRequest(MySQLReadListener.java:158)
+	at com.starrocks.mysql.nio.MySQLReadListener.lambda$handleEvent$0(MySQLReadListener.java:98)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 10:14:37.367Z WARN (starrocks-mysql-nio-pool-1|127) [HadoopUtils.getHadoopConfiguration():154] Could not find Hadoop configuration via any of the supported methods
+ 2026-10-28 10:14:37.681Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:37.688Z ERROR (stats-cache-refresher-1|186) [ConnectorHistogramColumnStatsCacheLoader.lambda$asyncLoadAll$1():105] com.starrocks.sql.analyzer.SemanticException: Getting analyzing error. Detail message: Unknown database '_statistics_'.
+ 2026-10-28 10:14:37.731Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:37.782Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:38.062Z WARN (starrocks-mysql-nio-pool-2|132) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:38.113Z WARN (starrocks-mysql-nio-pool-2|132) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:38.174Z WARN (starrocks-mysql-nio-pool-2|132) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:38.325Z WARN (starrocks-mysql-nio-pool-1|127) [MySQLReadListener.handleRequest():168] Exception happened in one session(com.starrocks.qe.ConnectContext@64348299).
+ java.nio.channels.ClosedChannelException
+	at java.base/sun.nio.ch.SocketChannelImpl.ensureOpenAndConnected(SocketChannelImpl.java:215)
+	at java.base/sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:527)
+	at org.xnio.nio.NioSocketConduit.write(NioSocketConduit.java:153)
+	at org.xnio.conduits.ConduitStreamSinkChannel.write(ConduitStreamSinkChannel.java:150)
+	at org.xnio.channels.Channels.writeBlocking(Channels.java:175)
+	at com.starrocks.mysql.MysqlChannel.realNetSend(MysqlChannel.java:254)
+	at com.starrocks.mysql.MysqlChannel.send(MysqlChannel.java:242)
+	at com.starrocks.mysql.MysqlChannel.flush(MysqlChannel.java:278)
+	at com.starrocks.mysql.MysqlChannel.sendAndFlush(MysqlChannel.java:346)
+	at com.starrocks.qe.ConnectProcessor.finalizeCommand(ConnectProcessor.java:1011)
+	at com.starrocks.qe.ConnectProcessor.processOnce(ConnectProcessor.java:1321)
+	at com.starrocks.mysql.nio.MySQLReadListener.handleRequest(MySQLReadListener.java:158)
+	at com.starrocks.mysql.nio.MySQLReadListener.lambda$handleEvent$0(MySQLReadListener.java:98)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-28 10:14:38.454Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:38.465Z ERROR (stats-cache-refresher-2|187) [ConnectorHistogramColumnStatsCacheLoader.lambda$asyncLoadAll$1():105] com.starrocks.sql.analyzer.SemanticException: Getting analyzing error. Detail message: Unknown database '_statistics_'.
+ 2026-10-28 10:14:38.507Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-28 10:14:38.557Z WARN (starrocks-mysql-nio-pool-1|127) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ COMPAT-ENGINE-LOG /data/deploy/starrocks/be/log/be.WARNING
+W20261028 10:13:56.826078 139814650717120 jit_engine.cpp:481] System or Process memory limit is less than 16GB, disable JIT. You can set jit_lru_cache_size or jit_lru_object_cache_size a properly positive value in BE's config to force enabling JIT

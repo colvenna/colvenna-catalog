@@ -1,0 +1,68 @@
+{
+ "function": "colvenna-catalog-spike-server",
+ "base": "/",
+ "rounds": 1,
+ "concurrency": 5,
+ "mode": "on-demand",
+ "requestStatuses": [
+  200,
+  200,
+  200,
+  200,
+  200
+ ],
+ "clientLatenciesMs": [
+  2430,
+  2577,
+  2242,
+  2252,
+  2106
+ ],
+ "environments": [
+  {
+   "initDurationMs": 1900.33,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 323.78,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 1825,
+   "maxMemoryUsedMb": 248.0
+  },
+  {
+   "initDurationMs": 1734.11,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 320.96,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 1633,
+   "maxMemoryUsedMb": 250.0
+  },
+  {
+   "initDurationMs": 1601.56,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 277.58,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 1532,
+   "maxMemoryUsedMb": 240.0
+  },
+  {
+   "initDurationMs": 1972.8,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 363.54,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 1891,
+   "maxMemoryUsedMb": 242.0
+  },
+  {
+   "initDurationMs": 1685.51,
+   "initTimedOut": false,
+   "restoreDurationMs": null,
+   "firstInvokeDurationMs": 315.3,
+   "billedRestoreDurationMs": null,
+   "processStartToListeningMs": 1603,
+   "maxMemoryUsedMb": 243.0
+  }
+ ]
+}

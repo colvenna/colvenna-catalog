@@ -1,0 +1,19 @@
+# Cluster-internal (an internal NLB is service-nlb.yaml); the health port is not part of the Service. The metrics port
+# is, for in-cluster scraping; the NetworkPolicy admits only monitoring namespaces to it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "colvenna-catalog.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "colvenna-catalog.selector" . | nindent 4 }}
+  ports:
+    - name: https
+      port: 8181
+      targetPort: https
+    - name: metrics
+      port: 9100
+      targetPort: metrics
