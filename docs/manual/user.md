@@ -359,7 +359,7 @@ Port 9100 serves Prometheus metrics to pods of namespaces labelled `colvenna-cat
 | TLS errors to S3 or STS once the CA is trusted | The trust store holds only the CA | Start from a copy of the JDK's `cacerts` |
 | `No subject alternative names matching` | The URI's host name is not one the certificate names | Use the Service's name, or the internal NLB's |
 | A pod's connection times out (EKS) | Its namespace lacks the client label | Label the namespace (`COLVENNA_CLIENT_NAMESPACE_LABEL`) |
-| The server's S3 calls hang (EKS) | No internet egress from the nodes ([#9](https://github.com/colvenna/colvenna-catalog/issues/9)) | Give the nodes a NAT gateway |
+| `serve` refuses to start: `An S3 warehouse needs COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION` | The server's settings lack S3A's Region: they were not made by `install.sh` of this version (its chart or its serverless stack), which sets it | Install again with `install.sh`; elsewhere, set it to the bucket's Region ([deployment guide](install.md#24-for-the-eks-form), section 2.4) |
 | Pods not Ready | The database does not answer: its security group, the instance, the password | The pods' log; `readyz` (section 7.2) |
 | Pods refuse to start: the schema is newer | An older version against a database a newer one migrated | Install the newer version again ([deployment guide](install.md#63-upgrading)) |
 | Serverless: 403 with API Gateway's own body | The request did not come through one of the install's `execute-api` endpoints | Use a VPC with a listed endpoint |

@@ -158,6 +158,16 @@ test('requires what the server cannot start without', () => {
   }
 });
 
+test("the server's S3A client gets the install's Region, as in the serverless form (#9)", () => {
+  for (const region of ['us-west-2', 'eu-central-1']) {
+    const data = one(manifests({ region }), 'ConfigMap').data;
+    // fs.s3a.endpoint.region: S3A does not read s3.region, and would send to us-east-2 without it.
+    assert.equal(data.COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION, region);
+    assert.equal(data.COLVENNA_FILEIO_S3_REGION, region);
+    assert.equal(data.AWS_REGION, region);
+  }
+});
+
 test('a replica that stops waits out the Service rules, then drains, within its grace period (#64)', () => {
   const all = manifests();
   const pod = one(all, 'Deployment').spec.template.spec;

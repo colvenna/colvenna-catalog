@@ -54,6 +54,13 @@ class ChartArgs(unittest.TestCase):
         self.assertIn('colvenna-catalog/client: "true"', manifests)
         self.assertIn('colvenna-catalog/monitoring: "true"', manifests)
 
+    def test_s3a_gets_the_install_s_region(self):
+        # The server's S3A client needs a Region of its own (#9): COLVENNA_REGION, as the serverless stack sets it.
+        for region in ("us-west-2", "eu-central-1"):
+            manifests = render(COLVENNA_REGION=region)
+            self.assertIn(f'COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION: "{region}"', manifests)
+            self.assertIn(f'COLVENNA_FILEIO_S3_REGION: "{region}"', manifests)
+
     def test_a_release_s_pods_name_the_candidate(self):
         self.assertNotIn("colvenna-catalog/release", render())
         manifests = render(RELEASE_CANDIDATE="v1.0.0-rc.1")

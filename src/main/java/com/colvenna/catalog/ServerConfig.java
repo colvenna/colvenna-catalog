@@ -574,7 +574,7 @@ public record ServerConfig(
      */
     public void validateForServing() {
         requireTlsForServing();
-        requireS3aRegionInLambda();
+        requireS3aRegion();
     }
 
     /**
@@ -601,14 +601,15 @@ public record ServerConfig(
     }
 
     /**
-     * In Lambda an S3 warehouse needs the S3A region or endpoint. Paimon's S3 FileIO passes {@code
-     * s3.region} to S3A as {@code fs.s3a.region}, which S3A does not read, and S3A 3.4 without a
-     * region or endpoint sends to us-east-2 with cross-region access: in a VPC without egress the
-     * first table operation then hangs until the function times out (#12).
+     * An S3 warehouse needs the S3A region or endpoint, in either form (#9): Paimon's S3 FileIO
+     * passes {@code s3.region} to S3A as {@code fs.s3a.region}, which S3A does not read, and S3A
+     * 3.4 without a region or endpoint sends to us-east-2, which hangs in a VPC without internet
+     * egress (the LLD's "S3A 区域"). The chart and the serverless stack set it to the install's
+     * Region.
      */
-    void requireS3aRegionInLambda() {
-        String scheme = warehouseRoot.toLowerCase(Locale.ROOT);
-        if (!lambdaRuntime || !(scheme.startsWith("s3://") || scheme.startsWith("s3a://"))) {
+    void requireS3aRegion() {
+        String root = warehouseRoot.toLowerCase(Locale.ROOT);
+        if (!(root.startsWith("s3://") || root.startsWith("s3a://"))) {
             return;
         }
         for (String prefix : List.of("fs.s3a.", "s3.", "s3a.")) {
@@ -620,9 +621,9 @@ public record ServerConfig(
             }
         }
         throw new IllegalArgumentException(
-                "In Lambda an S3 warehouse needs COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION:"
-                        + " COLVENNA_FILEIO_S3_REGION does not reach S3A, which then sends to"
-                        + " us-east-2.");
+                "An S3 warehouse needs COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION, the bucket's"
+                        + " Region: COLVENNA_FILEIO_S3_REGION does not reach S3A, which then sends"
+                        + " to us-east-2.");
     }
 
     static java.util.ArrayList<String> parseList(@Nullable String value) {
