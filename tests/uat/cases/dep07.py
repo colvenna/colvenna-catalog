@@ -262,6 +262,7 @@ def run(ctx):
     candidate, previous = installer.Checkout(ctx.args.candidate), installer.Checkout(ctx.args.previous)
     b = branch(ctx.args)
     with ctx.preparing("the candidate upgraded by UAT-DEP-06, its snapshot, the loops running") as notes:
+        lifecycle.reach_previous_release(ctx)
         run_of = ctx.args.dep06_run
         snaps = lifecycle.tagged_snapshots(ctx, dep06.SNAPSHOT_TAG, run_of) if run_of else \
             lifecycle.tagged_snapshots(ctx, "Purpose", "uat-pre-upgrade")

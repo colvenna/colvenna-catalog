@@ -10,6 +10,8 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
+from uatlib.probe import Background, Probe as ProbePod
+
 PROBE = Path(__file__).resolve().parent / "probe" / "probe.py"
 
 
@@ -52,6 +54,62 @@ class Probe(unittest.TestCase):
         p = subprocess.run([sys.executable, "-I", str(PROBE)], input=json.dumps(plan), stdout=subprocess.PIPE,
                            stderr=subprocess.PIPE, universal_newlines=True, timeout=60, check=True)
         return [json.loads(line) for line in p.stdout.splitlines()]
+
+    def test_strict_x509_checks_on_unless_the_plan_says_otherwise(self):
+        """#49: Python 3.13's default context checks X.509 strictly, which refuses a CA without keyUsage (a
+        previous release's); a plan's "strict": false drops that check alone, the chain and the names still
+        verified. The default context is made strict here, whatever this Python's default."""
+        import importlib.util
+        import ssl
+        spec = importlib.util.spec_from_file_location("uat_probe", PROBE)
+        probe = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(probe)
+
+        made = ssl.create_default_context
+
+        def strict_default():
+            ctx = made()
+            ctx.verify_flags |= ssl.VERIFY_X509_STRICT
+            return ctx
+
+        probe.ssl.create_default_context = strict_default
+        try:
+            self.assertTrue(probe.context(None, {}).verify_flags & ssl.VERIFY_X509_STRICT)  # no key: strict
+            self.assertTrue(probe.context(None, {"strict": True}).verify_flags & ssl.VERIFY_X509_STRICT)
+            lenient = probe.context(None, {"strict": False})
+        finally:
+            probe.ssl.create_default_context = made
+        self.assertFalse(lenient.verify_flags & ssl.VERIFY_X509_STRICT)
+        self.assertEqual(lenient.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(lenient.check_hostname)
+
+    def test_the_plans_carry_the_probes_strictness(self):
+        class Kube:
+            def exec(self, namespace, name, command, input=None, timeout=None, check=True):
+                self.plan = json.loads(input)
+                return subprocess.CompletedProcess(command, 0, "", "")
+
+            def secret(self, namespace, name, data):
+                self.plan = json.loads(data["plan.json"])
+
+            def configmap(self, namespace, name, data):
+                pass
+
+            def apply(self, manifest):
+                pass
+
+            def wait_ready(self, namespace, name, *args, **kwargs):
+                pass
+
+        kube = Kube()
+        runner = ProbePod(kube, "ns")
+        runner.run([])
+        self.assertTrue(kube.plan["strict"])
+        runner.strict = False
+        runner.run([])
+        self.assertFalse(kube.plan["strict"])
+        Background(runner, "bg", [], {})  # a background pod's plan too
+        self.assertFalse(kube.plan["strict"])
 
     def test_a_request_with_a_token_by_name_and_its_request_id(self):
         r = self.run_plan([{"name": "ok", "path": "/v1/config", "token": "admin", "requestId": "rid-1"},

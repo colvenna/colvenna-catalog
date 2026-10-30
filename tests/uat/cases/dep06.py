@@ -135,6 +135,7 @@ def run(ctx):
     candidate = installer.Checkout(ctx.args.candidate)
     upgraded = []
     with ctx.preparing("the previous release in use, recorded, its snapshot taken, the loops running") as notes:
+        lifecycle.reach_previous_release(ctx)
         tools = prepare(ctx, db, principals, upgraded)
         before = lifecycle.record(ctx, tools, "reader", db, ["orders", "events"], principals.values())
         name = f"uat-{ctx.run}-pre-upgrade"

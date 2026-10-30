@@ -19,6 +19,15 @@ GAP = 60  # seconds: the longest a loop may go without a success
 SETTLE = 5
 
 
+def reach_previous_release(ctx):
+    """The probe reaches the previous release (#49): in the EKS form its private CA may have no keyUsage
+    (v1.0.0-rc.1's has none, until the candidate's install.sh issues it again with its extensions), which
+    the probe's Python checks strictly by default, so the strict X.509 checks are off for the case; the
+    chain and the names are still verified. The serverless form's API has a public certificate."""
+    if ctx.form == "eks":
+        ctx.probe.strict = False
+
+
 def stamp(t=None):
     return datetime.fromtimestamp(t if t is not None else time.time(), timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The serverless form's live test (#13), against an install of COLVENNA_FORM=serverless named <env> in
-# <region> (install.sh's state in .state/<env>/): builds the driver (tests/serverless/driver) on the
+# <region> (its stacks' outputs read from CloudFormation): builds the driver (tests/serverless/driver) on the
 # environment's own server image, pushes it to the environment's repository as test-driver-<hash>,
 # deploys it into the catalog's VPC as ColvennaCatalogTest<Env>Driver, and invokes each action with
 # IAM-signed Lambda Invoke calls (default: cycle refusals cold). The admin's token goes from Secrets
@@ -44,7 +44,6 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(git -C "$here" rev-parse --show-toplevel)"
 export AWS_REGION="$region" AWS_DEFAULT_REGION="$region"
 Env="$(tr '[:lower:]' '[:upper:]' <<<"${env:0:1}")${env:1}"
-installed="$REPO/.state/$env"
 state="$REPO/.state/test-driver-$env-$region"
 evidence="$state/evidence/$(date -u +%Y%m%dT%H%M%SZ)"
 stack="ColvennaCatalogTest${Env}Driver"
@@ -54,9 +53,18 @@ work="$(mktemp -d)"
 chmod 700 "$work"
 trap 'rm -rf "$work"' EXIT
 
-# output <stack> <key>: one of the outputs install.sh left for the stack.
+# shellcheck source-path=SCRIPTDIR source=../../deploy/lib/stacks.sh
+source "$here/../../deploy/lib/stacks.sh"
+COLVENNA_REGION="$region"
+# output <stack> <key>: one of the stack's outputs, from CloudFormation (cfn_output). install.sh keeps a
+# copy in its checkout's .state/<env>/, but the install may have been made from another checkout than
+# this one: a previous release's own (UAT-DEP-06's S2), or the candidate's while the harness runs from a
+# fix's (#48).
 output() {
-  jq -er --arg s "ColvennaCatalog$Env$1" --arg k "$2" '.[$s][$k]' "$installed/ColvennaCatalog$Env$1.json"
+  local value
+  value="$(cfn_output "ColvennaCatalog$Env$1" "$2")" || return 1
+  [[ -n "$value" ]] || { echo "ColvennaCatalog$Env$1 has no output $2" >&2; return 1; }
+  printf '%s\n' "$value"
 }
 
 [[ -z "$(git -C "$REPO" status --porcelain)" ]] || { echo "Commit first: the driver stack records the commit it is of" >&2; exit 2; }

@@ -590,11 +590,20 @@ def judge_exit(run):
     return run.exit_code == 0, f"exit {run.exit_code}; failed {run.failed_step()}"
 
 
-def data_missing(storage, inventory):
-    """[the Storage stack's buckets and database instances that the account's inventory lacks]."""
-    have = set(inventory.get("buckets", [])) | {d.split(" ")[0] for d in inventory.get("databases", [])}
-    return sorted(physical for kind, physical in (storage or {}).get("resources", {}).values()
-                  if kind in ("AWS::S3::Bucket", "AWS::RDS::DBInstance") and physical not in have)
+def data_missing(storage, inventory, restored=None, had=None):
+    """[the install's buckets and database instances that the account lacks]: the Storage stack's bucket
+    and instance (inventory: the account's, after). For an install UAT-DEP-10 moved onto the instance it
+    restored (restored: (its identifier, whether the account has it), as the inventory lists only the
+    stacks' own), that instance; and the stack's own only if the account had it before (had: the inventory
+    before), as the user manual's restore deletes it (#51)."""
+    def names(inv):
+        return set(inv.get("buckets", [])) | {d.split(" ")[0] for d in inv.get("databases", [])}
+
+    have, before = names(inventory), names(had if had is not None else inventory)
+    wanted = [physical for kind, physical in (storage or {}).get("resources", {}).values()
+              if kind == "AWS::S3::Bucket" or (kind == "AWS::RDS::DBInstance" and (not restored or physical in before))]
+    missing = [w for w in wanted if w not in have] + ([restored[0]] if restored and not restored[1] else [])
+    return sorted(missing)
 
 
 def kept(before, after, key):

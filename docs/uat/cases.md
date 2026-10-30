@@ -901,7 +901,7 @@ Some refusals need a change to the account (no CloudWatch Logs role for API Gate
 | --- | --- |
 | `uninstall-exit`, `uninstall-again-exit` | 0 both times; the second removes nothing more |
 | `removed` | EKS: the internal NLB, the Helm release, the catalog's Secrets but its CA, the EKS stack; serverless: the serverless and images stacks, and the network stack unless the kept database is in it |
-| `kept` | The storage stack, its bucket and database; EKS: the CA and the namespace |
+| `kept` | The storage stack, its bucket and database (after UAT-DEP-10, the instance it restored, and the stack's own if it was still there); EKS: the CA and the namespace |
 | `others-untouched` | Every other install's resources, the test environment and the release registry as recorded |
 | `reinstall-finds-everything` | After step 4: every table reads as before, its snapshots too; principals, grants and the token from before work |
 
