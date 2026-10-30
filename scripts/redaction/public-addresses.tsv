@@ -4,7 +4,6 @@
 # 198.51.100.0/24, 203.0.113.0/24, RFC 5737). Only what is not an address goes here.
 THIRD_PARTY_NOTICES.md	1.1.10.12	snappy-java's version 1.1.10.12, not an address
 THIRD_PARTY_NOTICES.md	1.1.10.8	snappy-java's version 1.1.10.8 (in Apache Paimon's jars), not an address
-THIRD_PARTY_NOTICES.md	21.0.12.1	The Eclipse Temurin JRE's version 21.0.12.1+1, not an address
 docs/security/scans.md	1.1.10.12	snappy-java's version 1.1.10.12, not an address
 docs/security/scans.md	1.1.10.8	snappy-java's version 1.1.10.8 (in Apache Paimon's jars), not an address
 docs/security/scans.md	21.0.12.1	The Eclipse Temurin JRE's version 21.0.12.1+1, not an address
