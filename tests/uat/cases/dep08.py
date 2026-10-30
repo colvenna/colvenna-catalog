@@ -11,6 +11,7 @@ was. Then every table reads as before, and the principal, its grant and its toke
 import time
 from pathlib import Path
 
+from cases import dep09
 from uatlib import deploy, testdriver
 from uatlib.probe import describe
 
@@ -171,7 +172,7 @@ def run(ctx):
         kube_after = deploy.kube_state(ctx.kube, inst.namespace, inst.release)
         kube_after["namespace"] = ctx.kube.kubectl("get", "namespace", inst.namespace, check=False).returncode == 0
     lbs = balancers_left(ctx, lbs_before) if ctx.form == "eks" else None
-    missing = deploy.data_missing(stacks_after.get(inst.stack("Storage")), account_after)
+    missing = deploy.data_missing(stacks_after.get(inst.stack("Storage")), account_after, restored=dep09.restored(inst))
     (ok_r, d_r), (ok_k, d_k) = judge_removed_kept(ctx.form, stacks_before, stacks_after, inst.env, kube_after, lbs, missing)
     ctx.check("removed", ok_r, d_r)
     ctx.check("kept", ok_k, d_k)

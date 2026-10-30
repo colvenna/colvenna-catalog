@@ -120,9 +120,8 @@ def readable_writable(ctx, prepared=None):
         ctx.keep("cycle.json", out)
         return judge_cycle(out)
     # The harness's own run.sh (a release install's image is tagged with the candidate's name, which the
-    # run.sh of candidates before #52 did not find); it reads the install's outputs from this checkout's
-    # .state/<env>/, which install.sh writes in the installer's checkout: the same one, unless
-    # --installer-checkout names another (then link its .state/<env> here).
+    # run.sh of candidates before #52 did not find); it reads the install's outputs from CloudFormation,
+    # whichever checkout installed it (#48).
     p = subprocess.run([str(REPO / "tests" / "serverless" / "run.sh"), ctx.install.env, ctx.install.region, "cycle"],
                        cwd=str(REPO), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True,
                        env=ctx.aws.env(), timeout=3600)

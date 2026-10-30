@@ -53,14 +53,17 @@ work="$(mktemp -d)"
 chmod 700 "$work"
 trap 'rm -rf "$work"' EXIT
 
-# output <stack> <key>: one of the stack's outputs, from CloudFormation. install.sh keeps a copy in its
-# checkout's .state/<env>/, but the install may have been made from another checkout than this one: a
-# previous release's own (UAT-DEP-06's S2), or the candidate's while the harness runs from a fix's (#48).
+# shellcheck source-path=SCRIPTDIR source=../../deploy/lib/stacks.sh
+source "$here/../../deploy/lib/stacks.sh"
+COLVENNA_REGION="$region"
+# output <stack> <key>: one of the stack's outputs, from CloudFormation (cfn_output). install.sh keeps a
+# copy in its checkout's .state/<env>/, but the install may have been made from another checkout than
+# this one: a previous release's own (UAT-DEP-06's S2), or the candidate's while the harness runs from a
+# fix's (#48).
 output() {
   local value
-  value="$(aws cloudformation describe-stacks --stack-name "ColvennaCatalog$Env$1" \
-    --query "Stacks[0].Outputs[?OutputKey=='$2'].OutputValue | [0]" --output text)" || return 1
-  [[ -n "$value" && "$value" != None ]] || { echo "ColvennaCatalog$Env$1 has no output $2" >&2; return 1; }
+  value="$(cfn_output "ColvennaCatalog$Env$1" "$2")" || return 1
+  [[ -n "$value" ]] || { echo "ColvennaCatalog$Env$1 has no output $2" >&2; return 1; }
   printf '%s\n' "$value"
 }
 

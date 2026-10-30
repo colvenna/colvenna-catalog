@@ -100,7 +100,7 @@ class Background:
         kube, ns = probe.kube, probe.namespace
         used = {s["token"] for s in steps if s.get("token")}
         plan = {"base": probe.base, "ca": probe.ca, "tokens": {k: v for k, v in tokens.items() if k in used},
-                "steps": steps}
+                "strict": probe.strict, "steps": steps}
         kube.secret(ns, f"{name}-plan", {"plan.json": json.dumps(plan)})
         container = {
             "name": "probe", "image": PYTHON_IMAGE, "command": ["sh", "-c", "python3 /uat/probe.py </plan/plan.json"],

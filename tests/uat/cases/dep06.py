@@ -130,15 +130,12 @@ def audit_continuous(ctx, before, since, until):
 # --- the run ------------------------------------------------------------------------------------------
 
 def run(ctx):
-    # #49: the previous release's private CA may have no keyUsage (v1.0.0-rc.1's has none, until the
-    # candidate's install.sh issues it again with its extensions): the probe reaches it with Python's strict
-    # X.509 checks off, the chain and the names still verified.
-    ctx.probe.strict = False
     db = f"upg_{ctx.run}"
     principals = {r: f"upg-{r}-{ctx.run}" for r in ("writer", "reader", "late")}
     candidate = installer.Checkout(ctx.args.candidate)
     upgraded = []
     with ctx.preparing("the previous release in use, recorded, its snapshot taken, the loops running") as notes:
+        lifecycle.reach_previous_release(ctx)
         tools = prepare(ctx, db, principals, upgraded)
         before = lifecycle.record(ctx, tools, "reader", db, ["orders", "events"], principals.values())
         name = f"uat-{ctx.run}-pre-upgrade"
