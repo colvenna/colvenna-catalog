@@ -147,13 +147,19 @@ class Tools:
             # environment's clients' nodes hold every client of the run's installs and these.
             "resources": {"requests": {"cpu": cpu, "memory": half(memory)}, "limits": {"memory": memory}},
             "volumeMounts": mounts}]
+        sidecars = []
         if proxy:
             from .probe import PYTHON_IMAGE
 
             proxy_env = {"UAT_UPSTREAM": self.ctx.install.uri, "UAT_PROXY_PORT": str(PROXY_PORT),
                          "UAT_DROP_EVERY": str(proxy)}
-            containers.append({
+            # A native sidecar (#38): an init container that keeps running, which the kubelet starts, and waits
+            # for until it listens, before the tool starts. As the tool's second container it could start
+            # later than the tool's first request, while its image was still being pulled on a new node.
+            sidecars.append({
                 "name": "proxy", "image": PYTHON_IMAGE, "command": ["python3", "-u", "/uat/proxy.py"],
+                "restartPolicy": "Always",
+                "startupProbe": {"tcpSocket": {"port": PROXY_PORT}, "periodSeconds": 1, "failureThreshold": 300},
                 "env": [{"name": k, "value": v} for k, v in proxy_env.items()],
                 "securityContext": hardened(65534),
                 "resources": {"requests": {"cpu": "100m", "memory": "64Mi"}, "limits": {"memory": "256Mi"}},
@@ -169,7 +175,7 @@ class Tools:
                     "name": "jars", "image": self.curl, "command": ["sh", "-c", "\n".join(fetch)],
                     "securityContext": hardened(100, 101),
                     "resources": {"requests": {"cpu": "100m", "memory": "64Mi"}, "limits": {"memory": "256Mi"}},
-                    "volumeMounts": [{"name": "jars", "mountPath": "/jars"}]}],
+                    "volumeMounts": [{"name": "jars", "mountPath": "/jars"}]}] + sidecars,
                 "containers": containers, "volumes": volumes}}
 
     # --- a pod for short tools -------------------------------------------------------------------------
@@ -256,6 +262,15 @@ class Job:
 
     def logs(self, container="tool"):
         return self.kube.logs(self.namespace, self.name, container)
+
+    def keep_start(self, ctx):
+        """What a job that did not start left (#38): its pod's status and its containers' logs, kept before the
+        clean-up deletes them."""
+        p = self.kube.kubectl("get", "pod", self.name, "-n", self.namespace, "-o", "json", check=False)
+        status = json.loads(p.stdout).get("status", {}) if p.returncode == 0 else {"phase": "Missing"}
+        logs = {c: self.kube.kubectl("logs", self.name, "-n", self.namespace, "-c", c, "--tail=200", check=False).stdout
+                for c in ("jars", "proxy", "tool")}
+        ctx.keep(f"{self.name}-not-started.json", {"status": status, "logs": logs})
 
     def facts(self):
         return lines(self.logs())
