@@ -7,11 +7,11 @@
 # without emulation.
 FROM public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0@sha256:17cfd08eff1dfea3f6a9a1e9c65fdac80aa4919b6085e746615530f43f57d2f1 AS adapter
 
-FROM eclipse-temurin:21-jre-noble@sha256:cd35bb33859641c5374415826a5951845104093eaa401cbe9d3d9023444f1c13 AS runtime
+FROM eclipse-temurin:21-jre-noble@sha256:161310cd5bd41fd549d19cf9f90b614897cb4a1532555c613b43b7e0628fe5d6 AS runtime
 
 # Hadoop's login (S3 FileIO) needs a passwd entry for the UID the process runs as: the image's USER
 # below has one, and Lambda runs container images as its own sandbox user, UID 993 (seen in #12).
-FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jre-noble@sha256:cd35bb33859641c5374415826a5951845104093eaa401cbe9d3d9023444f1c13 AS accounts
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jre-noble@sha256:161310cd5bd41fd549d19cf9f90b614897cb4a1532555c613b43b7e0628fe5d6 AS accounts
 COPY --from=runtime /etc/passwd /accounts/passwd
 RUN grep -q '^[^:]*:[^:]*:993:' /accounts/passwd \
   || echo 'sbx_user1051:x:993:990:Lambda sandbox user:/tmp:/usr/sbin/nologin' >>/accounts/passwd
@@ -20,7 +20,7 @@ RUN grep -q '^[^:]*:[^:]*:993:' /accounts/passwd \
 # texts of what the image carries without a license file of its own (THIRD_PARTY_NOTICES.md lists them).
 # Made readable by every user here, whatever modes the build context has: COPY --chmod would give the
 # directories it makes the same mode as the files.
-FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jre-noble@sha256:cd35bb33859641c5374415826a5951845104093eaa401cbe9d3d9023444f1c13 AS licenses
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jre-noble@sha256:161310cd5bd41fd549d19cf9f90b614897cb4a1532555c613b43b7e0628fe5d6 AS licenses
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md /licenses/
 COPY licenses/ /licenses/third-party/
 RUN chmod -R u=rwX,go=rX /licenses

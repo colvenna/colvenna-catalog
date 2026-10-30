@@ -29,7 +29,7 @@ The reports in [`docs/research/`](docs/research/) quote the documentation and so
 
 ## The server's image
 
-[`Dockerfile`](Dockerfile) builds the image `install.sh` and the release candidates run. Its base is `eclipse-temurin:21-jre-noble`, pinned by digest: Ubuntu 24.04 with the Eclipse Temurin JRE 21.0.12.1+1, which is OpenJDK under GPL-2.0 with the Classpath Exception (the image's Dockerfiles, from [adoptium/containers](https://github.com/adoptium/containers), are Apache-2.0). Ubuntu's packages in it keep their own licenses and are not listed here (NOT_RUN). Onto the base, the image copies:
+[`Dockerfile`](Dockerfile) builds the image `install.sh` and the release candidates run. Its base is `eclipse-temurin:21-jre-noble`, pinned by digest: Ubuntu 24.04 with the Eclipse Temurin JRE 21.0.13+9, which is OpenJDK under GPL-2.0 with the Classpath Exception (the image's Dockerfiles, from [adoptium/containers](https://github.com/adoptium/containers), are Apache-2.0). Ubuntu's packages in it keep their own licenses and are not listed here (NOT_RUN). Onto the base, the image copies:
 
 - the AWS Lambda Web Adapter 1.1.0 binary, from `public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0` pinned by digest, into `/opt/extensions/`, where only Lambda (the serverless form) starts it. It is Apache-2.0 ([awslabs/aws-lambda-web-adapter](https://github.com/awslabs/aws-lambda-web-adapter/tree/v1.1.0)), and its NOTICE is in [NOTICE](NOTICE);
 - the Amazon RDS CA certificate bundle `global-bundle.pem`, from `truststore.pki.rds.amazonaws.com` pinned by checksum, which JDBC verifies the database's certificate against in Lambda. It is AWS's public CA certificates, published for clients to verify RDS; no license is stated with it (UNKNOWN);
