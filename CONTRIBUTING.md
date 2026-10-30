@@ -24,7 +24,7 @@ The [README](README.md) is the overview, and [docs/development.md](docs/developm
 
 3. A commit message names the issue: `<kind>: #<n> <what changed>`, the kind saying what the change is (`feat`, `fix`, `docs`, `test`, `ci`, `build`, `deploy`, `release`, `security` and so on), with an area if it helps (`docs(admin): #15 ...`). A commit ported from Colvenna Lake carries the line `Ported-from: colvenna-lake@<full sha>` ([Porting fixes from Colvenna Lake](docs/development.md#porting-fixes-from-colvenna-lake)).
 4. Open one pull request for the issue. It links the issue (`Closes #<n>` when it resolves it), and says what changed and how it was validated.
-5. Review and CI must pass on the pull request's exact head SHA, on a branch rebased onto the current `main`. Whenever `main` moves before the merge, rebase, run CI again, and review what the rebase changed.
+5. Review and CI (GitHub Actions, every job; `scripts/ci-local.sh` only under a recorded waiver, when Actions cannot run) must pass on the pull request's exact head SHA, on a branch rebased onto the current `main`. Whenever `main` moves before the merge, rebase, run CI again, and review what the rebase changed.
 6. Merge that exact SHA with a merge commit, and nothing else:
 
    ```bash
@@ -37,13 +37,15 @@ The one exception is a release candidate's pull request. Its branch is `release-
 
 ## CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) defines eight jobs: `pre-commit`, `shellcheck`, `aws-test`, `deploy-test`, `verify`, `compat-test`, `uat-test` and `perf-test`. GitHub Actions does not run for this repository at present, so GitHub CI is recorded as waived (`WAIVED_BY_REQUESTER_NOT_PASS`), never as passed. The required check is [`scripts/ci-local.sh`](scripts/ci-local.sh), which runs the same eight jobs on `HEAD`:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) defines eight jobs: `pre-commit`, `shellcheck`, `aws-test`, `deploy-test`, `verify`, `compat-test`, `uat-test` and `perf-test`. GitHub Actions runs them on every pull request and on `main`, and it is the CI of record: a pull request merges only when every one of these checks has succeeded on its exact head SHA, unless Actions cannot run at all and the waiver below is recorded.
+
+[`scripts/ci-local.sh`](scripts/ci-local.sh) runs the same eight jobs on `HEAD`, on your own host:
 
 ```bash
 scripts/ci-local.sh
 ```
 
-Run it on the pull request's exact head SHA, with a clean tree; HEAD must be the same when it ends as when it began. It refuses to run (exit 2) on a dirty tree, when a tool the jobs need is missing, or without a running Docker, and fails (exit 1) if a job fails or leaves changes behind. Post its output, which names the SHA, as a comment on the pull request. It needs JDK 21 (`JAVA_HOME` pointing at a 21), Maven, Docker, Node.js with npm, Python 3, pre-commit, ShellCheck, `curl` and `jq`; `scripts/install-tools.sh`, which the jobs run, fetches the pinned kubectl, Helm and crane into `.tools/`. Local CI is no substitute for UAT or the performance acceptance.
+It is a supplement: run it before you push, or beside Actions when you want a second run; you may post its output, which names the SHA, on the pull request. Only when Actions cannot run (its minutes used up, or an outage) does it become the CI of record ([CI](docs/development.md#ci) has the rule): then it runs on the pull request's exact head SHA, its output is posted on the pull request, and the waiver, `WAIVED` with its reason, is recorded there, never as a GitHub pass. Run it with a clean tree; HEAD must be the same when it ends as when it began. It refuses to run (exit 2) on a dirty tree, when a tool the jobs need is missing, or without a running Docker, and fails (exit 1) if a job fails or leaves changes behind. It needs JDK 21 (`JAVA_HOME` pointing at a 21), Maven, Docker, Node.js with npm, Python 3, pre-commit, ShellCheck, `curl` and `jq`; `scripts/install-tools.sh`, which the jobs run, fetches the pinned kubectl, Helm and crane into `.tools/`. Local CI is no substitute for UAT or the performance acceptance.
 
 While working, run the jobs for what you changed; these are the commands `scripts/ci-local.sh` runs:
 

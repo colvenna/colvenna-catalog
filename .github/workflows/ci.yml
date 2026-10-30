@@ -1,4 +1,4 @@
-# The jobs here and in scripts/ci-local.sh, which runs them when Actions cannot, are the same;
+# The jobs here and in scripts/ci-local.sh, which runs them on a local host, are the same;
 # change both together.
 name: ci
 
