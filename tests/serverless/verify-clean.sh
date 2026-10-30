@@ -9,7 +9,7 @@ set -uo pipefail
 env="$1" region="$2"
 [[ "$env" =~ ^[a-z][a-z0-9]{0,7}$ ]] || { echo "env: a lowercase letter, then lowercase letters and digits" >&2; exit 2; }
 export AWS_REGION="$region" AWS_DEFAULT_REGION="$region"
-# shellcheck source=../../deploy/lib/stacks.sh
+# shellcheck source-path=SCRIPTDIR source=../../deploy/lib/stacks.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../../deploy/lib/stacks.sh"
 COLVENNA_ENV="$env" COLVENNA_REGION="$region"
 stacks="$(stack_id "")" names="colvenna-catalog-$env" left=0
