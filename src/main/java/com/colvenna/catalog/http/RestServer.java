@@ -74,6 +74,21 @@ public final class RestServer implements AutoCloseable {
         }
     }
 
+    /**
+     * The JDK's HTTP server sets {@code TCP_NODELAY} on its connections only when this property is
+     * {@code true}, and reads it once, when its first server is made. Left off, Nagle's algorithm
+     * holds a response's body until the client acknowledges its headers, which a client delays by
+     * about 40 ms: every answer on a kept-alive connection took 40 ms more (#37). Set here, before
+     * this class makes a server, unless the JVM was started with it.
+     */
+    static final String NODELAY = "sun.net.httpserver.nodelay";
+
+    static {
+        if (System.getProperty(NODELAY) == null) {
+            System.setProperty(NODELAY, "true");
+        }
+    }
+
     /** PostgreSQL's SQLSTATE when {@code lock_timeout} cancels a statement waiting for a lock. */
     static final String LOCK_NOT_AVAILABLE = "55P03";
 
