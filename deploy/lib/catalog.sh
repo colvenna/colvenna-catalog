@@ -127,8 +127,10 @@ ensure_database() {
   grep -q "BEGIN CERTIFICATE" "$work/rds-ca.pem" || { echo "The RDS CA bundle for $COLVENNA_REGION is not a certificate bundle" >&2; return 1; }
   kubectl -n "$COLVENNA_NAMESPACE" create configmap "$DB_CA_CONFIGMAP" --from-file=ca.pem="$work/rds-ca.pem" \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-  aws secretsmanager get-secret-value --secret-id "$DB_ADMIN_SECRET_ARN" --query SecretString --output text >"$work/admin.json"
-  aws secretsmanager get-secret-value --secret-id "$DB_USER_SECRET_ARN" --query SecretString --output text >"$work/user.json"
+  aws secretsmanager get-secret-value --region "$COLVENNA_REGION" --secret-id "$DB_ADMIN_SECRET_ARN" --query SecretString \
+    --output text >"$work/admin.json"
+  aws secretsmanager get-secret-value --region "$COLVENNA_REGION" --secret-id "$DB_USER_SECRET_ARN" --query SecretString \
+    --output text >"$work/user.json"
   jq -j .username "$work/admin.json" >"$work/PGUSER"
   jq -j .password "$work/admin.json" >"$work/PGPASSWORD"
   jq -j .password "$work/user.json" >"$work/CATALOG_PASSWORD"

@@ -251,8 +251,9 @@ assert_db_usable() {
   [[ "$(jq -r .status <<<"$db")" =~ ^(available|backing-up|modifying|configuring-.*|upgrading|maintenance|storage-optimization)$ ]] \
     || refuse "The database at $COLVENNA_DB_ENDPOINT is $(jq -r .status <<<"$db"); start it, or wait, and run again"
   [[ "$(jq -r .public <<<"$db")" == false ]] || refuse "The database at $COLVENNA_DB_ENDPOINT is publicly accessible; the" \
-    "catalog takes a database reached from its VPC only: turn it off (aws rds modify-db-instance --db-instance-identifier" \
-    "<instance> --no-publicly-accessible --apply-immediately, for each instance of an Aurora cluster) and run again"
+    "catalog takes a database reached from its VPC only: turn it off (aws rds modify-db-instance --region $COLVENNA_REGION" \
+    "--db-instance-identifier <instance> --no-publicly-accessible --apply-immediately, for each instance of an Aurora" \
+    "cluster) and run again"
   name="$(jq -r .name <<<"$db")" cluster="$(jq -r .cluster <<<"$db")" group="$(jq -r .parameters <<<"$db")"
   if [[ -n "$cluster" ]]; then
     api=describe-db-cluster-parameters group_flag=--db-cluster-parameter-group-name
