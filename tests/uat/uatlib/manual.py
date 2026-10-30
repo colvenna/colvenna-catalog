@@ -62,7 +62,7 @@ def script(run, form, fill):
         # Only the EKS form has these (the manual: "without what only the EKS form has"). A stand-in that reads
         # its input (-f -) reads it whole first, so that the command piped into it ends normally (#32: a
         # pipeline into an unread stand-in died of SIGPIPE under pipefail).
-        parts += ["kubectl() { case \" $* \" in *' -f - '*) cat >/dev/null;; esac; "
+        parts += ["kubectl() { case \" $* \" in *' -f - '*|*' -f=- '*|*' --filename - '*|*' --filename=- '*) cat >/dev/null;; esac; "
                   "echo \"(the EKS form's only, not run: kubectl $*)\"; }",
                   f"curl() {{ python3 -I {SHIM} \"$@\"; }}"]
     n, wrote_curlrc = 0, False

@@ -1,5 +1,6 @@
 """UAT-CAT-05's judging, offline."""
 
+import subprocess
 import unittest
 
 from cases import cat05
@@ -109,15 +110,14 @@ class Manual(unittest.TestCase):
 
     def test_the_serverless_stand_in_for_kubectl_ends_a_pipeline_normally(self):
         # #32: the manual's rotation pipes kubectl into kubectl apply -f -; the stand-in reads what it is given.
-        import subprocess
-
         from uatlib import manual
 
         text = manual.script("u1", "serverless", {"<region>": "us-west-2", "<env>": "e", "<api-id>": "a"})
         stand_in = next(line for line in text.splitlines() if line.startswith("kubectl()"))
         out = subprocess.run(["bash", "-c", "set -euo pipefail; " + stand_in + "\n"
                               "kubectl create secret generic s --dry-run=client -o yaml | kubectl apply -f -; "
-                              "head -c 1000000 /dev/zero | kubectl apply -f -; echo done"], capture_output=True, text=True)
+                              "head -c 1000000 /dev/zero | kubectl apply --filename=- ; echo done"],
+                             capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60)
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("not run: kubectl apply -f -", out.stdout)
         self.assertTrue(out.stdout.rstrip().endswith("done"))
