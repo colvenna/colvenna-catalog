@@ -69,8 +69,22 @@ class Commits(unittest.TestCase):
         self.assertTrue(flt01.judge_dropped([dropped(), errored], events)[0])
         applied = dropped(ident=11, first_body='{"success":false}', body='{"success":true}')
         self.assertFalse(flt01.judge_dropped([dropped(), applied], events)[0])
+        conflict = dropped(ident=11, first=409, first_body='{"code":409}', body='{"success":true}')
+        self.assertFalse(flt01.judge_dropped([dropped(), conflict], events)[0])
         # Refusals alone show nothing of a replay.
         self.assertFalse(flt01.judge_dropped([refused], events)[0])
+
+    def test_a_retryable_refusal_dropped_may_be_applied_when_sent_again_once(self):
+        # #39: the first answer 503 (a lock timeout, its changes rolled back); the resend, the lock gone, applied.
+        locked = dropped(ident=11, first=503, first_body='{"code":503}', body='{"success":true}')
+        once = [event("stress-w3", 10, "published"), event("stress-w3", 10, REPLAY), event("stress-w3", 11, "published")]
+        self.assertTrue(flt01.judge_dropped([dropped(), locked], once)[0])
+        self.assertTrue(flt01.judge_dropped([locked], once[2:])[0], "a commit made by its resend")
+        twice = once + [event("stress-w3", 11, "published")]
+        self.assertFalse(flt01.judge_dropped([dropped(), locked], twice)[0])
+        self.assertFalse(flt01.judge_dropped([dropped(), locked], once[:2])[0], "applied, but never published")
+        throttled = dropped(ident=11, first=429, first_body='{"message":"x"}', body='{"success":true}')
+        self.assertTrue(flt01.judge_dropped([dropped(), throttled], once)[0])
 
     def test_intents(self):
         self.assertTrue(flt01.judge_intents([("PUBLISHED", "1"), ("PUBLISHED", "2"), ("ABORTED", "2")], 2)[0])
