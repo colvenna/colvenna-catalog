@@ -10,13 +10,17 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyStore;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManagerFactory;
@@ -25,6 +29,7 @@ import org.apache.paimon.options.CatalogOptions;
 import org.apache.paimon.options.Options;
 import org.apache.paimon.rest.RESTCatalog;
 import org.apache.paimon.rest.RESTCatalogOptions;
+import org.apache.paimon.rest.exceptions.RESTException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -136,28 +141,102 @@ class TlsTest {
         server.close();
     }
 
+    // Paimon's REST client shares one HTTP client per JVM (HttpClientUtils.DEFAULT_HTTP_CLIENT)
+    // and fixes its TLS context when that class first loads. So the trust store is given when the
+    // JVM starts, as the user manual tells clients (-Djavax.net.ssl.trustStore). Setting it at run
+    // time worked only while no earlier test of the same JVM had used a RESTCatalog; on GitHub's
+    // runners the contract test runs first (#16). The client runs in a JVM of its own, so the
+    // order of the test classes cannot matter.
     @Test
-    void paimonClientConnectsOverTls() throws Exception {
-        String previous = System.getProperty("javax.net.ssl.trustStore");
-        System.setProperty("javax.net.ssl.trustStore", trustStore.toString());
-        System.setProperty("javax.net.ssl.trustStorePassword", PASSWORD);
-        try {
+    void paimonClientConnectsOverTlsWithTheTrustStoreGivenAtJvmStart() throws Exception {
+        Client run = paimonClient(true);
+        assertThat(run.exit()).as(run.output()).isZero();
+        assertThat(run.output()).contains(PaimonClient.DATABASES + "db\n");
+    }
+
+    @Test
+    void paimonClientWithoutTheTrustStoreIsRefusedByTls() throws Exception {
+        Client run = paimonClient(false);
+        assertThat(run.exit()).as(run.output()).isEqualTo(PaimonClient.REFUSED);
+        // Paimon drops the cause: the same JVM's HTTPS client shows it is the certificate check
+        assertThat(run.output())
+                .contains(PaimonClient.PROBE + "javax.net.ssl.SSLHandshakeException")
+                .doesNotContain(PaimonClient.DATABASES);
+    }
+
+    private record Client(int exit, String output) {}
+
+    private Client paimonClient(boolean trusting) throws Exception {
+        List<String> command = new ArrayList<>();
+        command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
+        if (trusting) {
+            command.add("-Djavax.net.ssl.trustStore=" + trustStore);
+            command.add("-Djavax.net.ssl.trustStorePassword=" + PASSWORD);
+            command.add("-Djavax.net.ssl.trustStoreType=PKCS12");
+        }
+        command.addAll(
+                List.of(
+                        "-cp",
+                        System.getProperty("java.class.path"),
+                        PaimonClient.class.getName(),
+                        "https://localhost:" + server.port(),
+                        token,
+                        TestServers.WAREHOUSE));
+        Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+        CompletableFuture<String> output =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try (InputStream in = process.getInputStream()) {
+                                return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                            } catch (java.io.IOException e) {
+                                throw new java.io.UncheckedIOException(e);
+                            }
+                        });
+        if (!process.waitFor(2, TimeUnit.MINUTES)) {
+            process.destroyForcibly();
+            throw new AssertionError("the Paimon client did not finish within 2 minutes");
+        }
+        return new Client(process.exitValue(), output.get(30, TimeUnit.SECONDS));
+    }
+
+    /** The Paimon client in a JVM of its own: creates a database, then lists the databases. */
+    static final class PaimonClient {
+        static final String DATABASES = "databases=";
+        static final String PROBE = "probe=";
+        static final int REFUSED = 3;
+
+        public static void main(String[] args) {
             Options options = new Options();
-            options.set(RESTCatalogOptions.URI, "https://localhost:" + server.port());
+            options.set(RESTCatalogOptions.URI, args[0]);
             options.set(RESTCatalogOptions.TOKEN_PROVIDER, "bear");
-            options.set(RESTCatalogOptions.TOKEN, token);
-            options.set(CatalogOptions.WAREHOUSE, TestServers.WAREHOUSE);
+            options.set(RESTCatalogOptions.TOKEN, args[1]);
+            options.set(CatalogOptions.WAREHOUSE, args[2]);
+            int exit = 0;
             try (RESTCatalog catalog = new RESTCatalog(CatalogContext.create(options))) {
                 catalog.createDatabase("db", false);
-                assertThat(catalog.listDatabases()).containsExactly("db");
+                System.out.println(DATABASES + String.join(",", catalog.listDatabases()));
+            } catch (RESTException e) {
+                System.out.println("refused: " + e.getMessage());
+                System.out.println(PROBE + probe(args[0]));
+                exit = REFUSED;
+            } catch (Exception e) {
+                e.printStackTrace(System.out);
+                exit = 1;
             }
-        } finally {
-            if (previous == null) {
-                System.clearProperty("javax.net.ssl.trustStore");
-            } else {
-                System.setProperty("javax.net.ssl.trustStore", previous);
+            System.out.flush();
+            System.exit(exit);
+        }
+
+        /** What the JVM's own HTTPS client, with its default trust, gets from the address. */
+        private static String probe(String uri) {
+            try (HttpClient client = HttpClient.newHttpClient()) {
+                client.send(
+                        HttpRequest.newBuilder(URI.create(uri + "/v1/config")).build(),
+                        HttpResponse.BodyHandlers.discarding());
+                return "connected";
+            } catch (Exception e) {
+                return e.getClass().getName();
             }
-            System.clearProperty("javax.net.ssl.trustStorePassword");
         }
     }
 
