@@ -95,7 +95,7 @@ As the manifest's `configurations` says:
 | UAT: <Region 2> | PASS <#>, FAIL <#>, BLOCKED <#>, NOT_RUN <#> (<#> required cases) | <the UAT report's section> |
 | Performance acceptance | <met / not met> | <the performance document's section> |
 | Security scans (ASH, Trivy, grype, cdk-nag, licenses) | <no unhandled finding / unhandled findings>: `scripts/security/scan.sh` on `{{built_from_short}}` | [`docs/security/{{candidate}}.md`](https://github.com/colvenna/colvenna-catalog/blob/<commit>/docs/security/{{candidate}}.md) |
-| CI | <state: GitHub Actions, every job of `ci.yml` on each pull request's exact head SHA; any pull request merged under a waiver (Actions could not run, `scripts/ci-local.sh` on its exact SHA instead), with its reason> | <each pull request's checks, and any waiver's record> |
+| CI | <`PASS`: GitHub Actions, every job of `ci.yml`, on each pull request's exact head SHA; or name each pull request merged `WAIVED` (Actions could not run; `scripts/ci-local.sh` on its exact SHA instead), with its reason> | <each pull request's checks, and any waiver's record> |
 | Release verdict | <GO / NO-GO> | <the release check report's link> |
 
 ## 6. Changes
