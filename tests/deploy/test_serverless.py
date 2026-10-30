@@ -647,23 +647,52 @@ class Flow(unittest.TestCase):
 
 
 class RemoveStorage(unittest.TestCase):
-    """uninstall.sh's remove_storage, for both forms: the database, the buckets, the stack, and the
-    database's log groups, which it never owned (its function's are delete_function_log_groups',
-    test_entrypoints.GeneratedNames)."""
+    """uninstall.sh's remove_storage, for both forms: the buckets' access logs stopped, the database, the
+    buckets (the one that took the logs last), the stack, and the database's log groups, which it never
+    owned (its function's are delete_function_log_groups', test_entrypoints.GeneratedNames)."""
 
     def test_the_data_the_stack_and_the_database_s_log_groups_go(self):
         work = tempfile.mkdtemp()
         script = (f'source "{REPO}/uninstall.sh"; WORK="{work}";'
                   ' stack_status() { echo CREATE_COMPLETE; };'
                   ' stack_resources() { case "$2" in AWS::RDS::DBInstance) echo db-1;; AWS::S3::Bucket) printf "b-1\\nb-2\\n";; esac; };'
-                  ' for f in delete_database delete_bucket destroy_stack delete_log_groups; do'
+                  ' for f in stop_access_logs delete_database delete_bucket destroy_stack delete_log_groups; do'
                   ' eval "$f() { echo \"$f \$1\" >>\"$WORK/steps\"; }"; done;'
                   ' remove_storage ColvennaCatalogSl13Storage -c account=1')
         out = run_bash(script)
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual((Path(work) / "steps").read_text().splitlines(), [
-            "delete_database db-1", "delete_bucket b-1", "delete_bucket b-2", "destroy_stack ColvennaCatalogSl13Storage",
-            "delete_log_groups /aws/rds/instance/db-1/"])
+            "stop_access_logs b-1", "delete_database db-1", "delete_bucket b-1", "delete_bucket b-2",
+            "destroy_stack ColvennaCatalogSl13Storage", "delete_log_groups /aws/rds/instance/db-1/"])
+
+    def storage(self, failing=""):
+        """remove_storage with its steps recorded: the access log bucket listed first, as CloudFormation
+        lists the stack's resources (AccessLogs...), and the warehouse bucket logging to it."""
+        work = tempfile.mkdtemp()
+        script = (f'source "{REPO}/uninstall.sh"; set -E; trap "on_error uninstall.sh" ERR; WORK="{work}";'
+                  ' stack_status() { echo CREATE_COMPLETE; };'
+                  ' stack_resources() { case "$2" in AWS::RDS::DBInstance) echo db-1;; AWS::S3::Bucket) printf "logs-1\\nwh-1\\n";; esac; };'
+                  ' stop_access_logs() { echo "stop_access_logs $*" >>"$WORK/steps"; echo logs-1; };'
+                  ' for f in delete_database destroy_stack delete_log_groups; do'
+                  ' eval "$f() { echo \"$f \$1\" >>\"$WORK/steps\"; }"; done;'
+                  f' delete_bucket() {{ echo "delete_bucket $1" >>"$WORK/steps"; [[ "$1" != "{failing}" ]]; }};'
+                  ' remove_storage ColvennaCatalogSl13Storage -c account=1')
+        out = run_bash(script)
+        return out, (Path(work) / "steps").read_text().splitlines()
+
+    def test_access_logs_stop_first_and_their_bucket_goes_last(self):
+        out, steps = self.storage()
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(steps[:5], ["stop_access_logs logs-1 wh-1", "delete_database db-1", "delete_bucket wh-1",
+                                     "delete_bucket logs-1", "destroy_stack ColvennaCatalogSl13Storage"])
+
+    def test_a_bucket_that_fails_keeps_neither_the_other_nor_the_stack_from_a_run_again(self):
+        out, steps = self.storage(failing="wh-1")
+        self.assertEqual(out.returncode, 1)
+        self.assertEqual(steps, ["stop_access_logs logs-1 wh-1", "delete_database db-1", "delete_bucket wh-1",
+                                 "delete_bucket logs-1"])
+        self.assertIn("Not deleted: the bucket(s) wh-1, as said above; ColvennaCatalogSl13Storage stays", out.stderr)
+        self.assertIn('uninstall.sh: failed at step "ColvennaCatalogSl13Storage and its data" (status 1)', out.stderr)
 
     def test_a_storage_stack_already_gone(self):
         out = run_bash(f'source "{REPO}/uninstall.sh"; stack_status() {{ echo NONE; }}; destroy_stack() {{ exit 9; }};'

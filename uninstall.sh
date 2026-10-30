@@ -123,9 +123,18 @@ delete_database() {
   aws rds wait db-instance-deleted --region "$COLVENNA_REGION" --db-instance-identifier "$1"
 }
 
-# delete_bucket <bucket>: empties and deletes the bucket; one already gone is skipped.
+# delete_bucket's bound: a bucket found not empty again when it is deleted, objects having arrived since
+# it was emptied (the access log bucket, which S3 may go on delivering logs to: stop_access_logs), is
+# emptied again BUCKET_DELETE_WAIT seconds later, BUCKET_DELETE_ATTEMPTS times in all at most: about 10
+# minutes.
+BUCKET_DELETE_ATTEMPTS=20
+BUCKET_DELETE_WAIT=30
+
+# delete_bucket <bucket>: empties and deletes the bucket, emptying it again while objects arrive (above);
+# one already gone is skipped. Every failure returns 1, saying why, so that a caller may go on with
+# other buckets.
 delete_bucket() {
-  local err
+  local err attempt
   err="$(mktemp)"
   if ! aws s3api head-bucket --bucket "$1" --region "$COLVENNA_REGION" >/dev/null 2>"$err"; then
     if grep -qE '\(404\)|Not Found' "$err"; then
@@ -136,9 +145,61 @@ delete_bucket() {
     rm -f "$err"
     return 1
   fi
+  for ((attempt = 1; ; attempt++)); do
+    if ! aws s3 rm "s3://$1" --recursive --region "$COLVENNA_REGION" --only-show-errors 2>"$err"; then
+      echo "Cannot empty the bucket $1: $(tr '\n' ' ' <"$err")" >&2
+      rm -f "$err"
+      return 1
+    fi
+    if aws s3api delete-bucket --bucket "$1" --region "$COLVENNA_REGION" 2>"$err"; then
+      rm -f "$err"
+      return 0
+    fi
+    if ! grep -q BucketNotEmpty "$err"; then
+      echo "Cannot delete the bucket $1: $(tr '\n' ' ' <"$err")" >&2
+      rm -f "$err"
+      return 1
+    fi
+    if ((attempt >= BUCKET_DELETE_ATTEMPTS)); then
+      echo "The bucket $1 is still not empty after $attempt attempts over $(((attempt - 1) * BUCKET_DELETE_WAIT)) seconds:" \
+        "objects go on arriving after it is emptied (S3 delivers access logs late, most within a few hours)" >&2
+      rm -f "$err"
+      return 1
+    fi
+    echo "The bucket $1 is not empty again, objects having arrived since it was emptied; emptying it again in" \
+      "$BUCKET_DELETE_WAIT seconds (attempt $((attempt + 1)) of $BUCKET_DELETE_ATTEMPTS)"
+    sleep "$BUCKET_DELETE_WAIT"
+  done
+}
+
+# stop_access_logs <bucket>...: for --delete-data, before any of the buckets is emptied: each bucket that
+# logs its requests to another of them stops, and that one loses its policy, under which S3's logging
+# service writes the logs (its bucket-owner-enforced ownership leaves the service no ACL to write by).
+# S3 delivers the logs it recorded late (most within a few hours), and a change to a bucket's logging
+# takes time to take effect: without this, the access log bucket took logs again as soon as it was
+# emptied (#14). Prints the buckets that took the logs, one per line, which go last.
+stop_access_logs() {
+  local bucket target err
+  err="$(mktemp)"
+  for bucket in "$@"; do
+    if ! target="$(aws s3api get-bucket-logging --bucket "$bucket" --region "$COLVENNA_REGION" \
+      --query LoggingEnabled.TargetBucket --output text 2>"$err")"; then
+      if grep -q NoSuchBucket "$err"; then
+        continue
+      fi
+      echo "Cannot read the logging of the bucket $bucket: $(tr '\n' ' ' <"$err")" >&2
+      rm -f "$err"
+      return 1
+    fi
+    [[ -n "$target" && "$target" != None ]] || continue
+    aws s3api put-bucket-logging --bucket "$bucket" --region "$COLVENNA_REGION" --bucket-logging-status '{}'
+    # Only a bucket of the stack's own loses its policy.
+    if printf '%s\n' "$@" | grep -qxF "$target"; then
+      aws s3api delete-bucket-policy --bucket "$target" --region "$COLVENNA_REGION"
+      printf '%s\n' "$target"
+    fi
+  done
   rm -f "$err"
-  aws s3 rm "s3://$1" --recursive --region "$COLVENNA_REGION" --only-show-errors
-  aws s3api delete-bucket --bucket "$1" --region "$COLVENNA_REGION"
 }
 
 # delete_log_groups <prefix>: deletes every log group whose name starts so. For the groups no stack owns:
@@ -185,20 +246,39 @@ assert_no_foreign_databases() {
 
 # remove_storage <storage stack> <placeholders...>: --delete-data: the database (no final snapshot) and
 # the buckets the storage stack made, the stack, and the database's exported logs, which it never owned
-# (its function's, CDK's log retention one, go with delete_function_log_groups).
+# (its function's, CDK's log retention one, go with delete_function_log_groups). The buckets stop their
+# access logs first, so that S3 has the database's deletion to settle in, and the access log bucket goes
+# last. A bucket that cannot be deleted does not keep the others from it; the stack then stays, so that a
+# run again finds them.
 remove_storage() {
-  local storage="$1" instances buckets instance bucket
+  local storage="$1" instances buckets instance bucket targets ordered=() failed=()
   shift
   [[ "$(stack_status "$storage")" != NONE ]] || return 0
   step "$storage and its data"
   instances="$(stack_resources "$storage" AWS::RDS::DBInstance)"
   buckets="$(stack_resources "$storage" AWS::S3::Bucket)"
+  # shellcheck disable=SC2086  # the stack's buckets, one word each
+  targets="$(stop_access_logs $buckets)"
   for instance in $instances; do
     delete_database "$instance"
   done
   for bucket in $buckets; do
-    delete_bucket "$bucket"
+    if ! grep -qxF "$bucket" <<<"$targets"; then
+      ordered+=("$bucket")
+    fi
   done
+  for bucket in $buckets; do
+    if grep -qxF "$bucket" <<<"$targets"; then
+      ordered+=("$bucket")
+    fi
+  done
+  for bucket in "${ordered[@]}"; do
+    delete_bucket "$bucket" || failed+=("$bucket")
+  done
+  if ((${#failed[@]})); then
+    echo "Not deleted: the bucket(s) ${failed[*]}, as said above; $storage stays, so that a run again finds them" >&2
+    return 1
+  fi
   destroy_stack "$storage" "$@" -c stack=storage -c createBucket=true -c createDatabase=false
   for instance in $instances; do
     delete_log_groups "/aws/rds/instance/$instance/"

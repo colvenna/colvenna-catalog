@@ -369,6 +369,62 @@ class DeleteData(unittest.TestCase):
             "stderr": "An error occurred (403) when calling the HeadBucket operation: Forbidden\n", "code": 254}})
         self.assertNotEqual(out.returncode, 0)
 
+    THERE = {"stdout": '{"BucketRegion": "us-west-2"}\n'}
+    NOT_EMPTY = {"stderr": "An error occurred (BucketNotEmpty) when calling the DeleteBucket operation: The bucket you tried "
+                           "to delete is not empty\n", "code": 254}
+
+    def test_a_bucket_that_takes_objects_again_once_emptied_is_emptied_again(self):
+        # The access log bucket, which S3 goes on delivering logs to (#14): not empty at the first delete.
+        out, calls = self.run_uninstall("BUCKET_DELETE_WAIT=0; delete_bucket b-1", {
+            "s3api head-bucket": self.THERE, "s3 rm": {"stdout": ""},
+            "s3api delete-bucket": [self.NOT_EMPTY, {"stdout": ""}]})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual([" ".join(c.split(" ")[1:3]) for c in calls], ["s3 rm", "s3api delete-bucket"] * 2)
+        self.assertIn("The bucket b-1 is not empty again", out.stdout)
+        self.assertIn("(attempt 2 of 20)", out.stdout)
+
+    def test_a_bucket_that_never_stays_empty_fails_once_the_attempts_are_spent(self):
+        out, calls = self.run_uninstall("BUCKET_DELETE_WAIT=0 BUCKET_DELETE_ATTEMPTS=3; delete_bucket b-1", {
+            "s3api head-bucket": self.THERE, "s3 rm": {"stdout": ""}, "s3api delete-bucket": self.NOT_EMPTY})
+        self.assertEqual(out.returncode, 1)
+        self.assertEqual([" ".join(c.split(" ")[1:3]) for c in calls], ["s3 rm", "s3api delete-bucket"] * 3)
+        self.assertIn("The bucket b-1 is still not empty after 3 attempts over 0 seconds", out.stderr)
+        self.assertIn("S3 delivers access logs late", out.stderr)
+
+    def test_a_bucket_that_cannot_be_deleted_is_not_tried_again(self):
+        out, calls = self.run_uninstall("BUCKET_DELETE_WAIT=0; delete_bucket b-1", {
+            "s3api head-bucket": self.THERE, "s3 rm": {"stdout": ""},
+            "s3api delete-bucket": {"stderr": "An error occurred (AccessDenied) when calling the DeleteBucket operation\n",
+                                    "code": 254}})
+        self.assertEqual(out.returncode, 1)
+        self.assertEqual(len([c for c in calls if "delete-bucket" in c]), 1)
+        self.assertIn("Cannot delete the bucket b-1: An error occurred (AccessDenied)", out.stderr)
+        out, calls = self.run_uninstall("delete_bucket b-1", {
+            "s3api head-bucket": self.THERE, "s3 rm": {"stderr": "delete failed: AccessDenied\n", "code": 1}})
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("Cannot empty the bucket b-1: delete failed: AccessDenied", out.stderr)
+        self.assertFalse(any("delete-bucket" in c for c in calls))
+
+    def test_access_logs_stop_before_the_buckets_are_emptied(self):
+        logging = "s3api get-bucket-logging --bucket"
+        out, calls = self.run_uninstall("stop_access_logs logs-1 wh-1 gone-1 other-1", {
+            f"{logging} logs-1 ": {"stdout": "None\n"},
+            f"{logging} wh-1 ": {"stdout": "logs-1\n"},
+            f"{logging} gone-1 ": {"stderr": "An error occurred (NoSuchBucket) when calling the GetBucketLogging operation\n",
+                                   "code": 254},
+            f"{logging} other-1 ": {"stdout": "theirs-1\n"},  # logs to a bucket not the stack's
+            "s3api put-bucket-logging": {"stdout": ""}, "s3api delete-bucket-policy": {"stdout": ""}})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.splitlines(), ["logs-1"])
+        changes = [c for c in calls if "get-bucket-logging" not in c]
+        self.assertEqual(changes, [
+            "aws s3api put-bucket-logging --bucket wh-1 --region us-west-2 --bucket-logging-status {}",
+            "aws s3api delete-bucket-policy --bucket logs-1 --region us-west-2",
+            "aws s3api put-bucket-logging --bucket other-1 --region us-west-2 --bucket-logging-status {}"])
+        out, _ = self.run_uninstall("stop_access_logs wh-1", {logging: {"stderr": "AccessDenied", "code": 254}})
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("Cannot read the logging of the bucket wh-1: AccessDenied", out.stderr)
+
 
 class GivenLeftovers(unittest.TestCase):
     """After --delete-data, uninstall.sh prints how to remove the catalog's part of what it was given, which
