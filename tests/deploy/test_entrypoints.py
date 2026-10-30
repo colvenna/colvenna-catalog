@@ -171,7 +171,7 @@ class GeneratedNames(unittest.TestCase):
 
     def test_a_name_generated_for_the_stack_or_a_cut_of_it_at_least_the_bound_long(self):
         for name in ("ColvennaCatalogUx1eStorage-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",  # pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret
-                     "ColvennaCatalogUx1eStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",  # cut to 25, as seen; pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret
+                     "ColvennaCatalogUx1eStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",  # pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret; cut to 25, as seen
                      "ColvennaCatalogUx1eStor-X-Y",  # 23
                      "ColvennaCatalogUx1eEks-Handler886CB40B-AbC", "ColvennaCatalogUx1eServerl-X-Y"):
             with self.subTest(name):
