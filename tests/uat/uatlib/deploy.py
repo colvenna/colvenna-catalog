@@ -24,10 +24,12 @@ import signal
 import subprocess
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .aws import AwsError
 from .install import REPO, stack_suffix
 from .kube import hardened
 from .sql import POSTGRES_IMAGE
@@ -355,6 +357,22 @@ def account_stacks(aws):
             for s in summaries or []}
 
 
+def stacks_elsewhere(aws):
+    """{stack: [status, last change, region]} of every ColvennaCatalog stack in the account's other enabled
+    regions, read in parallel (#46). A region that refuses the call is left out: an install there is then
+    judged by its roles and buckets alone, which can only make others-untouched stricter."""
+    def read(region):
+        try:
+            return region, account_stacks(aws.in_region(region))
+        except AwsError:
+            return region, {}
+
+    regions = sorted(r for r in aws("ec2", "describe-regions", "--query", "Regions[].RegionName") or [] if r != aws.region)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        found = list(pool.map(read, regions))
+    return {stack: value + [region] for region, stacks in found for stack, value in stacks.items()}
+
+
 def repository_images(aws, env):
     """{repository: sorted [digest tags]} of the install's repositories (colvenna-catalog-<env>/...)."""
     out = {}
@@ -583,12 +601,16 @@ def kept(before, after, key):
     return before.get(key) == after.get(key)
 
 
-def account_inventory(aws):
+def account_inventory(aws, elsewhere=True):
     """What UAT-DEP-08 records of the account in the region, by name: every ColvennaCatalog stack
     (status, last change), and the buckets, database instances, secrets, roles, functions,
     repositories, log groups and VPC endpoints of the catalog's installs, test environments and
-    release registry."""
+    release registry. elsewhere: also every ColvennaCatalog stack of the other regions
+    (stacksElsewhere): the account lists its roles and buckets whatever the region, so an install of
+    another region is in this inventory by them, and its stacks say whether its own run removed it (#46)."""
     out = {"stacks": account_stacks(aws)}
+    if elsewhere:
+        out["stacksElsewhere"] = stacks_elsewhere(aws)
     out["buckets"] = sorted(aws("s3api", "list-buckets", "--query",
                                 "Buckets[?starts_with(Name, 'colvennacatalog')].Name") or [])
     out["databases"] = sorted(f"{d['DBInstanceIdentifier']} {d['DBInstanceStatus']}" for d in
@@ -734,15 +756,17 @@ def others_untouched(before, after, env, test_stack, said=""):
     """(ok, detail): what is not the install's is as recorded: the test environment's stack and the
     release registry as they were, and nothing of another install gone. The account is shared while
     a case runs: what others add or change meanwhile is not judged, and an install another run
-    removes (one of its stacks, or its test driver's, deleted or being deleted meanwhile) takes its
-    own resources with it, unless the output of the case's own scripts (said) names that install's
-    stacks."""
+    removes (one of its stacks, or its test driver's, deleted or being deleted meanwhile, in this
+    region or another, #46) takes its own resources with it, unless the output of the case's own
+    scripts (said) names that install's stacks."""
     problems = []
     for stack in (test_stack, "ColvennaCatalogRelease"):
         if before["stacks"].get(stack) != after["stacks"].get(stack):
             problems.append(f"{stack}: {before['stacks'].get(stack)} -> {after['stacks'].get(stack)}")
-    deleting = {env_of(s) for s, v in after["stacks"].items() if str(v[0]).startswith("DELETE_")}
-    removed = ({env_of(s) for s in before["stacks"] if s not in after["stacks"]} | deleting) - {None, env}
+    stacks_before = dict(before.get("stacksElsewhere") or {}, **before["stacks"])
+    stacks_after = dict(after.get("stacksElsewhere") or {}, **after["stacks"])
+    deleting = {env_of(s) for s, v in stacks_after.items() if str(v[0]).startswith("DELETE_")}
+    removed = ({env_of(s) for s in stacks_before if s not in stacks_after} | deleting) - {None, env}
     named = sorted(e for e in removed if names_of(e)[0] in said)
     if named:
         problems.append(f"the case's own scripts named the stacks of {named}, removed meanwhile")

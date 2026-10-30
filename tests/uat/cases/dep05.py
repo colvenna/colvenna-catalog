@@ -306,7 +306,7 @@ def run(ctx):
             cfg=config("uninstall-other-account", COLVENNA_ACCOUNT=OTHER_ACCOUNT))
 
     # --- nothing made --------------------------------------------------------------------------------------
-    inventory = deploy.own(deploy.account_inventory(aws), name)
+    inventory = deploy.own(deploy.account_inventory(aws, elsewhere=False), name)
     made = {k: v for k, v in inventory.items() if v}
     test_stack_after = deploy.account_stacks(aws).get(ctx.testenv.stack)
     e1_same = None

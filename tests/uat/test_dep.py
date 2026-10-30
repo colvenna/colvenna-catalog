@@ -140,6 +140,56 @@ class Judges(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("sl2", detail)
 
+    def test_an_install_of_another_region(self):
+        """#46: the account lists roles and buckets whatever the region, so an install of another region is in
+        this region's inventory by them; its stacks there say whether its own run removed it meanwhile."""
+        here = {"ColvennaCatalogTestU1": ["UPDATE_COMPLETE", "t1"], "ColvennaCatalogSx1Serverless": ["CREATE_COMPLETE", "t2"]}
+        there = {"ColvennaCatalogEx2Eks": ["CREATE_COMPLETE", "t3", "us-west-2"], "ColvennaCatalogTestU2": ["UPDATE_COMPLETE", "t0", "us-west-2"]}
+        roles = ["colvenna-catalog-ex2-data", "colvenna-catalog-ex2-server"]
+        before = {"stacks": here, "stacksElsewhere": there, "roles": roles}
+        # Uninstalled meanwhile by its own run in its region: its roles went with it.
+        gone = {"stacks": here, "stacksElsewhere": {"ColvennaCatalogTestU2": there["ColvennaCatalogTestU2"]}, "roles": []}
+        ok, detail = deploy.others_untouched(before, gone, "sx1", "ColvennaCatalogTestU1")
+        self.assertTrue(ok, detail)
+        self.assertIn("uninstalled meanwhile by their own runs: ['ex2']", detail)
+        deleting = {"stacks": here, "stacksElsewhere": dict(there, ColvennaCatalogEx2Eks=["DELETE_IN_PROGRESS", "t4", "us-west-2"]),
+                    "roles": roles[:1]}
+        self.assertTrue(deploy.others_untouched(before, deleting, "sx1", "ColvennaCatalogTestU1")[0])
+        # Its stacks still there but its roles gone: touched.
+        ok, detail = deploy.others_untouched(before, {"stacks": here, "stacksElsewhere": there, "roles": []}, "sx1",
+                                             "ColvennaCatalogTestU1")
+        self.assertFalse(ok)
+        self.assertIn("colvenna-catalog-ex2-server", detail)
+        # Another region's test environment gone is no install's doing.
+        self.assertFalse(deploy.others_untouched(before, dict(before, stacksElsewhere={"ColvennaCatalogEx2Eks": there["ColvennaCatalogEx2Eks"]}),
+                                                 "sx1", "ColvennaCatalogTestU1")[0])
+        # An inventory without the other regions' stacks judges as before.
+        self.assertTrue(deploy.others_untouched({"stacks": here}, {"stacks": here}, "sx1", "ColvennaCatalogTestU1")[0])
+
+    def test_the_stacks_elsewhere(self):
+        class FakeAws:
+            def __init__(self, region, refused=()):
+                self.region, self.refused, self.calls = region, refused, []
+
+            def in_region(self, region):
+                return FakeAws(region, self.refused)
+
+            def __call__(self, *args):
+                if args[:2] == ("ec2", "describe-regions"):
+                    self.calls.append(args)
+                    return ["us-west-2", "us-east-2", "eu-west-1"]
+                if self.region in self.refused:
+                    raise deploy.AwsError(list(args), 254, "AccessDenied")
+                if self.region == "us-west-2":
+                    return [{"StackName": "ColvennaCatalogEx2Eks", "StackStatus": "CREATE_COMPLETE", "CreationTime": "t"}]
+                return []
+
+        here = FakeAws("us-east-2")
+        self.assertEqual(deploy.stacks_elsewhere(here), {"ColvennaCatalogEx2Eks": ["CREATE_COMPLETE", "t", "us-west-2"]})
+        self.assertEqual(here.calls, [("ec2", "describe-regions", "--query", "Regions[].RegionName")])  # the enabled ones only
+        # A region that refuses the call is left out.
+        self.assertEqual(deploy.stacks_elsewhere(FakeAws("us-east-2", refused=("us-west-2",))), {})
+
     def test_the_inventories_differences_and_the_kept_data(self):
         self.assertEqual(deploy.differences({"buckets": ["a", "b"], "stacks": {"S": 1}}, {"buckets": ["a"], "stacks": {"S": 2}}),
                          ["buckets: gone ['b'], made []", "stacks S: 1 -> 2"])

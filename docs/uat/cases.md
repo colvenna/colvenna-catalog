@@ -890,7 +890,7 @@ Some refusals need a change to the account (no CloudWatch Logs role for API Gate
 
 **Steps**:
 
-1. Record the account in the Region: every stack (status, last update), bucket, database instance, secret, role, function, repository, log group and VPC endpoint, of every install and of the release registry.
+1. Record the account in the Region: every stack (status, last update), bucket, database instance, secret, role, function, repository, log group and VPC endpoint, of every install and of the release registry; and every stack of the account's other Regions, since roles and buckets are the account's whatever the Region, so that an install of another Region that its own run removes meanwhile is told from one this case touched (#46).
 2. `uninstall.sh --config deploy/config/<env>.env --yes`; then once more.
 3. Record again.
 4. Install the candidate again with the kept bucket (`COLVENNA_BUCKET`) and database (`COLVENNA_DB=existing`), as the deployment guide says.
