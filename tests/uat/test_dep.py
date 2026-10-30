@@ -84,7 +84,7 @@ class Judges(unittest.TestCase):
         self.assertFalse(any(deploy.of_install(i, "ek1") for i in theirs))
         # A long environment name: CloudFormation cut the stack's name within its component, as
         # uninstall.sh's rule (deploy/lib/stacks.sh) takes it.
-        cut = "/aws/lambda/ColvennaCatalogAbcdefStor-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl"
+        cut = "/aws/lambda/ColvennaCatalogAbcdefStor-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl"  # pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret
         self.assertTrue(deploy.of_install(cut, "abcdef"))
         self.assertTrue(deploy.of_install("/aws/lambda/ColvennaCatalogAbcdefghSt-X-Y", "abcdefgh"))
         self.assertFalse(deploy.of_install(cut, "abcde"))

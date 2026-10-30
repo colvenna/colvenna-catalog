@@ -15,6 +15,9 @@ CONFIG = os.path.join(REPO, ".ash", ".ash.yaml")
 # detect-secrets' inline allowlist (which checkov's secret checks honour too), and the reason after it.
 ALLOWLIST = re.compile(r"pragma: ?allowlist[ -](?:nextline[ -])?secret")
 WITH_REASON = re.compile(r"pragma: ?allowlist[ -](?:nextline[ -])?secret - \S")
+# detect-secrets honours a mark only right after a comment's start (its ALLOWLIST_REGEX: the comment token, then
+# blanks, then the pragma): "# note; pragma: ..." is ignored, and the finding stays.
+AT_COMMENT_START = re.compile(r"(?:#|//|/\*|<!--|--)[ \t]*pragma: ?allowlist[ -](?:nextline[ -])?secret")
 
 
 def read(path):
@@ -91,7 +94,7 @@ class Suppressions(unittest.TestCase):
     def test_every_mark_on_a_line_says_why(self):
         tracked = subprocess.run(["git", "-C", REPO, "ls-files"], check=True, capture_output=True,
                                  text=True).stdout.split()
-        bare = []
+        bare, ignored = [], []
         for path in tracked:
             try:
                 text = read(path)
@@ -100,7 +103,14 @@ class Suppressions(unittest.TestCase):
             for number, line in enumerate(text.splitlines(), 1):
                 if ALLOWLIST.search(line) and not WITH_REASON.search(line):
                     bare.append(f"{path}:{number}")
+                found = ALLOWLIST.search(line)
+                # A quoted or backticked pragma is a description of the syntax (scans.md, .ash.yaml), not a mark.
+                quoted = found and line[max(found.start() - 1, 0)] in "\"'`"
+                if found and not quoted and not AT_COMMENT_START.search(line):
+                    ignored.append(f"{path}:{number}")
         self.assertEqual(bare, [])
+        # A mark after other text in its comment is one detect-secrets does not see.
+        self.assertEqual(ignored, [])
 
     def test_the_patterns(self):
         self.assertEqual(instructions("FROM x\n# c\nADD --checksum=sha256:ab \\  \n  # inside\n\n  https://e.example/f /f\n"
@@ -114,6 +124,10 @@ class Suppressions(unittest.TestCase):
             self.assertTrue(WITH_REASON.search(marked), marked)
         for bare in (f"x = 'v'  # {mark}", f"x = 'v'  # {mark}-", f"<!-- {mark} -->"):
             self.assertTrue(ALLOWLIST.search(bare) and not WITH_REASON.search(bare), bare)
+        for seen in (f"x = 'v'  # {mark} - why", f"x = 'v'  #{mark} - why", f"// {nextline} - why", f"<!-- {mark} - why -->"):
+            self.assertTrue(AT_COMMENT_START.search(seen), seen)
+        for unseen in (f"x = 'v'  # a note; {mark} - why", f"x = 'v'  # see {nextline} - why"):
+            self.assertFalse(AT_COMMENT_START.search(unseen), unseen)
 
 
 if __name__ == "__main__":

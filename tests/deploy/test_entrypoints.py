@@ -170,8 +170,8 @@ class GeneratedNames(unittest.TestCase):
         return run_bash(f"named_after_stacks {name} {stacks}").returncode == 0
 
     def test_a_name_generated_for_the_stack_or_a_cut_of_it_at_least_the_bound_long(self):
-        for name in ("ColvennaCatalogUx1eStorage-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",
-                     "ColvennaCatalogUx1eStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",  # cut to 25, as seen
+        for name in ("ColvennaCatalogUx1eStorage-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",  # pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret
+                     "ColvennaCatalogUx1eStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",  # pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret; cut to 25, as seen
                      "ColvennaCatalogUx1eStor-X-Y",  # 23
                      "ColvennaCatalogUx1eEks-Handler886CB40B-AbC", "ColvennaCatalogUx1eServerl-X-Y"):
             with self.subTest(name):
@@ -186,9 +186,9 @@ class GeneratedNames(unittest.TestCase):
         self.assertTrue(self.generated("ColvennaCatalogAbcdefgh-X-Y", env="abcdefgh"))
         self.assertFalse(self.generated("ColvennaCatalogAbcdefgh-X-Y", env="abcdefg"))
 
-    GROUPS = ["/aws/lambda/ColvennaCatalogUx1eStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",
-              "/aws/lambda/ColvennaCatalogUx1eEks-Handler886CB40B-AbCdEfGhIjKl",
-              "/aws/lambda/ColvennaCatalogUx1exStorag-LogRetentionaae0aa3c5b4d-MnOpQrStUvWx",
+    GROUPS = ["/aws/lambda/ColvennaCatalogUx1eStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",  # pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret
+              "/aws/lambda/ColvennaCatalogUx1eEks-Handler886CB40B-AbCdEfGhIjKl",  # pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret
+              "/aws/lambda/ColvennaCatalogUx1exStorag-LogRetentionaae0aa3c5b4d-MnOpQrStUvWx",  # pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret
               "/aws/lambda/ColvennaCatalogUx1eSto-X-Y"]
 
     def test_the_log_groups_of_the_stacks_functions(self):
