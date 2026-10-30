@@ -5,7 +5,8 @@ environment name of the case's own that has nothing in the account, and must exi
 install.sh documents (2 for arguments and configuration, 3 for preflight) and its message, before
 changing anything. What a refusal needs that the test environment lacks, the case makes for itself
 and removes: an Aurora PostgreSQL cluster without an instance and without IAM database
-authentication (its reader endpoint; its writer endpoint for the serverless form), a bucket in
+authentication, requiring TLS in a cluster parameter group of its own (#29; its reader endpoint; its
+writer endpoint for the serverless form), a bucket in
 another Region, the checkouts that are not the candidate's (main, a dirty one, a commit on top), and
 the switch of NetworkPolicy enforcement (tests/environment/network-policy.sh), turned on again and
 verified (tests/environment/verify.sh). On E1 (--config) while enforcement is off,
