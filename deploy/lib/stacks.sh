@@ -16,6 +16,56 @@ stack_id() {
   printf 'ColvennaCatalog%s%s%s\n' "$(tr '[:lower:]' '[:upper:]' <<<"${COLVENNA_ENV:0:1}")" "${COLVENNA_ENV:1}" "$1"
 }
 
+# The components of an environment's stacks, both forms'.
+# shellcheck disable=SC2034  # read by uninstall.sh and tests/serverless/verify-clean.sh
+STACK_COMPONENTS=(Eks Storage Network Images Serverless)
+
+# CloudFormation names what it generates for a stack's resources (a Lambda function, say)
+# <stack>-<logical id>-<suffix>, and cuts a long stack name short in it: ColvennaCatalogSl13Storag-...,
+# 25 of the stack's 26 characters, as seen. So a generated name whose first part, up to its first
+# hyphen, is a cut of a stack's name at least STACK_CUT_MIN characters long is that stack's too. No
+# other environment's stack shares that many first characters with an environment's: its stacks'
+# names, ColvennaCatalog<Env><Component>, are the same for 15 characters; then where one environment's
+# name (1 to 8 characters, the first a capital here) runs on past the other's, at most 7 characters on,
+# a lowercase letter or a digit meets a component's capital: 22 characters at most. The test
+# environments' and their drivers' stacks (ColvennaCatalogTest<Name>, ColvennaCatalogTest<Env>Driver)
+# part from them by the 20th character, the environment test being reserved (config.sh), and the
+# release registry's (ColvennaCatalogRelease, 22 characters) by the 23rd. tests/deploy/test_entrypoints.py
+# checks this. A cut shorter could be another environment's, and is never taken.
+STACK_CUT_MIN=23
+
+# stack_generated <name> <stack>...: whether <name> is one CloudFormation generated for one of the
+# stacks: its first part, up to its first hyphen, is the stack's name, or a cut of it at least
+# STACK_CUT_MIN characters long.
+stack_generated() {
+  local head="${1%%-*}" stack
+  [[ "$1" == "$head-"* ]] || return 1
+  for stack in "${@:2}"; do
+    [[ "$head" != "$stack" ]] || return 0
+    ((${#head} < STACK_CUT_MIN)) || [[ "$stack" != "$head"* ]] || return 0
+  done
+  return 1
+}
+
+# function_log_groups <stack>...: the log groups of the stacks' Lambda functions (/aws/lambda/<function>),
+# which Lambda makes as they run and no stack owns. A function CloudFormation named is found by
+# stack_generated, among the groups under the start the stacks' names and their cuts share (those of
+# an environment whose name starts with this one's are there too, and are not taken); one named
+# explicitly (colvenna-catalog-<env>-...) is not under it. One per line.
+function_log_groups() {
+  local prefix="${1:0:STACK_CUT_MIN}" stack listed group
+  for stack in "${@:2}"; do
+    while [[ "$stack" != "$prefix"* ]]; do
+      prefix="${prefix%?}"
+    done
+  done
+  listed="$(aws logs describe-log-groups --region "$COLVENNA_REGION" --log-group-name-prefix "/aws/lambda/$prefix" \
+    --query 'logGroups[].logGroupName' --output text)"
+  for group in $listed; do
+    [[ "$group" == None ]] || ! stack_generated "${group#/aws/lambda/}" "$@" || printf '%s\n' "$group"
+  done
+}
+
 # stack_status <stack>: the stack's status, or NONE when there is no such stack; fails on any other error.
 stack_status() {
   local err out

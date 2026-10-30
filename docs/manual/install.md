@@ -108,7 +108,7 @@ Copy [`deploy/config/example.env`](../../deploy/config/example.env) to `deploy/c
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `COLVENNA_ENV` | (required) | The environment's name: a lowercase letter, then lowercase letters and digits, 8 at most. `release` is reserved |
+| `COLVENNA_ENV` | (required) | The environment's name: a lowercase letter, then lowercase letters and digits, 8 at most. `release` and `test` are reserved (for the release registry and the repository's test environments) |
 | `COLVENNA_ACCOUNT` | (required) | The 12-digit account |
 | `COLVENNA_REGION` | (required) | A standard Region |
 | `COLVENNA_FORM` | (required) | `eks` or `serverless` |
@@ -358,7 +358,6 @@ and set them in the configuration, with `COLVENNA_BUCKET=<BucketName>`, `COLVENN
 Open problems of the scripts, with what to do until they are fixed:
 
 - [#14](https://github.com/colvenna/colvenna-catalog/issues/14): `uninstall.sh --delete-data` can fail with `BucketNotEmpty` on the access log bucket, which S3 goes on delivering logs to after it is emptied. Run it again a minute later; it skips what is gone. It took three runs once.
-- [#11](https://github.com/colvenna/colvenna-catalog/issues/11): an uninstall can leave the log group of a Lambda function whose name CloudFormation shortened (`/aws/lambda/ColvennaCatalog<Env>...`). Delete such a group by hand.
 - [#9](https://github.com/colvenna/colvenna-catalog/issues/9): in the EKS form, the server's S3 client needs internet egress (section 2.4).
 
 ## 8. Uninstalling
@@ -379,6 +378,8 @@ It asks for the environment's name, unless `--yes`. Run it again after a failure
 | `serverless` | The `Serverless` and `Images` stacks, and the log groups their functions and the API write; then the `Network` stack, unless a kept database lives in it (it waits up to 45 minutes for Lambda to release the functions' network interfaces) | The `Storage` stack with the bucket and the database, and the `Network` stack that holds that database |
 
 A later install finds the data again (section 6.4).
+
+Once a stack is gone, so are the log groups of the functions CloudFormation named after it (CDK's, such as the `Storage` stack's log retention function), whose names it may have cut short (`/aws/lambda/ColvennaCatalog<Env>Storag-...`): a name counts as the stack's when what comes before its first hyphen is the stack's name, or the first 23 characters of it or more, which no other environment's stack names share. Another environment's groups are never touched, even one whose name starts with this one's. Those of a stack that stays stay with it.
 
 `--delete-data` also deletes the database the install made (without a final snapshot, and with its automated backups), empties and deletes the buckets it made, and removes the `Storage` stack, the database's and its functions' log groups and, in the EKS form, the CA. It asks for the environment's name even with `--yes`, from the terminal or from its standard input:
 

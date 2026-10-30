@@ -18,6 +18,10 @@ export function envName(value: unknown): string {
   if (name === 'release') {
     throw new Error('-c env: release is reserved for the release registry');
   }
+  // ColvennaCatalogTest<Component> would be a test environment's stack name (ColvennaCatalogTest<Name>).
+  if (name === 'test') {
+    throw new Error('-c env: test is reserved for the test environments');
+  }
   return name;
 }
 

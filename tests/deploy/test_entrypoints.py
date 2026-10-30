@@ -1,3 +1,6 @@
+import os
+import random
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -93,6 +96,124 @@ class DeleteLogGroups(unittest.TestCase):
                        env=stubs.env, path_prepend=stubs.bin)
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertFalse(any("delete-log-group" in c for c in stubs.calls()))
+
+
+COMPONENTS = ("Eks", "Storage", "Network", "Images", "Serverless")
+
+
+def capital(name):
+    return name[0].upper() + name[1:]
+
+
+def stacks_of(env):
+    """An environment's stack names, as deploy/aws/src/app.ts names them."""
+    return [f"ColvennaCatalog{capital(env)}{c}" for c in COMPONENTS]
+
+
+class GeneratedNames(unittest.TestCase):
+    """CloudFormation names a stack's functions <stack>-<logical id>-<suffix>, the stack's name cut short
+    when it is long; uninstall.sh deletes their log groups by stacks.sh's stack_generated and no other."""
+
+    def test_no_cut_as_long_as_the_bound_is_another_environment_s(self):
+        cut_min = int(run_bash("echo $STACK_CUT_MIN").stdout)
+        # Environment names (a lowercase letter, then lowercase letters and digits, 8 at most) built to
+        # share as much as they can with each other's stack names: one name running on into another's
+        # components, test, release, driver; and a sample of any.
+        seeds = ["a", "x1", "ux1", "sl13", "t", "te", "tes", "test", "r", "release", "d", "driver", "1", "9z",
+                 *(c.lower() for c in COMPONENTS), *(c.lower()[:4] for c in COMPONENTS)]
+        names = {(a + b)[:k] for a in seeds for b in ["", *seeds] for k in range(1, 9)}
+        alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+        rng = random.Random(11)
+        names |= {rng.choice(alphabet[:26]) + "".join(rng.choice(alphabet) for _ in range(rng.randrange(8)))
+                  for _ in range(3000)}
+        names = {n for n in names if re.fullmatch(r"[a-z][a-z0-9]{0,7}", n)}
+        owned = []  # (stack name, its owner)
+        for n in names:
+            if n not in ("release", "test"):
+                owned += [(s, ("env", n)) for s in stacks_of(n)]
+                owned.append((f"ColvennaCatalogTest{capital(n)}Driver", ("env", n)))  # tests/serverless's driver
+            if n != "release":
+                owned.append((f"ColvennaCatalogTest{capital(n)}", ("test environment", n)))
+        owned.append(("ColvennaCatalogRelease", ("release registry",)))
+        owned.sort()
+        longest = 0
+        for i, (stack, owner) in enumerate(owned):
+            if owner[0] != "env" or stack.endswith("Driver"):
+                continue
+            # The other owners' names nearest in order share the most with it.
+            for step in (-1, 1):
+                j = i + step
+                while 0 <= j < len(owned) and owned[j][1] == owner:
+                    j += step
+                if 0 <= j < len(owned):
+                    other = owned[j][0]
+                    shared = len(os.path.commonprefix([stack, other]))
+                    longest = max(longest, shared)
+                    self.assertLess(shared, cut_min, (stack, owned[j]))
+                    self.assertFalse(other.startswith(stack), (stack, owned[j]))
+        self.assertEqual(longest, cut_min - 1)  # abcdefg and abcdefgh: the bound is the least that holds
+        # The environment test is reserved: its stacks would be the test environments' (eks, storage, ...).
+        self.assertEqual(stacks_of("test")[1], "ColvennaCatalogTestStorage")
+
+    def generated(self, name, env="ux1e"):
+        stacks = " ".join(stacks_of(env))
+        return run_bash(f"stack_generated {name} {stacks}").returncode == 0
+
+    def test_a_name_generated_for_the_stack_or_a_cut_of_it_at_least_the_bound_long(self):
+        for name in ("ColvennaCatalogUx1eStorage-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",
+                     "ColvennaCatalogUx1eStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",  # cut to 25, as seen
+                     "ColvennaCatalogUx1eStor-X-Y",  # 23
+                     "ColvennaCatalogUx1eEks-Handler886CB40B-AbC", "ColvennaCatalogUx1eServerl-X-Y"):
+            with self.subTest(name):
+                self.assertTrue(self.generated(name))
+        for name in ("ColvennaCatalogUx1eSto-X-Y",  # a cut of 22: another environment's could be so
+                     "ColvennaCatalogUx1eStorage",  # no generated name
+                     "ColvennaCatalogUx1exStorag-X-Y", "ColvennaCatalogUx1Storage-X-Y", "ColvennaCatalogUx1eStorageX-X-Y",
+                     "ColvennaCatalogTestUx1e-X-Y", "ColvennaCatalogTestUx1eDriver-X-Y", "colvenna-catalog-ux1e-server"):
+            with self.subTest(name):
+                self.assertFalse(self.generated(name))
+        # An environment of 8 characters: its stack names' cuts begin at the end of its name.
+        self.assertTrue(self.generated("ColvennaCatalogAbcdefgh-X-Y", env="abcdefgh"))
+        self.assertFalse(self.generated("ColvennaCatalogAbcdefgh-X-Y", env="abcdefg"))
+
+    GROUPS = ["/aws/lambda/ColvennaCatalogUx1eStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",
+              "/aws/lambda/ColvennaCatalogUx1eEks-Handler886CB40B-AbCdEfGhIjKl",
+              "/aws/lambda/ColvennaCatalogUx1exStorag-LogRetentionaae0aa3c5b4d-MnOpQrStUvWx",
+              "/aws/lambda/ColvennaCatalogUx1eSto-X-Y"]
+
+    def test_the_log_groups_of_the_stacks_functions(self):
+        stubs = Stubs({"aws": {"logs describe-log-groups": {"stdout": "\t".join(self.GROUPS[:3]) + "\n" + self.GROUPS[3] + "\n"}}})
+        stacks = " ".join(stacks_of("ux1e"))
+        out = run_bash(f"function_log_groups {stacks}", env={**stubs.env, "COLVENNA_REGION": "us-west-2"}, path_prepend=stubs.bin)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.splitlines(), self.GROUPS[:2])
+        # Listed under the start the stacks share, which the other environment's share too.
+        self.assertIn("--log-group-name-prefix /aws/lambda/ColvennaCatalogUx1e --query", stubs.calls()[0])
+        out = run_bash("function_log_groups ColvennaCatalogUx1eStorage", env={**stubs.env, "COLVENNA_REGION": "us-west-2"},
+                       path_prepend=stubs.bin)
+        self.assertEqual(out.stdout.splitlines(), self.GROUPS[:1])
+        self.assertIn("--log-group-name-prefix /aws/lambda/ColvennaCatalogUx1eStor --query", stubs.calls()[-1])
+
+    def test_uninstall_deletes_those_of_the_stacks_that_are_gone(self):
+        gone = {"stderr": "An error occurred (ValidationError): Stack with id X does not exist\n", "code": 254}
+        query = "cloudformation describe-stacks --region us-west-2 --stack-name"
+        aws = {f"{query} {s}": gone for s in stacks_of("ux1e")}
+        aws[f"{query} ColvennaCatalogUx1eEks"] = {"stdout": "CREATE_COMPLETE\n"}  # kept: its functions' groups stay
+        aws["logs describe-log-groups"] = {"stdout": "\t".join(self.GROUPS) + "\n"}
+        aws["logs delete-log-group"] = {"stdout": ""}
+        stubs = Stubs({"aws": aws, "kubectl": {}})
+        out = run_bash(f'source "{REPO}/uninstall.sh"; COLVENNA_ENV=ux1e COLVENNA_REGION=us-west-2 delete_function_log_groups',
+                       env=stubs.env, path_prepend=stubs.bin)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        deleted = [c.split("--log-group-name ")[1] for c in stubs.calls() if c.startswith("aws logs delete-log-group")]
+        self.assertEqual(deleted, self.GROUPS[:1])
+        # Nothing gone: nothing listed.
+        aws.update({f"{query} {s}": {"stdout": "CREATE_COMPLETE\n"} for s in stacks_of("ux1e")})
+        stubs = Stubs({"aws": aws, "kubectl": {}})
+        out = run_bash(f'source "{REPO}/uninstall.sh"; COLVENNA_ENV=ux1e COLVENNA_REGION=us-west-2 delete_function_log_groups',
+                       env=stubs.env, path_prepend=stubs.bin)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertFalse(any(c.startswith("aws logs") for c in stubs.calls()))
 
 
 class Steps(unittest.TestCase):

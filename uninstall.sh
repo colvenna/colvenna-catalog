@@ -142,7 +142,7 @@ delete_bucket() {
 }
 
 # delete_log_groups <prefix>: deletes every log group whose name starts so. For the groups no stack owns:
-# those RDS exports to and those Lambda functions (CDK's log retention one) write as they run.
+# those RDS exports to and those the serverless form's functions and API write as they run.
 delete_log_groups() {
   local listed groups=() group
   listed="$(aws logs describe-log-groups --region "$COLVENNA_REGION" --log-group-name-prefix "$1" \
@@ -184,17 +184,15 @@ assert_no_foreign_databases() {
 }
 
 # remove_storage <storage stack> <placeholders...>: --delete-data: the database (no final snapshot) and
-# the buckets the storage stack made, the stack, and the log groups it never owned.
+# the buckets the storage stack made, the stack, and the database's exported logs, which it never owned
+# (its function's, CDK's log retention one, go with delete_function_log_groups).
 remove_storage() {
-  local storage="$1" instances buckets functions instance bucket function
+  local storage="$1" instances buckets instance bucket
   shift
   [[ "$(stack_status "$storage")" != NONE ]] || return 0
   step "$storage and its data"
   instances="$(stack_resources "$storage" AWS::RDS::DBInstance)"
   buckets="$(stack_resources "$storage" AWS::S3::Bucket)"
-  # CDK's log retention function: CloudFormation names it after the stack, cut short as it sees fit
-  # (ColvennaCatalogSl13Storag-...), so its log group is found by the function's own name.
-  functions="$(stack_resources "$storage" AWS::Lambda::Function)"
   for instance in $instances; do
     delete_database "$instance"
   done
@@ -202,14 +200,28 @@ remove_storage() {
     delete_bucket "$bucket"
   done
   destroy_stack "$storage" "$@" -c stack=storage -c createBucket=true -c createDatabase=false
-  # What the stack never owned: the database's exported logs and its functions' log groups.
   for instance in $instances; do
     delete_log_groups "/aws/rds/instance/$instance/"
   done
-  for function in $functions; do
-    delete_log_groups "/aws/lambda/$function"
+}
+
+# delete_function_log_groups: the log groups of the functions of the environment's stacks that are
+# gone, which Lambda makes as they run and no stack owns: CDK's (the storage stack's log retention
+# function), which CloudFormation named after their stack, cutting a long name short
+# (ColvennaCatalogSl13Storag-...: function_log_groups). Those of a stack that stays stay with it. Found
+# by their names, not the stacks' resources, they are found by a run again after an interruption too.
+# The serverless form's functions, which the install names, are uninstall_serverless's.
+delete_function_log_groups() {
+  local component stack gone=() groups group
+  for component in "${STACK_COMPONENTS[@]}"; do
+    stack="$(stack_id "$component")"
+    [[ "$(stack_status "$stack")" != NONE ]] || gone+=("$stack")
   done
-  delete_log_groups "/aws/lambda/$storage"
+  ((${#gone[@]})) || return 0
+  groups="$(function_log_groups "${gone[@]}")"
+  for group in $groups; do
+    aws logs delete-log-group --region "$COLVENNA_REGION" --log-group-name "$group"
+  done
 }
 
 # given_database: whether the configuration's database is one the install was given (COLVENNA_DB=existing,
@@ -269,6 +281,8 @@ main() {
     -c "env=$COLVENNA_ENV")
   if [[ "$COLVENNA_FORM" == serverless ]]; then
     uninstall_serverless "${placeholders[@]}"
+    step "function log groups"
+    delete_function_log_groups
     local stack status
     for stack in "$(stack_id Serverless)" "$(stack_id Images)" "$(stack_id Storage)" "$(stack_id Network)"; do
       status="$(stack_status "$stack")"
@@ -323,6 +337,8 @@ main() {
       -c "oidcIssuer=https://oidc.eks.$COLVENNA_REGION.amazonaws.com/id/$(printf '0%.0s' {1..32})"
   fi
   [[ "$DELETE_DATA" != 1 ]] || remove_storage "$storage" "${placeholders[@]}"
+  step "function log groups"
+  delete_function_log_groups
 
   eks_status="$(stack_status "$eks")"
   storage_status="$(stack_status "$storage")"

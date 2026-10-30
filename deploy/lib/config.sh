@@ -115,6 +115,9 @@ load_config() {
 
   config_check COLVENNA_ENV '^[a-z][a-z0-9]{0,7}$' 'a lowercase letter, then lowercase letters and digits, 8 at most'
   [[ "${seen[COLVENNA_ENV]:-}" != release ]] || errors+=("COLVENNA_ENV: release is reserved for the release registry")
+  # Its stacks' names (ColvennaCatalogTest<Component>) would be those of the test environments
+  # (ColvennaCatalogTest<Name>): the test environment eks, say, or a cut of them (stacks.sh, STACK_CUT_MIN).
+  [[ "${seen[COLVENNA_ENV]:-}" != test ]] || errors+=("COLVENNA_ENV: test is reserved for the test environments")
   config_check COLVENNA_ACCOUNT '^[0-9]{12}$' 'the 12-digit AWS account'
   config_check COLVENNA_REGION '^[a-z]{2}-[a-z]+-[1-9]$' 'a standard AWS region, e.g. us-west-2'
   [[ "${seen[COLVENNA_REGION]:-}" != cn-* ]] || errors+=("COLVENNA_REGION: the China partition is not supported")

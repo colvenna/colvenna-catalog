@@ -632,8 +632,7 @@ class Flow(unittest.TestCase):
     def test_deleting_the_data_takes_the_network_too_once_lambda_lets_it_go(self):
         _, steps = self.uninstall(delete_data="1")
         self.assertEqual(steps[3:], ["destroy ColvennaCatalogSl1Images", "remove_storage ColvennaCatalogSl1Storage",
-                                     "wait out-CatalogSecurityGroupId", "destroy ColvennaCatalogSl1Network",
-                                     "logs /aws/lambda/ColvennaCatalogSl1Network"])
+                                     "wait out-CatalogSecurityGroupId", "destroy ColvennaCatalogSl1Network"])
 
     def test_without_a_database_of_its_own_the_network_goes(self):
         _, steps = self.uninstall(database="")
@@ -648,15 +647,15 @@ class Flow(unittest.TestCase):
 
 
 class RemoveStorage(unittest.TestCase):
-    """uninstall.sh's remove_storage, for both forms: the database, the buckets, the stack, and the log
-    groups it never owned, its functions' among them by their own (truncated) names."""
+    """uninstall.sh's remove_storage, for both forms: the database, the buckets, the stack, and the
+    database's log groups, which it never owned (its function's are delete_function_log_groups',
+    test_entrypoints.GeneratedNames)."""
 
-    def test_the_data_the_stack_and_every_log_group_go(self):
+    def test_the_data_the_stack_and_the_database_s_log_groups_go(self):
         work = tempfile.mkdtemp()
         script = (f'source "{REPO}/uninstall.sh"; WORK="{work}";'
                   ' stack_status() { echo CREATE_COMPLETE; };'
-                  ' stack_resources() { case "$2" in AWS::RDS::DBInstance) echo db-1;; AWS::S3::Bucket) printf "b-1\\nb-2\\n";;'
-                  ' AWS::Lambda::Function) echo ColvennaCatalogSl13Storag-LogRetentionaae0aa3c5b4d-AbC;; esac; };'
+                  ' stack_resources() { case "$2" in AWS::RDS::DBInstance) echo db-1;; AWS::S3::Bucket) printf "b-1\\nb-2\\n";; esac; };'
                   ' for f in delete_database delete_bucket destroy_stack delete_log_groups; do'
                   ' eval "$f() { echo \"$f \$1\" >>\"$WORK/steps\"; }"; done;'
                   ' remove_storage ColvennaCatalogSl13Storage -c account=1')
@@ -664,15 +663,34 @@ class RemoveStorage(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual((Path(work) / "steps").read_text().splitlines(), [
             "delete_database db-1", "delete_bucket b-1", "delete_bucket b-2", "destroy_stack ColvennaCatalogSl13Storage",
-            "delete_log_groups /aws/rds/instance/db-1/",
-            # CloudFormation cut the stack's name short in the function's: found by the function, not the stack.
-            "delete_log_groups /aws/lambda/ColvennaCatalogSl13Storag-LogRetentionaae0aa3c5b4d-AbC",
-            "delete_log_groups /aws/lambda/ColvennaCatalogSl13Storage"])
+            "delete_log_groups /aws/rds/instance/db-1/"])
 
     def test_a_storage_stack_already_gone(self):
         out = run_bash(f'source "{REPO}/uninstall.sh"; stack_status() {{ echo NONE; }}; destroy_stack() {{ exit 9; }};'
                        ' remove_storage ColvennaCatalogSl13Storage')
         self.assertEqual(out.returncode, 0, out.stderr)
+
+
+class VerifyClean(unittest.TestCase):
+    """tests/serverless/verify-clean.sh finds what is left of an environment; the log groups of the
+    functions CloudFormation named after its stacks as uninstall.sh does (stacks.sh, function_log_groups)."""
+
+    def verify(self, groups):
+        functions = "logs describe-log-groups --region us-west-2 --log-group-name-prefix /aws/lambda/ColvennaCatalogUx1e"
+        stubs = Stubs({"aws": {"": {"stdout": ""}, functions: {"stdout": "\t".join(groups) + "\n"}}})
+        out = run_bash(f'"{REPO}/tests/serverless/verify-clean.sh" ux1e us-west-2', env={**stubs.env, "AWS_PROFILE": "stub"},
+                       path_prepend=stubs.bin)
+        return out, [line for line in out.stdout.splitlines() if "log groups" in line]
+
+    def test_a_cut_function_name_s_group_is_left_another_environment_s_is_not_this_one_s(self):
+        mine = "/aws/lambda/ColvennaCatalogUx1eStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl"
+        theirs = "/aws/lambda/ColvennaCatalogUx1exStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl"
+        out, lines = self.verify([mine, theirs])
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertEqual(lines, [f"LEFT  log groups: {mine} "])
+        out, lines = self.verify([theirs])
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertEqual(lines, ["ok    log groups: none"])
 
 
 class ReleaseForm(unittest.TestCase):
