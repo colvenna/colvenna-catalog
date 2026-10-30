@@ -242,7 +242,7 @@ Reconciling and unregistering are recorded in the audit log, and a reconcile's e
 
 ## Dropped tables' files
 
-Dropping a table removes it from the catalog at once, and records its directory for deleting. In the EKS form the drop then deletes the files itself, before it answers; in the serverless form it answers first, and the purge function deletes them within about 15 minutes (the [deployment guide](install.md#42-the-serverless-form)). A purge that fails, say because a job still writes to the dropped table's directory, stays recorded with its error and is tried again: every 5 minutes by each replica in the EKS form, at each run of the purge function in the serverless form. Until its files are gone, no new table takes that directory: a table made again under the same name gets a directory of its own. The records still to be deleted, oldest first (`limit`, 100 by default and 1000 at most; `pending` counts them all):
+Dropping a table removes it from the catalog at once, and records its directory for deleting. In the EKS form the drop then deletes the files itself, before it answers; in the serverless form it answers first, and the purge function deletes them within about 15 minutes (the [deployment guide](install.md#42-the-serverless-form)). A purge that fails, say because a job still writes to the dropped table's directory, stays recorded with its error and is tried again: every 5 minutes by each replica in the EKS form, at each run of the purge function in the serverless form. Until its files are gone, no new table takes that directory: a table made again under the same name gets a directory of its own. Once a database's last table directory is gone, so is the database's directory, `<db>.db` under the warehouse, when nothing else is in it ([#13](https://github.com/colvenna/colvenna-catalog/issues/13)). The records still to be deleted, oldest first (`limit`, 100 by default and 1000 at most; `pending` counts them all):
 
 ```bash
 curl -K admin.curlrc "$CATALOG/purges" | jq -r '.purges[] | [.table, .droppedAt, .attempts, .lastError // ""] | @tsv'
@@ -286,3 +286,5 @@ Stop the port-forward and remove the files that hold secrets:
 kill "$forward"
 rm -f ~/.colvenna-admin/admin.curlrc ~/.colvenna-admin/*.token ~/.colvenna-admin/*.id
 ```
+
+> Note: the issue and pull request numbers (such as #42) in this document are those of the project's early private repository; this repository has no pages for them. Linked issue numbers (such as [#13](https://github.com/colvenna/colvenna-catalog/issues/13)) are this repository's current ones.

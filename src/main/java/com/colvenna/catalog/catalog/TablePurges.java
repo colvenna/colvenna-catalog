@@ -45,13 +45,16 @@ import org.slf4j.LoggerFactory;
  * </ul>
  *
  * <p>A purge is idempotent: it deletes whatever is still under the root, and a root already empty
- * is purged. A claim holds a record for {@link #LEASE}, renewed while its purge runs, so two sweeps
- * never purge one root at once however long a purge takes, and a sweep that died mid-way leaves the
- * record to the next. While the record exists, no new table can take the root or anything
- * overlapping it, so a purge never deletes another table's files. The one way back to such a table
- * is a metadata restore to a point between a drop and its purge, when a table made at the root
- * since is not in the restored catalog but its record is: a root with a schema file written after
- * the drop is that table's, and its record is removed without deleting anything.
+ * is purged. It leaves no empty database directory behind either (#13): S3A writes a zero-byte
+ * marker {@code <db>.db/} for the parent of what it deletes, so once a database's last table root
+ * is gone its directory would stay as that marker, whether the database is dropped or not. A claim
+ * holds a record for {@link #LEASE}, renewed while its purge runs, so two sweeps never purge one
+ * root at once however long a purge takes, and a sweep that died mid-way leaves the record to the
+ * next. While the record exists, no new table can take the root or anything overlapping it, so a
+ * purge never deletes another table's files. The one way back to such a table is a metadata restore
+ * to a point between a drop and its purge, when a table made at the root since is not in the
+ * restored catalog but its record is: a root with a schema file written after the drop is that
+ * table's, and its record is removed without deleting anything.
  */
 public final class TablePurges {
 
@@ -257,6 +260,12 @@ public final class TablePurges {
                                     + ": not below the warehouse root.");
                 }
                 files.purgeTable(record.path());
+                // S3A has written a marker for the database's directory if nothing else is left
+                // there (#13); it goes too, and a failure to remove it keeps the record.
+                Optional<String> database = paths.databaseDirectory(record.path());
+                if (database.isPresent()) {
+                    files.removeIfEmpty(database.get());
+                }
                 LOG.info(
                         "Purged the files of dropped table {} at {}",
                         record.table(),

@@ -90,8 +90,8 @@ def drop_database(ctx, db, tries=8, wait=15):
     """Drops the case's database, asking again for a while: an answer of 500 or 503 just after a fault
     (the alias moved back, a replica restarting) is not the clean-up's end. Each table's drop is timed:
     it answers once the table is gone from the catalog, whatever its files (#69). Then its files are
-    looked for, once purged (the serverless form's purge function, run now): any left fail the
-    clean-up."""
+    looked for, once purged (the serverless form's purge function, run now), and the database's
+    directory marker (#13): any left fail the clean-up."""
     last = None
     rest = ctx.rest
     paths, drops = {}, []
@@ -111,10 +111,12 @@ def drop_database(ctx, db, tries=8, wait=15):
         raise RuntimeError(f"database {db} still there: {last}")
     run = purges.now(ctx)
     left = {t: purges.objects_under(ctx, p) for t, p in paths.items()}
+    marker = purges.directory_marker_left(ctx, db)
     detail = (f"{db} dropped: {'; '.join(drops) or 'no table'}"
               + (f"; purge run {run}" if run is not None else "")
-              + f"; objects left under the dropped tables' roots: {left}")
-    if any(n for n in left.values()):
+              + f"; objects left under the dropped tables' roots: {left}"
+              + f"; the database's directory marker {'left' if marker else 'gone'}")
+    if any(n for n in left.values()) or marker:
         raise RuntimeError(detail)
     return detail
 

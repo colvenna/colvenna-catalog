@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import org.apache.paimon.CoreOptions;
 import org.apache.paimon.fs.Path;
@@ -84,6 +85,32 @@ public final class PathRules {
     public boolean belowWarehouse(String location) {
         String normalized = normalize(location);
         return !normalized.equals(warehouseRoot) && within(normalized, warehouseRoot);
+    }
+
+    /**
+     * The database directory {@code <warehouse>/<db>.db} that a managed table's root {@code
+     * <warehouse>/<db>.db/<table>} lies in, as the location is written; empty for a root of any
+     * other shape.
+     */
+    public Optional<String> databaseDirectory(String tableRoot) {
+        String root = tableRoot;
+        while (root.endsWith("/")) {
+            root = root.substring(0, root.length() - 1);
+        }
+        int slash = root.lastIndexOf('/');
+        if (slash <= 0) {
+            return Optional.empty();
+        }
+        String parent = root.substring(0, slash);
+        String name = parent.substring(parent.lastIndexOf('/') + 1);
+        String grandparent = parent.substring(0, Math.max(0, parent.lastIndexOf('/')));
+        if (name.length() <= ".db".length()
+                || !name.endsWith(".db")
+                || grandparent.isEmpty()
+                || !normalize(grandparent).equals(warehouseRoot)) {
+            return Optional.empty();
+        }
+        return Optional.of(parent);
     }
 
     private static boolean within(String normalized, String root) {

@@ -286,6 +286,113 @@ class DropPurgeTest extends ServerTestBase {
                 .isEqualTo(403);
     }
 
+    @Test
+    void aDroppedDatabaseLeavesNoDirectoryOnceItsTablesArePurged() throws Exception {
+        // Deferred, as in the serverless form: the drops touch no file, the sweeps purge (#13).
+        Identifier one = Identifier.create("d", "one");
+        Identifier two = Identifier.create("d", "two");
+        Path directory = warehouseDir.resolve("d.db");
+        tableWithCommits(one);
+        Path second = tableWithCommits(two);
+        try (RESTCatalog catalog = catalog(adminToken)) {
+            catalog.dropTable(one, false);
+            assertSweep(server.catalog().purges().sweep(null), 1, 0, 0);
+            // The other table's root is still there, and so the directory.
+            assertThat(directory).isDirectory();
+            assertThat(second).isDirectory();
+            catalog.dropDatabase("d", false, true);
+            assertThat(catalog.listDatabases()).doesNotContain("d");
+            assertThat(second).isDirectory();
+            assertSweep(server.catalog().purges().sweep(null), 1, 0, 0);
+        }
+        assertThat(directory).doesNotExist();
+    }
+
+    @Test
+    void aDatabaseWhoseLastTableIsPurgedKeepsNoDirectory() throws Exception {
+        Path directory = warehouseDir.resolve("db.db");
+        tableWithCommits(T);
+        try (RESTCatalog catalog = catalog(adminToken)) {
+            catalog.dropTable(T, false);
+            assertSweep(server.catalog().purges().sweep(null), 1, 0, 0);
+            // The database stays, with no directory until it has a table again.
+            assertThat(catalog.listDatabases()).contains("db");
+            assertThat(directory).doesNotExist();
+            Path again = tableWithCommits(catalog, T);
+            assertThat(again).isDirectory();
+            catalog.dropTable(T, false);
+            catalog.dropDatabase("db", false, false);
+            assertSweep(server.catalog().purges().sweep(null), 1, 0, 0);
+        }
+        assertThat(directory).doesNotExist();
+    }
+
+    @Test
+    void anInlineDatabaseDropLeavesNoDirectory() throws Exception {
+        ColvennaCatalogServer inline = inlineReplica();
+        try (RESTCatalog catalog = catalog(adminToken, inline.port(), Map.of())) {
+            tableWithCommits(catalog, Identifier.create("d", "one"));
+            tableWithCommits(catalog, Identifier.create("d", "two"));
+            catalog.dropDatabase("d", false, true);
+            assertThat(warehouseDir.resolve("d.db")).doesNotExist();
+            assertThat(purges()).isEmpty();
+            // A database that never had a table has no directory, and its drop needs none.
+            catalog.createDatabase("empty", false);
+            catalog.dropDatabase("empty", false, false);
+            assertThat(warehouseDir.resolve("empty.db")).doesNotExist();
+        } finally {
+            inline.close();
+        }
+    }
+
+    @Test
+    void aDatabaseDirectoryWithAnythingLeftInItStays() throws Exception {
+        ColvennaCatalogServer inline = inlineReplica();
+        try (RESTCatalog catalog = catalog(adminToken, inline.port(), Map.of())) {
+            // A table renamed into another database keeps its root, in the first one's directory.
+            Identifier moved = Identifier.create("b", "t");
+            Path root = tableWithCommits(catalog, Identifier.create("a", "t"));
+            catalog.createDatabase("b", false);
+            catalog.renameTable(Identifier.create("a", "t"), moved, false);
+            // And a file the catalog does not know of.
+            Path stray = Files.writeString(warehouseDir.resolve("a.db").resolve("notes"), "x");
+            catalog.dropDatabase("a", false, true);
+            assertThat(root).isDirectory();
+            assertThat(stray).exists();
+            assertThat(Tables.ids(catalog.getTable(moved))).containsExactlyInAnyOrder(1, 2);
+            Files.delete(stray);
+            catalog.dropTable(moved, false);
+            // Its purge leaves the directory that held its root empty, and so removes it.
+            assertThat(warehouseDir.resolve("a.db")).doesNotExist();
+        } finally {
+            inline.close();
+        }
+    }
+
+    @Test
+    void aDatabaseDirectoryThatCannotBeRemovedKeepsThePurgeRecord() throws Exception {
+        Path directory = warehouseDir.resolve("db.db");
+        Path root = tableWithCommits(T);
+        try (RESTCatalog catalog = catalog(adminToken)) {
+            catalog.dropTable(T, false);
+            catalog.dropDatabase("db", false, false);
+        }
+        // The table's root can go, its database's directory not: the warehouse is read-only.
+        Files.setPosixFilePermissions(warehouseDir, PosixFilePermissions.fromString("r-xr-xr-x"));
+        try {
+            assertSweep(server.catalog().purges().sweep(null), 0, 1, 1);
+            assertThat(root).doesNotExist();
+            assertThat(directory).isDirectory();
+            assertThat(purges().get(0).get("lastError").asText()).contains("db.db");
+        } finally {
+            Files.setPosixFilePermissions(
+                    warehouseDir, PosixFilePermissions.fromString("rwxr-xr-x"));
+        }
+        // Tried again, the root already gone.
+        assertSweep(server.catalog().purges().sweep(null), 1, 0, 0);
+        assertThat(directory).doesNotExist();
+    }
+
     /** What a sweep purged and failed, and the records it left. */
     private static void assertSweep(TablePurges.Sweep sweep, int purged, int failed, int pending) {
         assertThat(List.of(sweep.purged(), sweep.failed(), sweep.pending()))
