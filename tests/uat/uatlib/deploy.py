@@ -623,6 +623,22 @@ def names_of(env):
 
 
 PARTS = ("Storage", "Eks", "Network", "Images", "Serverless")
+# deploy/lib/stacks.sh's: a cut of a stack's name at least this long, in a name CloudFormation generated,
+# is of that stack's environment alone.
+STACK_CUT_MIN = int(re.search(r"^STACK_CUT_MIN=(\d+)$", (REPO / "deploy/lib/stacks.sh").read_text(), re.M).group(1))
+
+
+def named_after_stacks(name, stacks):
+    """deploy/lib/stacks.sh's named_after_stacks, which uninstall.sh deletes the functions' log groups
+    by: whether CloudFormation generated the name for one of the stacks, its first part (up to its
+    first hyphen) being the stack's name or a cut of it at least STACK_CUT_MIN characters long."""
+    head, hyphen, _ = name.partition("-")
+    return bool(hyphen) and any(head == s or (len(head) >= STACK_CUT_MIN and s.startswith(head)) for s in stacks)
+
+
+def _function(item):
+    """A log group's function (/aws/lambda/<function>), or the item itself."""
+    return item[len("/aws/lambda/"):] if item.startswith("/aws/lambda/") else item
 
 
 def of_install(item, env):
@@ -630,6 +646,9 @@ def of_install(item, env):
     ...), and not another environment's whose name starts with this one's (ek52d and ek52dx)."""
     stack, name, lower = names_of(env)
     if item == f"ColvennaCatalogTest{stack_suffix(env)}Driver":
+        return True
+    # A name CloudFormation generated, cut wherever the stack's name was: uninstall.sh's rule.
+    if named_after_stacks(_function(item), [stack + p for p in PARTS]):
         return True
     for prefix in (stack, "/aws/lambda/" + stack):
         if item.startswith(prefix):
@@ -688,6 +707,8 @@ ENV_OF = (re.compile(r"ColvennaCatalog([A-Z][a-z0-9]{0,7}?)(?=Storage|Eks|Networ
 
 
 DRIVER_STACK = re.compile(r"^ColvennaCatalogTest([A-Z][a-z0-9]{0,7})Driver$")
+# A name CloudFormation generated: ColvennaCatalog<Env> and a cut of a component, then a hyphen.
+GENERATED = re.compile(r"^(?:/aws/lambda/)?ColvennaCatalog([A-Z][a-z0-9]{0,7})[A-Za-z]*-")
 
 
 def env_of(item):
@@ -699,6 +720,9 @@ def env_of(item):
     if item.startswith(("ColvennaCatalogTest", "ColvennaCatalogRelease", "colvenna-catalog-test-",
                         "colvenna-catalog-release")):
         return None
+    m = GENERATED.match(item)
+    if m and named_after_stacks(_function(item), [f"ColvennaCatalog{m.group(1)}{p}" for p in PARTS]):
+        return m.group(1).lower()
     for pattern in ENV_OF:
         m = pattern.search(item)
         if m:

@@ -82,6 +82,15 @@ class Judges(unittest.TestCase):
                   "ColvennaCatalogRelease", "colvennacatalogek1xstorage-b"]
         self.assertTrue(all(deploy.of_install(i, "ek1") for i in mine))
         self.assertFalse(any(deploy.of_install(i, "ek1") for i in theirs))
+        # A long environment name: CloudFormation cut the stack's name within its component, as
+        # uninstall.sh's rule (deploy/lib/stacks.sh) takes it.
+        cut = "/aws/lambda/ColvennaCatalogAbcdefStor-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl"
+        self.assertTrue(deploy.of_install(cut, "abcdef"))
+        self.assertTrue(deploy.of_install("/aws/lambda/ColvennaCatalogAbcdefghSt-X-Y", "abcdefgh"))
+        self.assertFalse(deploy.of_install(cut, "abcde"))
+        self.assertFalse(deploy.of_install("/aws/lambda/ColvennaCatalogAbcdefS-X-Y", "abcdef"))  # 22: too short a cut
+        self.assertEqual(deploy.env_of(cut), "abcdef")
+        self.assertEqual(deploy.env_of("/aws/lambda/ColvennaCatalogAbcdefghSt-X-Y"), "abcdefgh")
 
     def test_others_untouched_and_the_shared_account(self):
         before = {"stacks": {"ColvennaCatalogTestU1": ["UPDATE_COMPLETE", "t1"], "ColvennaCatalogRelease": ["UPDATE_COMPLETE", "t0"],

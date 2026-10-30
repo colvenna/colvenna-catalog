@@ -109,21 +109,23 @@ stack_functions() {
   done <<<"$listed"
 }
 
-# function_log_groups_left <file>: the log groups (/aws/lambda/<function>) there are of the functions the
-# file names, one per line.
-function_log_groups_left() {
+# recorded_log_groups <file>: the log groups (/aws/lambda/<function>) there are of the functions the
+# file names, one per line; fails when one cannot be looked up.
+recorded_log_groups() {
   local function
   [[ -s "$1" ]] || return 0
   while read -r function; do
-    [[ -z "$function" ]] || aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/$function" --output text \
-      --query "logGroups[?logGroupName=='/aws/lambda/$function'].logGroupName" </dev/null
+    [[ -n "$function" ]] || continue
+    aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/$function" --output text \
+      --query "logGroups[?logGroupName=='/aws/lambda/$function'].logGroupName" </dev/null || return 1
   done <"$1"
 }
 
-# delete_function_log_groups <file>: deletes the log groups of the functions the file names.
-delete_function_log_groups() {
-  local group
-  for group in $(function_log_groups_left "$1"); do
+# delete_recorded_log_groups <file>: deletes the log groups of the functions the file names.
+delete_recorded_log_groups() {
+  local groups group
+  groups="$(recorded_log_groups "$1")"
+  for group in $groups; do
     aws logs delete-log-group --log-group-name "$group"
   done
 }

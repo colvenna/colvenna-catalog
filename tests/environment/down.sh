@@ -25,8 +25,13 @@ err="$(mktemp)"
 if ! purpose="$(aws cloudformation describe-stacks --stack-name "$stack" \
   --query "Stacks[0].Tags[?Key=='Purpose'].Value | [0]" --output text 2>"$err")"; then
   if grep -q 'does not exist' "$err"; then
-    # What a run interrupted once the stack was gone left: its functions' log groups.
-    delete_function_log_groups "$state/functions"
+    # What a run interrupted once the stack was gone left: its functions' log groups (lib.sh).
+    if [[ -e "$state/functions" ]]; then
+      delete_recorded_log_groups "$state/functions"
+      left="$(recorded_log_groups "$state/functions")"
+      [[ -z "$left" ]] || die "Log groups of the stack's functions are left: $left"
+      mv "$state/functions" "$evidence/functions.txt"
+    fi
     echo "$stack does not exist in $region: nothing to remove" | tee "$evidence/RESULT"
     exit 0
   fi
@@ -95,9 +100,9 @@ if [[ "$vpc" == vpc-* ]] && aws ec2 describe-vpcs --vpc-ids "$vpc" >/dev/null 2>
   die "The VPC $vpc is left (and whatever network interfaces keep it)"
 fi
 # The stack's functions' log groups, which it never owned (lib.sh).
-delete_function_log_groups "$state/functions"
+delete_recorded_log_groups "$state/functions"
 groups="$(aws logs describe-log-groups --log-group-name-prefix "/aws/eks/$cluster/" --query 'length(logGroups)' --output text)"
-functions="$(function_log_groups_left "$state/functions" | sed '/^$/d' | wc -l)"
+functions="$(recorded_log_groups "$state/functions" | sed '/^$/d' | wc -l)"
 # The database went without a final snapshot and without its automated backups; its admin secret is
 # deleted without a recovery window, if the stack's deletion only scheduled it.
 if aws rds describe-db-instances --db-instance-identifier "$db" >/dev/null 2>&1; then

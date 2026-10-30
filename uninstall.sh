@@ -144,12 +144,12 @@ delete_bucket() {
 # delete_log_groups <prefix>: deletes every log group whose name starts so. For the groups no stack owns:
 # those RDS exports to and those the serverless form's functions and API write as they run.
 delete_log_groups() {
-  local listed groups=() group
+  local listed group
   listed="$(aws logs describe-log-groups --region "$COLVENNA_REGION" --log-group-name-prefix "$1" \
     --query 'logGroups[].logGroupName' --output text)"
-  [[ -z "$listed" || "$listed" == None ]] || read -ra groups <<<"$listed"
-  for group in "${groups[@]}"; do
-    aws logs delete-log-group --region "$COLVENNA_REGION" --log-group-name "$group"
+  # Each page of the listing on a line of its own.
+  for group in $listed; do
+    [[ "$group" == None ]] || aws logs delete-log-group --region "$COLVENNA_REGION" --log-group-name "$group"
   done
 }
 
@@ -208,19 +208,25 @@ remove_storage() {
 # delete_function_log_groups: the log groups of the functions of the environment's stacks that are
 # gone, which Lambda makes as they run and no stack owns: CDK's (the storage stack's log retention
 # function), which CloudFormation named after their stack, cutting a long name short
-# (ColvennaCatalogSl13Storag-...: function_log_groups). Those of a stack that stays stay with it. Found
-# by their names, not the stacks' resources, they are found by a run again after an interruption too.
-# The serverless form's functions, which the install names, are uninstall_serverless's.
+# (ColvennaCatalogSl13Storag-...: function_log_groups). Those of a stack that stays stay with it, a
+# cut that could be either stack's too (ColvennaCatalogAbcdefghS-, of Storage or Serverless). Found by
+# their names, not the stacks' resources, they are found by a run again after an interruption too. The
+# serverless form's functions, which the install names, are uninstall_serverless's.
 delete_function_log_groups() {
-  local component stack gone=() groups group
-  for component in "${STACK_COMPONENTS[@]}"; do
-    stack="$(stack_id "$component")"
-    [[ "$(stack_status "$stack")" != NONE ]] || gone+=("$stack")
+  local stack gone=() kept=() groups group
+  for stack in $(environment_stacks); do
+    if [[ "$(stack_status "$stack")" == NONE ]]; then
+      gone+=("$stack")
+    else
+      kept+=("$stack")
+    fi
   done
   ((${#gone[@]})) || return 0
   groups="$(function_log_groups "${gone[@]}")"
   for group in $groups; do
-    aws logs delete-log-group --region "$COLVENNA_REGION" --log-group-name "$group"
+    if ((${#kept[@]} == 0)) || ! named_after_stacks "${group#/aws/lambda/}" "${kept[@]}"; then
+      aws logs delete-log-group --region "$COLVENNA_REGION" --log-group-name "$group"
+    fi
   done
 }
 

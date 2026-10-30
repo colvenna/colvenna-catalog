@@ -17,8 +17,15 @@ stack_id() {
 }
 
 # The components of an environment's stacks, both forms'.
-# shellcheck disable=SC2034  # read by uninstall.sh and tests/serverless/verify-clean.sh
 STACK_COMPONENTS=(Eks Storage Network Images Serverless)
+
+# environment_stacks: the names of the environment's stacks, both forms', one per line.
+environment_stacks() {
+  local component
+  for component in "${STACK_COMPONENTS[@]}"; do
+    stack_id "$component"
+  done
+}
 
 # CloudFormation names what it generates for a stack's resources (a Lambda function, say)
 # <stack>-<logical id>-<suffix>, and cuts a long stack name short in it: ColvennaCatalogSl13Storag-...,
@@ -34,10 +41,11 @@ STACK_COMPONENTS=(Eks Storage Network Images Serverless)
 # checks this. A cut shorter could be another environment's, and is never taken.
 STACK_CUT_MIN=23
 
-# stack_generated <name> <stack>...: whether <name> is one CloudFormation generated for one of the
+# named_after_stacks <name> <stack>...: whether <name> is one CloudFormation generated for one of the
 # stacks: its first part, up to its first hyphen, is the stack's name, or a cut of it at least
-# STACK_CUT_MIN characters long.
-stack_generated() {
+# STACK_CUT_MIN characters long. Names as they are: lowercased, two environments' stack names share
+# more (a and aserverl, 24 characters).
+named_after_stacks() {
   local head="${1%%-*}" stack
   [[ "$1" == "$head-"* ]] || return 1
   for stack in "${@:2}"; do
@@ -49,7 +57,7 @@ stack_generated() {
 
 # function_log_groups <stack>...: the log groups of the stacks' Lambda functions (/aws/lambda/<function>),
 # which Lambda makes as they run and no stack owns. A function CloudFormation named is found by
-# stack_generated, among the groups under the start the stacks' names and their cuts share (those of
+# named_after_stacks, among the groups under the start the stacks' names and their cuts share (those of
 # an environment whose name starts with this one's are there too, and are not taken); one named
 # explicitly (colvenna-catalog-<env>-...) is not under it. One per line.
 function_log_groups() {
@@ -62,7 +70,7 @@ function_log_groups() {
   listed="$(aws logs describe-log-groups --region "$COLVENNA_REGION" --log-group-name-prefix "/aws/lambda/$prefix" \
     --query 'logGroups[].logGroupName' --output text)"
   for group in $listed; do
-    [[ "$group" == None ]] || ! stack_generated "${group#/aws/lambda/}" "$@" || printf '%s\n' "$group"
+    [[ "$group" == None ]] || ! named_after_stacks "${group#/aws/lambda/}" "$@" || printf '%s\n' "$group"
   done
 }
 

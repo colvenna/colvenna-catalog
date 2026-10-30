@@ -12,12 +12,8 @@ export AWS_REGION="$region" AWS_DEFAULT_REGION="$region"
 # shellcheck source=../../deploy/lib/stacks.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../../deploy/lib/stacks.sh"
 COLVENNA_ENV="$env" COLVENNA_REGION="$region"
-Env="$(tr '[:lower:]' '[:upper:]' <<<"${env:0:1}")${env:1}"
-stacks="ColvennaCatalog$Env" names="colvenna-catalog-$env" left=0
-stack_names=()
-for component in "${STACK_COMPONENTS[@]}"; do
-  stack_names+=("$(stack_id "$component")")
-done
+stacks="$(stack_id "")" names="colvenna-catalog-$env" left=0
+mapfile -t stack_names < <(environment_stacks)
 
 check() {
   local what="$1" found

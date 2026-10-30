@@ -90,6 +90,15 @@ class DeleteLogGroups(unittest.TestCase):
         self.assertIn("--log-group-name /aws/rds/instance/db-1/postgresql", deleted[0])
         self.assertIn("--log-group-name /aws/rds/instance/db-1/upgrade", deleted[1])
 
+    def test_every_page_of_the_listing(self):
+        # The CLI writes each page of a listing in text on a line of its own.
+        stubs = Stubs({"aws": {"logs describe-log-groups": {"stdout": "/aws/lambda/a-1\t/aws/lambda/a-2\n/aws/lambda/a-3\n"},
+                               "logs delete-log-group": {"stdout": ""}}, "kubectl": {}})
+        out = run_bash(f'source "{REPO}/uninstall.sh"; COLVENNA_REGION=us-west-2 delete_log_groups /aws/lambda/a-',
+                       env=stubs.env, path_prepend=stubs.bin)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(len([c for c in stubs.calls() if c.startswith("aws logs delete-log-group")]), 3)
+
     def test_nothing_to_delete(self):
         stubs = Stubs({"aws": {"logs describe-log-groups": {"stdout": "\n"}}, "kubectl": {}})
         out = run_bash(f'source "{REPO}/uninstall.sh"; COLVENNA_REGION=us-west-2 delete_log_groups /aws/lambda/X',
@@ -98,7 +107,7 @@ class DeleteLogGroups(unittest.TestCase):
         self.assertFalse(any("delete-log-group" in c for c in stubs.calls()))
 
 
-COMPONENTS = ("Eks", "Storage", "Network", "Images", "Serverless")
+COMPONENTS = tuple(run_bash('echo "${STACK_COMPONENTS[@]}"').stdout.split())
 
 
 def capital(name):
@@ -112,7 +121,7 @@ def stacks_of(env):
 
 class GeneratedNames(unittest.TestCase):
     """CloudFormation names a stack's functions <stack>-<logical id>-<suffix>, the stack's name cut short
-    when it is long; uninstall.sh deletes their log groups by stacks.sh's stack_generated and no other."""
+    when it is long; uninstall.sh deletes their log groups by stacks.sh's named_after_stacks and no other."""
 
     def test_no_cut_as_long_as_the_bound_is_another_environment_s(self):
         cut_min = int(run_bash("echo $STACK_CUT_MIN").stdout)
@@ -157,7 +166,7 @@ class GeneratedNames(unittest.TestCase):
 
     def generated(self, name, env="ux1e"):
         stacks = " ".join(stacks_of(env))
-        return run_bash(f"stack_generated {name} {stacks}").returncode == 0
+        return run_bash(f"named_after_stacks {name} {stacks}").returncode == 0
 
     def test_a_name_generated_for_the_stack_or_a_cut_of_it_at_least_the_bound_long(self):
         for name in ("ColvennaCatalogUx1eStorage-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl",
@@ -207,7 +216,22 @@ class GeneratedNames(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stderr)
         deleted = [c.split("--log-group-name ")[1] for c in stubs.calls() if c.startswith("aws logs delete-log-group")]
         self.assertEqual(deleted, self.GROUPS[:1])
+        # An environment of 8 characters, its Storage stack kept: a cut that could be of Storage or of
+        # Serverless (ColvennaCatalogAbcdefghS) stays, one of Serverless alone goes.
+        aws = {f"{query} {s}": gone for s in stacks_of("abcdefgh")}
+        aws[f"{query} ColvennaCatalogAbcdefghStorage"] = {"stdout": "CREATE_COMPLETE\n"}
+        either, theirs = "/aws/lambda/ColvennaCatalogAbcdefghS-X-Y", "/aws/lambda/ColvennaCatalogAbcdefghServ-X-Y"
+        aws["logs describe-log-groups"] = {"stdout": f"{either}\t{theirs}\n"}
+        aws["logs delete-log-group"] = {"stdout": ""}
+        stubs = Stubs({"aws": aws, "kubectl": {}})
+        out = run_bash(f'source "{REPO}/uninstall.sh"; COLVENNA_ENV=abcdefgh COLVENNA_REGION=us-west-2 delete_function_log_groups',
+                       env=stubs.env, path_prepend=stubs.bin)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        deleted = [c.split("--log-group-name ")[1] for c in stubs.calls() if c.startswith("aws logs delete-log-group")]
+        self.assertEqual(deleted, [theirs])
         # Nothing gone: nothing listed.
+        aws = {f"{query} {s}": gone for s in stacks_of("ux1e")}
+        aws["logs describe-log-groups"] = {"stdout": ""}
         aws.update({f"{query} {s}": {"stdout": "CREATE_COMPLETE\n"} for s in stacks_of("ux1e")})
         stubs = Stubs({"aws": aws, "kubectl": {}})
         out = run_bash(f'source "{REPO}/uninstall.sh"; COLVENNA_ENV=ux1e COLVENNA_REGION=us-west-2 delete_function_log_groups',
