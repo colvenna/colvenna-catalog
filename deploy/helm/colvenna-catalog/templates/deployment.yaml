@@ -54,6 +54,9 @@ spec:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: {{ .Values.spreadAcrossNodes | ternary "DoNotSchedule" "ScheduleAnyway" }}
+          # A node whose taints the pods do not tolerate is no domain to spread over (#35): counted, it would
+          # hold a replica back for good beside a single usable node.
+          nodeTaintsPolicy: Honor
           {{- if and .Values.spreadAcrossNodes (gt (int $minNodes) 1) }}
           minDomains: {{ $minNodes }}
           {{- end }}

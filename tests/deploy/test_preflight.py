@@ -231,6 +231,39 @@ class Preflight(unittest.TestCase):
         self.assertEqual(out.returncode, 3)
         self.assertIn("role=catalog", out.stderr)
 
+    def test_only_the_nodes_the_catalog_may_run_on_are_eligible(self):
+        # #35: a node tainted NoSchedule or NoExecute takes no catalog pod (the chart tolerates none), so it is not
+        # counted; a cordoned node is (the chart's spread waits for it); a node not Ready is not.
+        taint = lambda key, effect: [{"key": key, "value": "x", "effect": effect}]  # noqa: E731
+        # (taints, counted): a workload's taints rule a node out; Kubernetes' own condition taints, a cloud
+        # provider's while it initializes and the autoscalers' drain marks come and go, and do not.
+        cases = [(None, True), (taint("colvenna-catalog/test-pool", "NoSchedule"), False),
+                 (taint("dedicated", "NoExecute"), False), (taint("soft", "PreferNoSchedule"), True),
+                 (taint("node.kubernetes.io/unschedulable", "NoSchedule"), True),
+                 (taint("node.kubernetes.io/disk-pressure", "NoSchedule"), True),
+                 (taint("node.kubernetes.io/out-of-service", "NoExecute"), False),
+                 (taint("node.cloudprovider.kubernetes.io/uninitialized", "NoSchedule"), True),
+                 (taint("ToBeDeletedByClusterAutoscaler", "NoSchedule"), True), (taint("karpenter.sh/disrupted", "NoSchedule"), True),
+                 (taint("node.kubernetes.io/unschedulable", "NoSchedule") + taint("dedicated", "NoSchedule"), False)]
+        for taints, counted in cases:
+            with self.subTest(taints=taints):
+                nodes = ready_nodes(2)  # one plain, one under test: a refusal never hides the verdict
+                if taints:
+                    nodes["items"][1]["spec"]["taints"] = taints
+                out, _ = self.run_preflight('eligible_nodes; echo "nodes=$ELIGIBLE_NODES"',
+                                            kubectl={"get nodes": {"stdout": nodes}})
+                self.assertEqual(out.returncode, 0, out.stderr)
+                self.assertIn(f"nodes={2 if counted else 1}", out.stdout)
+        not_ready = ready_nodes(2)
+        not_ready["items"][1]["status"]["conditions"] = [{"type": "Ready", "status": "False"}]
+        out, _ = self.run_preflight('eligible_nodes; echo "nodes=$ELIGIBLE_NODES"', kubectl={"get nodes": {"stdout": not_ready}})
+        self.assertIn("nodes=1", out.stdout)
+        only_tainted = ready_nodes(2)
+        for node in only_tainted["items"]:
+            node["spec"]["taints"] = taint("colvenna-catalog/test-pool", "NoSchedule")
+        out, _ = self.run_preflight("eligible_nodes", kubectl={"get nodes": {"stdout": only_tainted}})
+        self.assertEqual(out.returncode, 3)
+
     def test_a_bucket_of_another_region_is_refused(self):
         out, _ = self.run_preflight("assert_bucket", config={"COLVENNA_BUCKET": "bucket"},
                                     aws={"s3api get-bucket-location": {"stdout": {"LocationConstraint": "eu-west-1"}}})
@@ -285,6 +318,17 @@ class Preflight(unittest.TestCase):
             with self.subTest(label):
                 out, _ = self.reachable(**over)
                 self.assertEqual(out.returncode, 0, out.stderr)
+
+    def test_the_database_need_admit_only_the_eligible_nodes(self):
+        # #35: the same nodes as the replicas' spread; a tainted node's instance is not looked up.
+        nodes = ready_nodes(3)
+        nodes["items"][2]["spec"]["taints"] = [{"key": "colvenna-catalog/test-pool", "value": "clients", "effect": "NoSchedule"}]
+        out, stubs = self.reachable(kubectl={"get nodes": {"stdout": nodes}})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        looked_up = [c for c in stubs.calls() if c.startswith("aws ec2 describe-instances")]
+        self.assertTrue(looked_up)
+        self.assertNotIn(nodes["items"][2]["spec"]["providerID"].rsplit("/", 1)[1], " ".join(looked_up))
+        self.assertIn(nodes["items"][0]["spec"]["providerID"].rsplit("/", 1)[1], " ".join(looked_up))
 
     def test_an_existing_database_the_nodes_cannot_use_is_refused(self):
         cases = [

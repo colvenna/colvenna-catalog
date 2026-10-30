@@ -5,15 +5,16 @@ image:
 
 replicas: 2
 # true: a replica never joins another on a node while some eligible node (one the node selector
-# allows) holds none, even if that node accepts no pods for now (cordoned for a drain, say); the
-# replica waits instead. Nor while fewer eligible nodes exist than the chart keeps the replicas
-# apart across, min(replicas, eligibleNodes) (a lost node not replaced yet): the scheduler counts
-# only the nodes there are, and never moves a running pod, so a replica placed beside the other then
-# would stay there once the node is back. false: spreading is only preferred, and a replica shares a
-# node rather than wait. With fewer eligible nodes than replicas, both spread as evenly as the nodes
-# allow.
+# allows, without a workload's taint the pods do not tolerate) holds none, even if that node accepts
+# no pods for now (cordoned for a drain, say); the replica waits instead. Nor while fewer eligible
+# nodes exist than the chart keeps the replicas apart across, min(replicas, eligibleNodes) (a lost
+# node not replaced yet): the scheduler counts only the nodes there are, and never moves a running
+# pod, so a replica placed beside the other then would stay there once the node is back. false:
+# spreading is only preferred, and a replica shares a node rather than wait. With fewer eligible
+# nodes than replicas, both spread as evenly as the nodes allow.
 spreadAcrossNodes: true
-# How many nodes the node selector allows; install.sh counts them. With one, every replica runs on it.
+# How many nodes the node selector allows that carry no NoSchedule or NoExecute taint of a workload's
+# (the pods tolerate none); install.sh counts them. With one, every replica runs on it.
 eligibleNodes: 2
 
 # Kubernetes identity; the IRSA role is the EKS stack's ServerRoleArn.
