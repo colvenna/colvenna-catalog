@@ -245,14 +245,19 @@ class Preflight(unittest.TestCase):
                  (taint("node.cloudprovider.kubernetes.io/uninitialized", "NoSchedule"), True),
                  (taint("ToBeDeletedByClusterAutoscaler", "NoSchedule"), True), (taint("karpenter.sh/disrupted", "NoSchedule"), True),
                  (taint("node.kubernetes.io/unschedulable", "NoSchedule") + taint("dedicated", "NoSchedule"), False)]
-        nodes = ready_nodes(len(cases) + 1)
-        for node, (taints, _) in zip(nodes["items"], cases):
-            if taints:
-                node["spec"]["taints"] = taints
-        nodes["items"][-1]["status"]["conditions"] = [{"type": "Ready", "status": "False"}]
-        out, _ = self.run_preflight('eligible_nodes; echo "nodes=$ELIGIBLE_NODES"', kubectl={"get nodes": {"stdout": nodes}})
-        self.assertEqual(out.returncode, 0, out.stderr)
-        self.assertIn(f"nodes={sum(1 for _, counted in cases if counted)}", out.stdout)
+        for taints, counted in cases:
+            with self.subTest(taints=taints):
+                nodes = ready_nodes(2)  # one plain, one under test: a refusal never hides the verdict
+                if taints:
+                    nodes["items"][1]["spec"]["taints"] = taints
+                out, _ = self.run_preflight('eligible_nodes; echo "nodes=$ELIGIBLE_NODES"',
+                                            kubectl={"get nodes": {"stdout": nodes}})
+                self.assertEqual(out.returncode, 0, out.stderr)
+                self.assertIn(f"nodes={2 if counted else 1}", out.stdout)
+        not_ready = ready_nodes(2)
+        not_ready["items"][1]["status"]["conditions"] = [{"type": "Ready", "status": "False"}]
+        out, _ = self.run_preflight('eligible_nodes; echo "nodes=$ELIGIBLE_NODES"', kubectl={"get nodes": {"stdout": not_ready}})
+        self.assertIn("nodes=1", out.stdout)
         only_tainted = ready_nodes(2)
         for node in only_tainted["items"]:
             node["spec"]["taints"] = taint("colvenna-catalog/test-pool", "NoSchedule")
@@ -313,6 +318,17 @@ class Preflight(unittest.TestCase):
             with self.subTest(label):
                 out, _ = self.reachable(**over)
                 self.assertEqual(out.returncode, 0, out.stderr)
+
+    def test_the_database_need_admit_only_the_eligible_nodes(self):
+        # #35: the same nodes as the replicas' spread; a tainted node's instance is not looked up.
+        nodes = ready_nodes(3)
+        nodes["items"][2]["spec"]["taints"] = [{"key": "colvenna-catalog/test-pool", "value": "clients", "effect": "NoSchedule"}]
+        out, stubs = self.reachable(kubectl={"get nodes": {"stdout": nodes}})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        looked_up = [c for c in stubs.calls() if c.startswith("aws ec2 describe-instances")]
+        self.assertTrue(looked_up)
+        self.assertNotIn(nodes["items"][2]["spec"]["providerID"].rsplit("/", 1)[1], " ".join(looked_up))
+        self.assertIn(nodes["items"][0]["spec"]["providerID"].rsplit("/", 1)[1], " ".join(looked_up))
 
     def test_an_existing_database_the_nodes_cannot_use_is_refused(self):
         cases = [

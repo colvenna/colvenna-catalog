@@ -195,7 +195,7 @@ eligible_nodes() {
   [[ -z "$COLVENNA_NODE_SELECTOR" ]] || args=(-l "$COLVENNA_NODE_SELECTOR")
   ELIGIBLE_NODES="$(kubectl get nodes "${args[@]}" -o json | jq "$ELIGIBLE_JQ | length")"
   ((ELIGIBLE_NODES > 0)) || refuse "No Ready node matches COLVENNA_NODE_SELECTOR=${COLVENNA_NODE_SELECTOR:-<any>} without a" \
-    "NoSchedule or NoExecute taint (the catalog's pods tolerate none)"
+    "workload's NoSchedule or NoExecute taint (the catalog's pods tolerate none; docs/manual/install.md, Nodes)"
   export ELIGIBLE_NODES
 }
 
