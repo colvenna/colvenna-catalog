@@ -22,6 +22,10 @@ class Aws:
         if not self.profile:
             raise RuntimeError("Set AWS_PROFILE: the harness never uses a default profile")
 
+    def in_region(self, region):
+        """The same calls, with the same profile, in another region."""
+        return Aws(region, self.profile)
+
     def env(self, credentials=None):
         env = dict(os.environ, AWS_REGION=self.region, AWS_DEFAULT_REGION=self.region, AWS_PAGER="")
         if credentials:
