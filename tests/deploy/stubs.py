@@ -22,10 +22,14 @@ if match is None:
 answer = responses[match]
 if isinstance(answer, list):
     counted = os.path.join(here, "counts.json")
-    counts = json.load(open(counted)) if os.path.exists(counted) else {}
+    counts = {}
+    if os.path.exists(counted):
+        with open(counted) as f:
+            counts = json.load(f)
     turn = counts.get(f"{name} {match}", 0)
     counts[f"{name} {match}"] = turn + 1
-    json.dump(counts, open(counted, "w"))
+    with open(counted, "w") as f:
+        json.dump(counts, f)
     answer = answer[min(turn, len(answer) - 1)]
 sys.stdout.write(answer.get("stdout", "") if isinstance(answer.get("stdout", ""), str) else json.dumps(answer["stdout"]))
 sys.stderr.write(answer.get("stderr", ""))

@@ -656,8 +656,9 @@ class RemoveStorage(unittest.TestCase):
         script = (f'source "{REPO}/uninstall.sh"; WORK="{work}";'
                   ' stack_status() { echo CREATE_COMPLETE; };'
                   ' stack_resources() { case "$2" in AWS::RDS::DBInstance) echo db-1;; AWS::S3::Bucket) printf "b-1\\nb-2\\n";; esac; };'
+                  ' cfn_output() { echo b-1; };'
                   ' for f in stop_access_logs delete_database delete_bucket destroy_stack delete_log_groups; do'
-                  ' eval "$f() { echo \"$f \$1\" >>\"$WORK/steps\"; }"; done;'
+                  ' eval "$f() { echo \"$f \\$1\" >>\"$WORK/steps\"; }"; done;'
                   ' remove_storage ColvennaCatalogSl13Storage -c account=1')
         out = run_bash(script)
         self.assertEqual(out.returncode, 0, out.stderr)
@@ -667,14 +668,15 @@ class RemoveStorage(unittest.TestCase):
 
     def storage(self, failing=""):
         """remove_storage with its steps recorded: the access log bucket listed first, as CloudFormation
-        lists the stack's resources (AccessLogs...), and the warehouse bucket logging to it."""
+        lists the stack's resources (AccessLogs...), and the warehouse bucket (its output BucketName)."""
         work = tempfile.mkdtemp()
         script = (f'source "{REPO}/uninstall.sh"; set -E; trap "on_error uninstall.sh" ERR; WORK="{work}";'
                   ' stack_status() { echo CREATE_COMPLETE; };'
                   ' stack_resources() { case "$2" in AWS::RDS::DBInstance) echo db-1;; AWS::S3::Bucket) printf "logs-1\\nwh-1\\n";; esac; };'
-                  ' stop_access_logs() { echo "stop_access_logs $*" >>"$WORK/steps"; echo logs-1; };'
+                  ' cfn_output() { [[ "$2" == BucketName ]] && echo wh-1; };'
+                  ' stop_access_logs() { echo "stop_access_logs $*" >>"$WORK/steps"; };'
                   ' for f in delete_database destroy_stack delete_log_groups; do'
-                  ' eval "$f() { echo \"$f \$1\" >>\"$WORK/steps\"; }"; done;'
+                  ' eval "$f() { echo \"$f \\$1\" >>\"$WORK/steps\"; }"; done;'
                   f' delete_bucket() {{ echo "delete_bucket $1" >>"$WORK/steps"; [[ "$1" != "{failing}" ]]; }};'
                   ' remove_storage ColvennaCatalogSl13Storage -c account=1')
         out = run_bash(script)
