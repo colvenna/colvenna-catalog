@@ -1,5 +1,6 @@
 """Stub commands (aws, kubectl, ...) for the deployment scripts' tests: each answers by the longest
-key of its responses that prefixes its arguments, and logs every call."""
+key of its responses that prefixes its arguments, and logs every call. A key's answer may be a list:
+its answers, one per call in turn, the last one again once they run out."""
 import json
 import os
 import stat
@@ -19,6 +20,17 @@ if match is None:
     print(f"stub {name}: no response for: {args}", file=sys.stderr)
     sys.exit(97)
 answer = responses[match]
+if isinstance(answer, list):
+    counted = os.path.join(here, "counts.json")
+    counts = {}
+    if os.path.exists(counted):
+        with open(counted) as f:
+            counts = json.load(f)
+    turn = counts.get(f"{name} {match}", 0)
+    counts[f"{name} {match}"] = turn + 1
+    with open(counted, "w") as f:
+        json.dump(counts, f)
+    answer = answer[min(turn, len(answer) - 1)]
 sys.stdout.write(answer.get("stdout", "") if isinstance(answer.get("stdout", ""), str) else json.dumps(answer["stdout"]))
 sys.stderr.write(answer.get("stderr", ""))
 sys.exit(answer.get("code", 0))
