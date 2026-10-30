@@ -136,7 +136,7 @@ sl_assert_db_reachable() {
   # The functions sign in with RDS IAM tokens: the database must take them.
   [[ "$(jq -r '.iam // false' <<<"$db")" == true ]] || refuse "The database at $COLVENNA_DB_ENDPOINT does not have IAM database" \
     "authentication enabled, which the serverless form signs in with (no password): enable it (aws rds modify-db-instance" \
-    "--enable-iam-database-authentication, or modify-db-cluster for Aurora) and run again"
+    "--region $COLVENNA_REGION --enable-iam-database-authentication, or modify-db-cluster for Aurora) and run again"
   SL_DB_RESOURCE_ID="$(jq -r '.id // ""' <<<"$db")"
   export SL_DB_RESOURCE_ID
   mapfile -t ids < <(jq -r '.groups[]' <<<"$db")

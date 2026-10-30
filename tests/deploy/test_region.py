@@ -3,10 +3,12 @@
 not be COLVENNA_REGION. The EKS form's database step read its two secrets that way, and an install in
 us-east-2 from a host whose default was another Region failed there. Only global services' calls (IAM, STS's
 caller identity, S3's bucket location) may go without one."""
+import json
 import re
 import unittest
 
-from helpers import REPO
+from helpers import REPO, run_bash
+from stubs import Stubs
 
 FILES = [REPO / "install.sh", REPO / "uninstall.sh", *sorted((REPO / "deploy/lib").glob("*.sh"))]
 CALL = re.compile(r"\baws ([a-z0-9-]+) ([a-z0-9-]+)")
@@ -69,6 +71,30 @@ class EveryCallNamesTheRegion(unittest.TestCase):
         ])
         self.assertEqual(calls_without_region(script), [(1, "secretsmanager", "get-secret-value"),
                                                         (4, "ecr", "describe-images"), (10, "ecr", "get-login-password")])
+
+
+class TheDatabaseStep(unittest.TestCase):
+    """The EKS form's database step, run with stub commands: it reads both secrets in the install's Region,
+    whatever the AWS CLI's default."""
+
+    def test_both_secrets_are_read_in_the_install_s_region(self):
+        read = "secretsmanager get-secret-value --region us-east-2 --secret-id"
+        stubs = Stubs({"aws": {f"{read} admin": {"stdout": json.dumps({"username": "colvenna_admin", "password": "a"}) + "\n"},  # pragma: allowlist secret - a stubbed secret's made-up password
+                               f"{read} user": {"stdout": json.dumps({"username": "colvenna_catalog", "password": "u"}) + "\n"}},  # pragma: allowlist secret - a stubbed secret's made-up password
+                       "kubectl": {"-n colvenna-catalog": {"stdout": ""}, "apply": {"stdout": ""}}})
+        env = {**stubs.env, "COLVENNA_REGION": "us-east-2", "AWS_REGION": "us-west-2", "AWS_DEFAULT_REGION": "us-west-2",
+               "COLVENNA_NAMESPACE": "colvenna-catalog", "COLVENNA_DB_USER": "colvenna_catalog",
+               "COLVENNA_DB_NAME": "colvenna_catalog", "DB_ENDPOINT": "db.example.com", "DB_PORT": "5432",
+               "DB_ADMIN_SECRET_ARN": "admin", "DB_USER_SECRET_ARN": "user"}  # pragma: allowlist secret - the made-up names of stubbed secrets
+        # The RDS CA bundle and the bootstrap pod are this host's and the cluster's: stand-ins here.
+        script = ('curl() { echo "-----BEGIN CERTIFICATE-----" >"${@: -1}"; }; run_pod() { echo database-ready; }; '
+                  'work="$(mktemp -d)"; ensure_database "$work"')
+        out = run_bash(script, env=env, path_prepend=stubs.bin)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        reads = [c for c in stubs.calls() if c.startswith("aws ")]
+        self.assertEqual(len(reads), 2, reads)
+        for call in reads:
+            self.assertIn("--region us-east-2", call)
 
 
 if __name__ == "__main__":
