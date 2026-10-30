@@ -79,10 +79,13 @@ class Commits(unittest.TestCase):
         locked = dropped(ident=11, first=503, first_body='{"code":503}', body='{"success":true}')
         once = [event("stress-w3", 10, "published"), event("stress-w3", 10, REPLAY), event("stress-w3", 11, "published")]
         self.assertTrue(flt01.judge_dropped([dropped(), locked], once)[0])
-        self.assertTrue(flt01.judge_dropped([locked], once[2:])[0], "a commit made by its resend")
+        self.assertFalse(flt01.judge_dropped([locked], once[2:])[0], "no dropped commit, no replay: nothing shown")
+        # A commit in doubt (its session lost): answered 503, rolled forward by the resend, a replay.
+        in_doubt = once[:2] + [event("stress-w3", 11, REPLAY)]
+        self.assertTrue(flt01.judge_dropped([dropped(), locked], in_doubt)[0])
         twice = once + [event("stress-w3", 11, "published")]
         self.assertFalse(flt01.judge_dropped([dropped(), locked], twice)[0])
-        self.assertFalse(flt01.judge_dropped([dropped(), locked], once[:2])[0], "applied, but never published")
+        self.assertFalse(flt01.judge_dropped([dropped(), locked], once[:2])[0], "success, but neither published nor replayed")
         throttled = dropped(ident=11, first=429, first_body='{"message":"x"}', body='{"success":true}')
         self.assertTrue(flt01.judge_dropped([dropped(), throttled], once)[0])
 
