@@ -1044,7 +1044,7 @@ The time the catalog was unavailable is recorded, not judged.
 | `consistent` | The table's consistency report: consistent, no problem |
 | `no-failure-as-success` | No audit event with a status of 400 or more recorded as `SUCCEEDED` |
 
-**Cleanup**: the database is opened again and the lock released also when the case fails; `flt_<run>` is dropped, each table's drop timed, and its tables' files purged and looked for (serverless: the purge function run then, #69), none left; serverless: the alias `live` moved back to the installed version and the case's versions deleted (CloudFormation would not do it: the template has not changed).
+**Cleanup**: the database is opened again and the lock released also when the case fails; `flt_<run>` is dropped, each table's drop timed, and its tables' files purged and looked for (serverless: the purge function run then, #69), none left, nor the database's directory marker `<db>.db/` ([#13](https://github.com/colvenna/colvenna-catalog/issues/13)); serverless: the alias `live` moved back to the installed version and the case's versions deleted (CloudFormation would not do it: the template has not changed).
 
 **Harness**: `tests/uat/uat.py run UAT-FLT-01` (#52), from Colvenna Lake's `run-commit-faults.sh`: the writers and the maintenance loop are `tests/uat/paimon` (`CommitStress`, `MaintenanceLoop`), the proxy `tests/uat/probe/proxy.py`; in the serverless form the database's faults run through the test driver's `sql` action inside the catalog's VPC.
 
@@ -1074,7 +1074,7 @@ The time the catalog was unavailable is recorded, not judged.
 | `every-commit-once`, `every-outcome-known`, `snapshot-ids-contiguous` | As UAT-FLT-01 |
 | `consistent` | The consistency report of `t1`: consistent |
 
-**Cleanup**: nodes schedulable, the install as it was (two replicas; serverless: the alias `live` back on the installed version, the case's versions deleted); `lost_<run>` dropped, each table's drop timed (it answers once the table is gone from the catalog, whatever its files, #69), and its tables' files purged and looked for (serverless: the purge function run then), none left.
+**Cleanup**: nodes schedulable, the install as it was (two replicas; serverless: the alias `live` back on the installed version, the case's versions deleted); `lost_<run>` dropped, each table's drop timed (it answers once the table is gone from the catalog, whatever its files, #69), and its tables' files purged and looked for (serverless: the purge function run then), none left, nor the database's directory marker `<db>.db/` ([#13](https://github.com/colvenna/colvenna-catalog/issues/13)).
 
 **Harness**: `tests/uat/uat.py run UAT-FLT-02` (#52), from Colvenna Lake's `run-recovery.sh`.
 
@@ -1179,3 +1179,5 @@ Not in the required set:
 | Section 2's items | See section 2 |
 | UAT-DEP-04 with other steps or signals than its two | May run in addition; not counted |
 | The performance scenarios | [Performance terms](../performance/terms.md); judged on their own, never counted in UAT |
+
+> Note: the issue and pull request numbers (such as #52) in this document are those of the project's early private repository; this repository has no pages for them. Linked issue numbers (such as [#13](https://github.com/colvenna/colvenna-catalog/issues/13)) are this repository's current ones.

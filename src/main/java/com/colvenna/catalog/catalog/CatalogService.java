@@ -237,8 +237,7 @@ public final class CatalogService {
                 request.getOptions() == null
                         ? new HashMap<>()
                         : new HashMap<>(request.getOptions());
-        String location =
-                options.getOrDefault(Catalog.DB_LOCATION_PROP, warehouseRoot + "/" + name + ".db");
+        String location = options.getOrDefault(Catalog.DB_LOCATION_PROP, databaseDirectory(name));
         options.remove(Catalog.DB_LOCATION_PROP);
         long now = clock.millis();
         db.inTransaction(
@@ -309,6 +308,8 @@ public final class CatalogService {
      * With a work time ({@code COLVENNA_REQUEST_WORK_TIME}, the serverless form's), a request that
      * has dropped tables for that long answers a retryable 503 instead of going on (#69): each
      * table dropped stays dropped, and the request sent again drops the rest, then the database.
+     * The database's directory goes once nothing is left in it (#13): here when the request purges
+     * inline, else with the purge of its last table.
      */
     public void dropDatabase(RequestContext ctx, String name) throws Exception {
         long started = System.nanoTime();
@@ -348,6 +349,34 @@ public final class CatalogService {
                     store.deleteDatabase(c, name);
                     return null;
                 });
+        if (dropPurge == TablePurges.Mode.INLINE) {
+            removeDatabaseDirectory(name);
+        }
+    }
+
+    /** The directory of a database's managed tables, {@code <warehouse>/<db>.db}. */
+    private String databaseDirectory(String name) {
+        return warehouseRoot + "/" + name + ".db";
+    }
+
+    /**
+     * Removes a dropped database's directory {@code <warehouse>/<db>.db} if nothing is left in it
+     * (#13), as purging its tables does (the deferred form leaves it to them): its zero-byte S3A
+     * marker, or an empty local directory. Never its location option, which the client gave and
+     * nothing here writes to, nor anything still in the directory, such as the root of a table
+     * renamed into another database. The database is dropped whatever happens here.
+     */
+    private void removeDatabaseDirectory(String name) {
+        String directory = databaseDirectory(name);
+        try {
+            if (!files.removeIfEmpty(directory)) {
+                LOG.info(
+                        "Kept the directory {} of dropped database {}: not empty", directory, name);
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.warn(
+                    "Could not remove the directory {} of dropped database {}", directory, name, e);
+        }
     }
 
     private DatabaseRecord requireDatabase(Connection c, String name, LockMode lock)
@@ -971,11 +1000,7 @@ public final class CatalogService {
      */
     private String claimManagedPath(Connection c, Identifier identifier) throws Exception {
         String base =
-                warehouseRoot
-                        + "/"
-                        + identifier.getDatabaseName()
-                        + ".db/"
-                        + identifier.getTableName();
+                databaseDirectory(identifier.getDatabaseName()) + "/" + identifier.getTableName();
         String candidate = base;
         for (int attempt = 0; attempt < 10; attempt++) {
             store.claimPath(c, candidate);

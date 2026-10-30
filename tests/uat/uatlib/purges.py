@@ -59,3 +59,12 @@ def objects_under(ctx, path, most=10):
     out = ctx.aws("s3api", "list-objects-v2", "--bucket", m.group(1), "--prefix", m.group(2) + "/",
                   "--max-items", str(most))
     return len((out or {}).get("Contents", []))
+
+
+def directory_marker_left(ctx, db):
+    """Whether the dropped database's directory is still there as S3A's zero-byte marker
+    <warehouse>/<db>.db/, which S3A writes for a database's directory once its last table's root is
+    deleted, and which the server removes since #13."""
+    key = f"{ctx.install.prefix}/{db}.db/"
+    out = ctx.aws("s3api", "list-objects-v2", "--bucket", ctx.install.bucket, "--prefix", key, "--max-items", "1")
+    return any(o.get("Key") == key and not o.get("Size") for o in (out or {}).get("Contents", []))

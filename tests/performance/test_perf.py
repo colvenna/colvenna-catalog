@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from perflib import judge, raw, report, stats, terms  # noqa: E402
+from perflib import judge, raw, report, scenarios, stats, terms  # noqa: E402
 
 T0 = 1_761_768_000_000  # epoch ms
 
@@ -374,6 +374,41 @@ class EvidenceTest(unittest.TestCase):
         self.assertEqual(kept["mean"], 910.123457)
         self.assertEqual(kept["n"], 1226)
         self.assertEqual(kept["null"], 1)
+
+
+class CleanupTest(unittest.TestCase):
+    class Target:
+        form = "eks"
+        databases = ["perf_a_r1", "perf_b_r1"]
+
+        class install:
+            bucket, prefix = "b", "w"
+
+        def __init__(self, listed):
+            self.listed, self.asked = listed, []
+
+        def aws(self, *args):
+            prefix = args[args.index("--prefix") + 1]
+            self.asked.append(prefix)
+            return {"Contents": [o for o in self.listed if o["Key"].startswith(prefix)]}
+
+    def files_left(self, listed):
+        class Run:
+            args = type("Args", (), {"duration_scale": 1.0})()
+
+        sc = scenarios.Scenario(Run())
+        target = self.Target(listed)
+        return sc.files_left(target), sc.extra["directoryMarkersLeft"], target.asked
+
+    def test_nothing_left(self):
+        self.assertEqual(self.files_left([]), ({}, {"eks": 0}, ["w/perf_a_r1.db/", "w/perf_b_r1.db/"]))
+
+    def test_a_directory_marker_is_left_too(self):
+        # The server removes a dropped database's S3A marker since #13: one left fails the clean-up.
+        left, markers, _ = self.files_left([{"Key": "w/perf_a_r1.db/", "Size": 0},
+                                            {"Key": "w/perf_b_r1.db/t/data-0.orc", "Size": 10}])
+        self.assertEqual(left, {"perf_a_r1": 1, "perf_b_r1": 1})
+        self.assertEqual(markers, {"eks": 1})
 
 
 class ReportTest(unittest.TestCase):

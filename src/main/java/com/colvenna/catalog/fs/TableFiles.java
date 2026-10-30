@@ -3,6 +3,9 @@ package com.colvenna.catalog.fs;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.DirectoryNotEmptyException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -37,6 +40,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.S3Error;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 /**
  * Server-side access to table directories in the warehouse.
@@ -216,6 +220,62 @@ public final class TableFiles {
                             + " after deleting it; is a writer of the dropped table still"
                             + " writing there?");
         }
+    }
+
+    /**
+     * Removes a directory that holds nothing (#13): on S3 its zero-byte marker {@code <dir>/}, on a
+     * local file system the empty directory; a directory with anything else in it stays as it is.
+     * S3A writes such a marker for the parent of whatever it deletes, so purging a table's root
+     * leaves one for its database's directory {@code <warehouse>/<db>.db}. The marker goes through
+     * the S3 API: S3A deleting it would write one for its own parent in turn. Returns whether
+     * nothing is left there.
+     */
+    public boolean removeIfEmpty(String directory) throws IOException {
+        Path dir = new Path(directory);
+        if (viaS3(dir)) {
+            String bucket = dir.toUri().getHost();
+            String marker = key(dir) + "/";
+            try {
+                List<S3Object> under =
+                        s3.client()
+                                .listObjectsV2(b -> b.bucket(bucket).prefix(marker).maxKeys(2))
+                                .contents();
+                if (under.isEmpty()) {
+                    return true;
+                }
+                S3Object only = under.get(0);
+                if (under.size() > 1 || !only.key().equals(marker) || only.size() != 0) {
+                    return false;
+                }
+                s3.client().deleteObject(b -> b.bucket(bucket).key(marker));
+                return true;
+            } catch (SdkException e) {
+                throw new IOException(
+                        "Removing the empty directory " + directory + " failed: " + e.getMessage(),
+                        e);
+            }
+        }
+        String scheme = dir.toUri().getScheme();
+        if (scheme == null || "file".equals(scheme)) {
+            // One rmdir: a file written there meanwhile keeps the directory.
+            try {
+                Files.deleteIfExists(Paths.get(dir.toUri().getPath()));
+                return true;
+            } catch (DirectoryNotEmptyException e) {
+                return false;
+            }
+        }
+        FileIO io = rawFileIO(dir);
+        if (!io.exists(dir)) {
+            return true;
+        }
+        if (io.listStatus(dir).length > 0) {
+            return false;
+        }
+        if (!io.delete(dir, false) && io.exists(dir)) {
+            throw new IOException("Could not remove the empty directory " + directory);
+        }
+        return true;
     }
 
     /**

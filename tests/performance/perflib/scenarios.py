@@ -81,16 +81,17 @@ class Scenario:
             problems.append(f"databases left: {left[-1].get('databases') if left else 'unknown'} ({code})")
         files = self.files_left(target)
         if files:
-            problems.append(f"files left under {len(files)} databases' prefixes: {sorted(files)[:5]}")
+            problems.append(f"objects left under {len(files)} databases' prefixes: {sorted(files)[:5]}")
         return not problems, "; ".join(problems) or (
-            f"{len(target.databases)} databases dropped and listed as gone; no file left under their prefixes")
+            f"{len(target.databases)} databases dropped and listed as gone; no object left under their prefixes")
 
     def files_left(self, target):
-        """{database: files} of the run's databases' prefixes in the warehouse, zero-byte directory
-        markers apart: the pilot (#20) found a `<database>.db/` object of 0 bytes left after each
-        drop, the marker S3A writes for an empty directory, no data. The serverless form deletes a
-        dropped table's files later (its purge function, every 15 minutes), so the purge function is
-        run first, as UAT-CAT-01 does."""
+        """{database: objects} of the run's databases' prefixes in the warehouse. Every object
+        counts, the zero-byte `<database>.db/` marker S3A writes for an empty directory too: the
+        pilot (#20) found one left after each drop, which the server removes since #13; how many
+        such markers there were is reported apart as well (`directoryMarkersLeft`). The serverless
+        form deletes a dropped table's files later (its purge function, every 15 minutes), so the
+        purge function is run first, as UAT-CAT-01 does."""
         from uatlib import purges
 
         inst = target.install
@@ -110,8 +111,7 @@ class Scenario:
             for o in out.get("Contents", []):
                 if o["Key"].endswith("/") and not o.get("Size"):
                     markers += 1
-                else:
-                    left[db] = left.get(db, 0) + 1
+                left[db] = left.get(db, 0) + 1
         self.extra.setdefault("directoryMarkersLeft", {})[target.form] = markers
         return left
 

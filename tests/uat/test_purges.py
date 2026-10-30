@@ -1,5 +1,5 @@
 """The harness's side of #69, offline: a consistency check's pages followed to the whole report, and
-the purge command's summary read from its log."""
+the purge command's summary read from its log; and #13's: a dropped database's directory marker found."""
 
 import unittest
 
@@ -55,6 +55,28 @@ class Summary(unittest.TestCase):
         self.assertEqual({"purged": 1, "failed": 0, "pending": 0, "schemaVersion": 3}, purges.summary(log))
         self.assertIsNone(purges.summary("Unknown command purge\n"))
         self.assertIsNone(purges.summary(""))
+
+
+class DirectoryMarker(unittest.TestCase):
+    class Ctx:
+        class install:
+            bucket, prefix = "b", "w"
+
+        def __init__(self, keys):
+            self.keys, self.asked = keys, []
+
+        def aws(self, *args):
+            self.asked.append(args)
+            prefix = args[args.index("--prefix") + 1]
+            return {"Contents": [{"Key": k} for k in sorted(self.keys) if k.startswith(prefix)][:1]}
+
+    def test_the_marker_is_found_and_nothing_else_counts(self):
+        ctx = self.Ctx(["w/d.db/", "w/d.db/t/data-0.orc"])
+        self.assertTrue(purges.directory_marker_left(ctx, "d"))
+        self.assertEqual(("s3api", "list-objects-v2", "--bucket", "b", "--prefix", "w/d.db/", "--max-items", "1"),
+                         ctx.asked[0])
+        self.assertFalse(purges.directory_marker_left(self.Ctx(["w/d.db/t/data-0.orc", "w/d.dbx/"]), "d"))
+        self.assertFalse(purges.directory_marker_left(self.Ctx([]), "d"))
 
 
 if __name__ == "__main__":
