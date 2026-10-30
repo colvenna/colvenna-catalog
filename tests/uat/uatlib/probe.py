@@ -26,6 +26,9 @@ class Probe:
         self.sanitizer = sanitizer
         self.labels = labels or {}
         self.started = False
+        # Python's strict X.509 checks on (the probe's 3.13 has them by default); UAT-DEP-06 and 07 turn
+        # them off to reach a previous release whose private CA has no keyUsage (#49).
+        self.strict = True
 
     def start(self):
         self.kube.configmap(self.namespace, f"{self.name}-script", {"probe.py": SCRIPT.read_text()})
@@ -46,7 +49,7 @@ class Probe:
         """Runs the steps; returns their results ({name: result} when every name is unique, else the
         list, see results()). keep: a file name under the evidence directory for the results."""
         plan = {"base": base if base is not None else self.base, "ca": ca if ca is not None else self.ca,
-                "tokens": tokens or {}, "steps": steps}
+                "tokens": tokens or {}, "strict": self.strict, "steps": steps}
         p = self.kube.exec(self.namespace, self.name, ["python3", "/uat/probe.py"], input=json.dumps(plan),
                            timeout=timeout, check=False)
         results = [json.loads(line) for line in p.stdout.splitlines() if line.startswith("{")]

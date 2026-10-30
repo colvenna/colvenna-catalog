@@ -53,6 +53,38 @@ class Probe(unittest.TestCase):
                            stderr=subprocess.PIPE, universal_newlines=True, timeout=60, check=True)
         return [json.loads(line) for line in p.stdout.splitlines()]
 
+    def test_strict_x509_checks_on_unless_the_plan_says_otherwise(self):
+        """#49: Python 3.13's default context checks X.509 strictly, which refuses a CA without keyUsage (a
+        previous release's); "strict": false drops that check alone, the chain and the names still verified."""
+        import importlib.util
+        import ssl
+        spec = importlib.util.spec_from_file_location("uat_probe", PROBE)
+        probe = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(probe)
+        default = ssl.create_default_context()
+        strict = probe.context(None)
+        self.assertEqual(strict.verify_flags, default.verify_flags)
+        lenient = probe.context(None, strict=False)
+        self.assertFalse(lenient.verify_flags & ssl.VERIFY_X509_STRICT)
+        self.assertEqual(lenient.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(lenient.check_hostname)
+        # A plan without the key is strict, and the harness's plans carry it.
+        sys.path.insert(0, str(PROBE.parent.parent))
+        from uatlib.probe import Probe as Pod
+
+        class Kube:
+            def exec(self, namespace, name, command, input=None, timeout=None, check=True):
+                self.plan = json.loads(input)
+                return subprocess.CompletedProcess(command, 0, "", "")
+
+        kube = Kube()
+        pod = Pod(kube, "ns")
+        pod.run([])
+        self.assertTrue(kube.plan["strict"])
+        pod.strict = False
+        pod.run([])
+        self.assertFalse(kube.plan["strict"])
+
     def test_a_request_with_a_token_by_name_and_its_request_id(self):
         r = self.run_plan([{"name": "ok", "path": "/v1/config", "token": "admin", "requestId": "rid-1"},
                            {"name": "none", "path": "/v1/config"}],

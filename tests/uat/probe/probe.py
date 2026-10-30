@@ -4,7 +4,11 @@ of a plan, which it reads as JSON on stdin, printing one JSON line per result. T
 tokens, so that no token is ever an argument or an environment variable of any process:
 
   {"base": "https://<catalog>", "ca": "<PEM>" | null, "tokens": {"<name>": "<token>"},
-   "steps": [<step>, ...]}
+   "strict": true | false, "steps": [<step>, ...]}
+
+"strict" (default true) keeps Python's strict X.509 checks (VERIFY_X509_STRICT, on by default since
+3.13); false drops them alone, the chain and the names still verified: for a previous release whose
+private CA has no keyUsage (#49).
 
 A step is one of:
 
@@ -58,11 +62,13 @@ def emit(result):
     sys.stdout.flush()
 
 
-def context(ca_file):
+def context(ca_file, strict=True):
     # The system's CAs and, when given, the catalog's own: the same client reaches both.
     ctx = ssl.create_default_context()
     if ca_file:
         ctx.load_verify_locations(cafile=ca_file)
+    if not strict:
+        ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
     return ctx
 
 
@@ -121,7 +127,7 @@ def request(plan, step, ca_file):
     elif step.get("authorization") is not None:
         headers["Authorization"] = step["authorization"]
     req = urllib.request.Request(url, data=data, headers=headers, method=step.get("method", "GET"))
-    peer = Peer(context(ca_file))
+    peer = Peer(context(ca_file, plan.get("strict", True)))
     opener = urllib.request.build_opener(peer)
     started = time.monotonic()
     result = {"name": step["name"], "time": stamp(), "sentRequestId": rid}
@@ -180,7 +186,7 @@ def stream(plan, step, ca_file):
     started = time.monotonic()
     result = {"name": step["name"], "time": stamp()}
     raw = socket.create_connection((url.hostname, url.port or 443), timeout=step.get("timeout", 300))
-    sock = context(ca_file).wrap_socket(raw, server_hostname=url.hostname) if url.scheme == "https" else raw
+    sock = context(ca_file, plan.get("strict", True)).wrap_socket(raw, server_hostname=url.hostname) if url.scheme == "https" else raw
     answer, sent = b"", 0
     try:
         sock.sendall((head + "\r\n").encode() + b'{"x":"')
