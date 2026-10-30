@@ -10,7 +10,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from uatlib.probe import Probe as ProbePod
+from uatlib.probe import Background, Probe as ProbePod
 
 PROBE = Path(__file__).resolve().parent / "probe" / "probe.py"
 
@@ -89,12 +89,26 @@ class Probe(unittest.TestCase):
                 self.plan = json.loads(input)
                 return subprocess.CompletedProcess(command, 0, "", "")
 
+            def secret(self, namespace, name, data):
+                self.plan = json.loads(data["plan.json"])
+
+            def configmap(self, namespace, name, data):
+                pass
+
+            def apply(self, manifest):
+                pass
+
+            def wait_ready(self, namespace, name, *args, **kwargs):
+                pass
+
         kube = Kube()
         runner = ProbePod(kube, "ns")
         runner.run([])
         self.assertTrue(kube.plan["strict"])
         runner.strict = False
         runner.run([])
+        self.assertFalse(kube.plan["strict"])
+        Background(runner, "bg", [], {})  # a background pod's plan too
         self.assertFalse(kube.plan["strict"])
 
     def test_a_request_with_a_token_by_name_and_its_request_id(self):

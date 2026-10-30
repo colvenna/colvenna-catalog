@@ -192,16 +192,22 @@ class Judges(unittest.TestCase):
 
     def test_the_data_of_an_install_on_a_restored_instance(self):
         """#51: after UAT-DEP-10 an install runs on the instance it restored, and the manual deletes the old one:
-        its data is the bucket and that instance, not the Storage stack's instance."""
+        its data is the bucket and that instance; the stack's own is wanted only if the account had it before."""
         storage = {"resources": {"B": ["AWS::S3::Bucket", "colvennacatalogek1storage-warehouse"],
                                  "D": ["AWS::RDS::DBInstance", "colvennacatalogek1storage-database"]}}
-        moved = {"buckets": ["colvennacatalogek1storage-warehouse"], "databases": ["colvennacatalogek1-restored available"]}
-        self.assertEqual(deploy.data_missing(storage, moved), ["colvennacatalogek1storage-database"])
-        self.assertEqual(deploy.data_missing(storage, moved, restored="colvennacatalogek1-restored"), [])
-        self.assertEqual(deploy.data_missing(storage, {"buckets": moved["buckets"], "databases": []},
-                                             restored="colvennacatalogek1-restored"), ["colvennacatalogek1-restored"])
-        self.assertEqual(deploy.data_missing(storage, {"buckets": [], "databases": moved["databases"]},
-                                             restored="colvennacatalogek1-restored"), ["colvennacatalogek1storage-warehouse"])
+        after = {"buckets": ["colvennacatalogek1storage-warehouse"], "databases": []}
+        restored = "colvenna-ek1-restored-u1"
+        self.assertEqual(deploy.data_missing(storage, after), ["colvennacatalogek1storage-database"])
+        self.assertEqual(deploy.data_missing(storage, after, restored=(restored, True), had=after), [])
+        self.assertEqual(deploy.data_missing(storage, after, restored=(restored, False), had=after), [restored])
+        self.assertEqual(deploy.data_missing(storage, {"buckets": [], "databases": []}, restored=(restored, True), had=after),
+                         ["colvennacatalogek1storage-warehouse"])
+        # The old instance still there before the uninstall (kept by UAT-DEP-07's branch, or --keep-old-instance):
+        # it must still be there after.
+        had = {"buckets": after["buckets"], "databases": ["colvennacatalogek1storage-database available"]}
+        self.assertEqual(deploy.data_missing(storage, after, restored=(restored, True), had=had),
+                         ["colvennacatalogek1storage-database"])
+        self.assertEqual(deploy.data_missing(storage, had, restored=(restored, True), had=had), [])
 
     def test_the_previous_release_reached_without_strict_x509(self):
         from uatlib import lifecycle

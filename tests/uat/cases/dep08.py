@@ -6,7 +6,8 @@ with their snapshots), a principal with a token and a grant; the account recorde
 as the deployment guide says (section 6.4): COLVENNA_BUCKET and COLVENNA_DB=existing with the Storage
 stack's endpoint and admin secret, which the case writes into the install's configuration (the old
 one kept as evidence); a serverless install that made its own network keeps its configuration as it
-was. Then every table reads as before, and the principal, its grant and its token work."""
+was, and so does an install UAT-DEP-10 moved onto the instance it restored, which is then its kept
+database (#51). Then every table reads as before, and the principal, its grant and its token work."""
 
 import time
 from pathlib import Path
@@ -31,7 +32,7 @@ def judge_removed_kept(form, before, after, env, kube_after=None, balancers=None
     """(removed ok, detail), (kept ok, detail) from the install's stacks before and after; EKS: the
     cluster after (kube_after), and the internal NLB's load balancers that the account still has
     (balancers: {Service: whether its load balancer is still there}); the Storage stack's bucket and
-    database instance that the account lacks (data_missing)."""
+    database instance that the account lacks (data_missing: the restored instance's instead, after UAT-DEP-10)."""
     stack = deploy.names_of(env)[0]
     have = set(after)
     if form == "eks":
@@ -152,6 +153,7 @@ def run(ctx):
             raise RuntimeError(f"the cycle: {cycle}; read back: {read_before}")
         notes.append(f"database {database}: {read_before.get('tables')}")
 
+    restored = dep09.restored(inst)
     account_before = deploy.account_inventory(aws)
     stacks_before = deploy.stacks_of(aws, inst.env)
     ctx.keep("account-before.json", account_before)
@@ -172,7 +174,9 @@ def run(ctx):
         kube_after = deploy.kube_state(ctx.kube, inst.namespace, inst.release)
         kube_after["namespace"] = ctx.kube.kubectl("get", "namespace", inst.namespace, check=False).returncode == 0
     lbs = balancers_left(ctx, lbs_before) if ctx.form == "eks" else None
-    missing = deploy.data_missing(stacks_after.get(inst.stack("Storage")), account_after, restored=dep09.restored(inst))
+    there = restored and aws.raw("rds", "describe-db-instances", "--db-instance-identifier", restored, check=False).returncode == 0
+    missing = deploy.data_missing(stacks_after.get(inst.stack("Storage")), account_after,
+                                  restored=(restored, there) if restored else None, had=account_before)
     (ok_r, d_r), (ok_k, d_k) = judge_removed_kept(ctx.form, stacks_before, stacks_after, inst.env, kube_after, lbs, missing)
     ctx.check("removed", ok_r, d_r)
     ctx.check("kept", ok_k, d_k)

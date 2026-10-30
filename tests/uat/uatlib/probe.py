@@ -27,7 +27,8 @@ class Probe:
         self.labels = labels or {}
         self.started = False
         # Python's strict X.509 checks on (the probe's 3.13 has them by default); UAT-DEP-06 and 07 turn
-        # them off to reach a previous release whose private CA has no keyUsage (#49).
+        # them off in the EKS form to reach a previous release whose private CA has no keyUsage
+        # (lifecycle.reach_previous_release, #49).
         self.strict = True
 
     def start(self):
