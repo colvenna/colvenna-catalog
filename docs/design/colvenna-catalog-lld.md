@@ -60,6 +60,8 @@ colvenna-catalog 是 Colvenna Catalog 的服务端：它实现 Apache Paimon 2.0
 
 配置全部来自 `COLVENNA_*` 环境变量，见 `ServerConfig` 与下文“配置项”：PostgreSQL 连接、warehouse 名与根路径、指标端口（`COLVENNA_METRICS_PORT`）、服务端 FileIO 选项（`COLVENNA_FILEIO_*`），以及强制下发给客户端的配置覆盖（`COLVENNA_CLIENT_OVERRIDES`）。
 
+**S3A 区域**（[#9](https://github.com/colvenna/colvenna-catalog/issues/9)）：Paimon 的 S3 FileIO 把 `s3.region` 交给 S3A 时变成 `fs.s3a.region`，而 S3A 3.4 读的是 `fs.s3a.endpoint.region`；它没有区域也没有 endpoint 时发往 us-east-2，靠跨区域访问（`fs.s3a.cross.region.access.enabled`，默认开启）跟随重定向到桶所在的区域（Paimon 2.0.0 自带的 Hadoop 3.4.2，[`DefaultS3ClientFactory`](https://github.com/apache/hadoop/blob/84e8b89ee2ebe6923691205b9e171badde7a495c/hadoop-tools/hadoop-aws/src/main/java/org/apache/hadoop/fs/s3a/DefaultS3ClientFactory.java)）。有出口时这能工作，只是多一跳；没有出口的 VPC 中，S3 网关端点只在它所在的区域可用（[AWS 文档](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-s3.html)），请求就挂起。因此两种形态的部署都把 `COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION`（即 `fs.s3a.endpoint.region`）设为安装的区域：chart 的 ConfigMap 取 `region`（`install.sh` 设为 `COLVENNA_REGION`），无服务器栈取栈的区域；不设 endpoint，S3A 按区域连 `<bucket>.s3.<region>.amazonaws.com`。跨区域访问仍按默认开启，但桶必须在安装的区域（预检核对），请求不会被重定向。仓库在 S3 上而没有设 S3A 的区域或 endpoint 时，`serve` 在两种形态中都拒绝启动（EKS 形态自 [#9](https://github.com/colvenna/colvenna-catalog/issues/9) 起）。`S3aRegionTest` 让服务端的 S3A 经一个只记录隧道目标、随即拒绝的代理连接，证明设了区域时它只连本区域的端点，只设 `s3.region` 时连 us-east-2。发布 snapshot 的 S3 客户端（AWS SDK）读 `s3.region`，不受影响。实测（2026-10-30，us-west-2，EKS 形态，测试环境 ux2）：一条 NetworkPolicy 只让 catalog 的 Pod 连 VPC 内（数据库、DNS、为测试加的 `sts` 接口端点）与本区域 S3 网关端点前缀列表的地址，如同没有出口的 VPC；修复前的版本建表 200 秒没有回答，修复后建库、建表、读表、删表、删库都回答了，最慢 3.3 秒。
+
 **TLS**：API 端口由服务端自己终止 TLS，证书来自 `COLVENNA_TLS_KEYSTORE`（PKCS12）。未配置证书时服务拒绝启动，只有本地开发与测试显式设置 `COLVENNA_ALLOW_PLAINTEXT=true` 才走明文（监听所有接口）。这样 bearer token 只在 TLS 里传输。无服务器形态另有只在 Lambda 中生效的回环明文 `COLVENNA_LAMBDA_LOOPBACK_PLAINTEXT`，见“无服务器形态”。Paimon 客户端用 JVM 默认信任库校验证书和主机名，所以引擎的信任库必须是 JDK 自带 `cacerts` 加上 colvenna-catalog 的 CA：只放 CA 会让同一 JVM 访问 S3、STS 时失去公网 CA。服务证书的 SAN 要覆盖 Service 的各个 DNS 名。EKS 形态的私有 CA 带 RFC 5280 对签发证书的 CA 要求的扩展：critical 的 `basicConstraints`、`keyUsage`（`keyCertSign`、`cRLSign`）和 `subjectKeyIdentifier`；服务证书按设计带 `keyUsage`（`digitalSignature`）、`extendedKeyUsage`（`serverAuth`）、SAN 和按密钥指向 CA 的 `authorityKeyIdentifier`。严格校验 X.509 的客户端（Python 3.13 起默认如此）缺了这些就拒绝连接（#58）；#58 之前的安装重跑 `install.sh` 时，CA 证书用原来的密钥和名称重新签发，持有旧证书的客户端照样信任新的服务证书。
 
 **资源保护**：并发请求数受 `COLVENNA_MAX_IN_FLIGHT_REQUESTS`（默认 512）限制，超出时直接返回 503，此时请求还没有任何副作用，客户端可以安全重发。请求体上限 64 MiB。响应体默认不设上限；入口装不下大响应时（Lambda 最多 6 MB）用 `COLVENNA_MAX_RESPONSE_BYTES` 设上限，见“无服务器形态”。未认证的拒绝每秒最多写 20 条审计记录，超出部分只写访问日志，防止匿名请求刷满审计表。
@@ -94,7 +96,7 @@ colvenna-catalog 是 Colvenna Catalog 的服务端：它实现 Apache Paimon 2.0
 | `COLVENNA_SHUTDOWN_TIMEOUT` | `PT20S`；Lambda 执行环境中为 `PT0S` | 端口不再接受连接之后，进行中的请求最多再等多久，向上取整到秒 | |
 | `COLVENNA_WAREHOUSE_NAME`、`COLVENNA_WAREHOUSE_ROOT` | 无 | warehouse 名（REST 路径前缀）与根路径 | |
 | `COLVENNA_EXTERNAL_LOCATION_ROOTS` | 空 | 允许客户端选择位置的外部根，逗号分隔 | |
-| `COLVENNA_FILEIO_*`、`COLVENNA_FILEIO_OPTIONS` | 无 | 服务端 FileIO 选项 | 必须有 `COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION`；S3A 超时见下文 |
+| `COLVENNA_FILEIO_*`、`COLVENNA_FILEIO_OPTIONS` | 无 | 服务端 FileIO 选项；仓库在 S3 上时必须有 S3A 的区域 `COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION`（或 endpoint），两种形态的部署都设为安装的区域，见“部署形态”的“S3A 区域” | S3A 超时见下文 |
 | `COLVENNA_CLIENT_OVERRIDES` | 空 | 强制下发给客户端的配置，`k=v` 逗号分隔 | |
 | `COLVENNA_DEFAULT_PAGE_SIZE`、`COLVENNA_MAX_PAGE_SIZE` | `100`、`1000` | 列举的默认与最大页长 | |
 | `COLVENNA_MAX_IN_FLIGHT_REQUESTS` | `512` | 并发请求上限 | |
@@ -158,7 +160,7 @@ colvenna-catalog 是 Colvenna Catalog 的服务端：它实现 Apache Paimon 2.0
   - **调节**：只有 `COLVENNA_LAMBDA_CONCURRENCY`：R 与 B 随 C 等比（每加 1 个并发，每秒多放 8 个请求）。`COLVENNA_LAMBDA_MEMORY` 影响 D：CPU 随内存分配。授权函数也预留 C，它被限流时网关回 `AUTHORIZER_FAILURE` 或 `AUTHORIZER_CONFIGURATION_ERROR`，早已映射为 503。一个作业重发 5 次仍被拒，说明 C 不够，加大它。
   - **看得见**：访问日志多了 `errorType`（`$context.error.responseType`）与 `error`，网关自己回的 429、503 与服务端的 503 分得开；Lambda 的 `Throttles` 指标计被拒的调用。
 - **回环明文**：TLS 在 API Gateway 终止，适配器经回环把请求交给服务端。`COLVENNA_LAMBDA_LOOPBACK_PLAINTEXT=true` 让 API 端口以明文只绑定 127.0.0.1，没有配置能让它绑定别的地址。它与 `COLVENNA_TLS_KEYSTORE`、`COLVENNA_ALLOW_PLAINTEXT` 互斥（同时设置时配置本身就被拒绝），并且只在 Lambda 执行环境中允许（`AWS_LAMBDA_RUNTIME_API` 已设），否则 `serve` 拒绝启动。回环上同样要求 bearer token。
-- **S3A 区域**：Paimon 的 S3 FileIO 把 `s3.region` 交给 S3A 时变成 `fs.s3a.region`，S3A 不读这个键；S3A 3.4 没有区域也没有 endpoint 时发往 us-east-2 并开启跨区域访问。有出口的 EKS 集群里这能工作，没有出口的 VPC 中第一次建表会挂到函数超时（spike 的发现）。因此在 Lambda 中，仓库在 S3 上而没有设 S3A 区域（`COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION`）或 endpoint 时，`serve` 拒绝启动。
+- **S3A 区域**：与 EKS 形态相同，见“部署形态”的“S3A 区域”。spike 在没有出口的 VPC 中只设了 `COLVENNA_FILEIO_S3_REGION`，第一次建表挂到函数超时。
 
 ### 部署
 
@@ -461,3 +463,5 @@ S3 上的 Paimon 快照提交不是原子的（见本文开头）。关键约束
 - 各项等待分别有上限（锁等待、S3 调用、连接池取连接的 10 秒），Lambda 中它们的和也必须短于 29 秒，但没有覆盖整个请求的截止时间：一个请求还可能依次等待自治池写入（锁等待 5 秒）和服务端 FileIO 的 S3A 调用（各有其超时），所以极端情况下仍可能超过网关超时。这时网关回 504，提交仍按“提交协议”只生效一次。
 - 内部错误只回通用信息，详情写入服务端日志，以 `X-Request-Id` 关联。两种 500 例外，信息面向用户：Paimon 拒绝 schema 变更时抛出的 `IllegalStateException`，按上游语义原样返回；以及响应体超过 `COLVENNA_MAX_RESPONSE_BYTES` 时的错误，写明上限与响应的字节数，列举中单独一项就超限时还写明是哪一项。
 - schema 文件沿用 Paimon `SchemaManager` 的写法，不是条件写。同一时刻只有持锁的副本写 schema，但已经失去锁、仍在执行的副本理论上可能事后留下与 PostgreSQL 不一致的 schema 文件。`GetTable` 以 PostgreSQL 为准；两者是否一致（id 与字段、键、选项）由“提交协议”一节的一致性核对检查。
+
+> 注：本文中不带链接的 issue 与 PR 编号（如 #93）是本项目早期私有仓库的，本仓库没有对应的页面；带链接的编号（如 [#9](https://github.com/colvenna/colvenna-catalog/issues/9)）是本仓库现在的。

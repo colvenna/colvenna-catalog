@@ -22,6 +22,8 @@ data:
   COLVENNA_SHUTDOWN_TIMEOUT: {{ printf "PT%sS" (include "colvenna-catalog.seconds" (dict "Values" .Values "key" "timeoutSeconds")) | quote }}
   AWS_REGION: {{ $region | quote }}
   COLVENNA_FILEIO_S3_REGION: {{ $region | quote }}
+  # S3A's own key for the Region, fs.s3a.endpoint.region: it does not read s3.region (#9, the LLD's "S3A 区域").
+  COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION: {{ $region | quote }}
   COLVENNA_FILEIO_S3_AWS_CREDENTIALS_PROVIDER: software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider
   COLVENNA_DATA_TOKEN_MODE: {{ .Values.dataTokens.mode | quote }}
   {{- if eq .Values.dataTokens.mode "aws-sts" }}

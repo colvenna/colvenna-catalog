@@ -31,8 +31,8 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The Lambda form's listener: plain HTTP on 127.0.0.1 only ({@code
  * COLVENNA_LAMBDA_LOOPBACK_PLAINTEXT}), allowed only in a Lambda execution environment and never
- * together with the general plaintext switch; the S3A region that form needs; and pool sizes that a
- * connection budget can rely on.
+ * together with the general plaintext switch; the S3A region it needs, as the EKS form does; and
+ * pool sizes that a connection budget can rely on.
  */
 class LambdaListenerTest {
 
@@ -129,7 +129,7 @@ class LambdaListenerTest {
     }
 
     @Test
-    void inLambdaAnS3WarehouseNeedsTheS3aRegion() {
+    void anS3WarehouseNeedsTheS3aRegionInEitherForm() {
         Map<String, String> settings = lambda();
         settings.put("COLVENNA_WAREHOUSE_ROOT", "s3://bucket/warehouse");
         settings.put("COLVENNA_FILEIO_S3_REGION", "us-west-2");
@@ -139,12 +139,21 @@ class LambdaListenerTest {
         settings.put("COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION", "us-west-2");
         config(settings).validateForServing();
 
-        // Outside Lambda nothing changes: the EKS form keeps the settings it has.
+        // The EKS form as well (#9): its nodes may have no internet egress either.
         Map<String, String> eks = new HashMap<>(settings);
         eks.remove(LAMBDA);
         eks.remove("COLVENNA_LAMBDA_LOOPBACK_PLAINTEXT");
-        eks.remove("COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION");
         eks.put("COLVENNA_ALLOW_PLAINTEXT", "true");
+        config(eks).validateForServing();
+        eks.remove("COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION");
+        assertThatThrownBy(() -> config(eks).validateForServing())
+                .hasMessageContaining("COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION");
+        // An endpoint names the store, and with it its Region, as an S3-compatible store needs.
+        eks.put("COLVENNA_FILEIO_S3_ENDPOINT", "https://s3.us-west-2.amazonaws.com");
+        config(eks).validateForServing();
+        // A warehouse on a local file system needs neither.
+        eks.remove("COLVENNA_FILEIO_S3_ENDPOINT");
+        eks.put("COLVENNA_WAREHOUSE_ROOT", warehouseDir.toUri().toString());
         config(eks).validateForServing();
     }
 
