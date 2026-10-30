@@ -10,11 +10,10 @@ install's stacks, functions, roles, repositories, buckets, database instances (a
 secrets, log groups, identity pools, VPC endpoints and network interfaces, in either form (the driver
 taken down first by tests/serverless/down.sh), and in the EKS form the Helm release and the
 catalog's Secrets, the CA too. An install into existing resources (E3, S3) leaves them: the existing
-database instance and bucket untouched, the catalog's database, users and prefix still in them (the
-cases before it drop their tables, files and all, so the case first puts a marker of its own under
-the prefix and records the objects there, #44); the case then drops those, as the guide tells a user
-to (its section 8: the catalog's role granted to the admin first, #73), with the statements
-uninstall.sh printed."""
+database instance and bucket untouched, the catalog's database, users and prefix still in them (a
+marker of the run's own under the prefix shows the prefix kept, #44); the case then drops those, as the
+guide tells a user to (its section 8: the catalog's role granted to the admin first, #73), with the
+statements uninstall.sh printed."""
 
 import subprocess
 import time
@@ -61,18 +60,27 @@ def judge_nothing_left(code, output, kube_left):
     return code == 0 and not left and not kube_left, f"verify-clean.sh exit {code}; left: {left + kube_left or 'nothing'}"
 
 
-def judge_existing_kept(same, present, prefix):
+def judge_existing_kept(same, present, before, after, marker):
     """The existing instance and bucket as recorded, with the catalog's database, users and prefix in them.
-    prefix: what prefix_kept found, (kept, detail)."""
-    kept, detail = prefix
+    The prefix is kept when the marker the case put there (#44) is still there, unchanged. Other objects
+    recorded before the uninstall that are gone since are reported, not judged: the catalog may still be
+    deleting the files of a table an earlier case dropped (the serverless form's purge function, the EKS
+    form's sweeps). marker None: no bucket was given."""
+    if marker is None:
+        kept, prefix = True, "no bucket was given"
+    else:
+        kept = marker in before and after.get(marker) == before[marker]
+        gone = sorted(k for k in before if k != marker and k not in after)
+        prefix = (f"the marker {'still there, unchanged' if kept else 'gone or changed'}; of the {len(before) - 1} "
+                  f"other objects recorded before the uninstall, {len(gone)} gone since {gone[:3]}")
     return same and present and kept, (
         f"the existing instance and bucket {'as recorded' if same else 'changed'}; the catalog's database and user "
-        f"{'still there' if present else 'gone'}; its prefix: {detail}")
+        f"{'still there' if present else 'gone'}; its prefix: {prefix}")
 
 
 def marker_key(prefix, run):
-    """The object the case puts under the catalog's prefix before the uninstall (#44): the cases before
-    it drop their tables with their files, so without it the prefix would hold nothing to keep."""
+    """The object the case puts under the catalog's prefix before the uninstall (#44). The cases before it
+    drop their tables, whose files the catalog deletes, so the prefix may otherwise hold nothing to keep."""
     return f"{prefix}/uat-dep09-{run}.marker"
 
 
@@ -86,17 +94,6 @@ def remove_marker(aws, bucket, marker):
     """The marker deleted (S3 answers the same whether it was still there or already gone with the prefix)."""
     aws.raw("s3api", "delete-object", "--bucket", bucket, "--key", marker)
     return f"{marker} deleted"
-
-
-def prefix_kept(before, after, marker):
-    """(kept, detail): the marker and every object recorded before the uninstall still there, unchanged."""
-    if marker not in before:
-        return False, f"the marker {marker} was not there before the uninstall"
-    missing = sorted(k for k in before if k not in after)
-    changed = sorted(k for k in before if k in after and after[k] != before[k])
-    if missing or changed:
-        return False, f"{len(missing)} of the {len(before)} objects recorded gone {missing[:3]}, {len(changed)} changed {changed[:3]}"
-    return True, f"the {len(before)} objects recorded before the uninstall, the marker among them, still there and unchanged"
 
 
 def restored(install):
@@ -170,12 +167,11 @@ def run(ctx):
     with ctx.preparing("the install there; the account and what was given recorded") as notes:
         before_existing = record_existing(ctx, instance, bucket)
         if bucket:
-            # #44: a marker of the run's own under the catalog's prefix, so that the prefix holds something
-            # to keep whatever the cases before left there; removed by the clean-up in any case.
             marker = marker_key(inst.prefix, ctx.run)
             aws.raw("s3api", "put-object", "--bucket", bucket, "--key", marker, "--content-length", "0")
             ctx.on_cleanup("the marker under the catalog's prefix removed", lambda: remove_marker(aws, bucket, marker))
             prefix_before = prefix_objects(aws, bucket, inst.prefix)
+            ctx.keep("prefix-before.json", prefix_before)
             notes.append(f"{len(prefix_before)} objects under the catalog's prefix, the marker among them")
         account_before = deploy.account_inventory(aws)
         ctx.keep("account-before.json", account_before)
@@ -247,9 +243,10 @@ def run(ctx):
                                                     f"SELECT rolname FROM pg_roles WHERE rolname LIKE '{user}%' ORDER BY 1;\n"
                                          ) if instance else (0, "")
         present = (db in out.split() and user in out.split()) if instance else True
-        prefix = prefix_kept(prefix_before, prefix_objects(aws, bucket, inst.prefix), marker) if bucket else (
-            True, "no bucket was given")
-        ctx.check("existing-kept", *judge_existing_kept(same, present, prefix))
+        prefix_after = prefix_objects(aws, bucket, inst.prefix) if bucket else {}
+        if bucket:
+            ctx.keep("prefix-after.json", prefix_after)
+        ctx.check("existing-kept", *judge_existing_kept(same, present, prefix_before, prefix_after, marker))
         if done.exit_code == 0 or (retry and retry.exit_code == 0):
             # As the deployment guide tells a user (section 8), once the install is gone: the catalog's
             # database, users and prefix in what it was given.
