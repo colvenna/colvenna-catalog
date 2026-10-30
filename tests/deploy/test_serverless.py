@@ -714,8 +714,8 @@ class VerifyClean(unittest.TestCase):
         return out, [line for line in out.stdout.splitlines() if "log groups" in line]
 
     def test_a_cut_function_name_s_group_is_left_another_environment_s_is_not_this_one_s(self):
-        mine = "/aws/lambda/ColvennaCatalogUx1eStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl"
-        theirs = "/aws/lambda/ColvennaCatalogUx1exStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl"
+        mine = "/aws/lambda/ColvennaCatalogUx1eStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl"  # pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret
+        theirs = "/aws/lambda/ColvennaCatalogUx1exStorag-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl"  # pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret
         out, lines = self.verify([mine, theirs])
         self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
         self.assertEqual(lines, [f"LEFT  log groups: {mine} "])

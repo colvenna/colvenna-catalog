@@ -12,8 +12,8 @@ from stubs import Stubs
 STACK = "ColvennaCatalogTestAbcdefg"
 NESTED = "arn:aws:cloudformation:us-west-2:111122223333:stack/ColvennaCatalogTestAbcdefg-awscdkawseksKubectlProviderNe-X/1"
 # CloudFormation cut the stack's 26 characters to 25: the whole of the test environment abcdef's stack name.
-OWN = "ColvennaCatalogTestAbcdef-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl"
-NESTED_OWN = "ColvennaCatalogTestAbcdefg-awscdkaw-Handler886CB40B-MnOpQrStUvWx"  # 64, the most
+OWN = "ColvennaCatalogTestAbcdef-LogRetentionaae0aa3c5b4d-AbCdEfGhIjKl"  # pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret
+NESTED_OWN = "ColvennaCatalogTestAbcdefg-awscdkaw-Handler886CB40B-MnOpQrStUvWx"  # 64, the most; pragma: allowlist secret - a made-up CloudFormation-cut Lambda log group name of the test, not a secret
 
 
 def lib(script, stubs):
