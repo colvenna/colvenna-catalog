@@ -938,7 +938,7 @@ Some refusals need a change to the account (no CloudWatch Logs role for API Gate
 
 **Cleanup**: this is the clean-up.
 
-**Harness**: `tests/uat/uat.py run UAT-DEP-09` (#52): an install whose configuration is the one the user manual's restore leaves (`COLVENNA_DB=existing` with the bucket the install made) runs on the restored instance, step 1; any other passes `restored-instance-refused` as not its step. Then `uninstall.sh`, then `tests/serverless/verify-clean.sh` for either form (it names the install's resources by its names and tags, whatever the form), the EKS form's Helm release and Secrets too.
+**Harness**: `tests/uat/uat.py run UAT-DEP-09` (#52): an install whose configuration is the one the user manual's restore leaves (`COLVENNA_DB=existing` with the bucket the install made) runs on the restored instance, step 1; any other passes `restored-instance-refused` as not its step. An install given an existing bucket (E3, S3) first gets a marker object of the run's own under the catalog's prefix, and the objects there are recorded: the cases before it drop their tables with their files, so the prefix would otherwise hold nothing for `existing-kept` to see kept (#44). Then `uninstall.sh`, then `tests/serverless/verify-clean.sh` for either form (it names the install's resources by its names and tags, whatever the form), the EKS form's Helm release and Secrets too.
 
 #### UAT-DEP-10 Restore the metadata database from a snapshot
 
