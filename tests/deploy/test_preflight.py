@@ -234,17 +234,25 @@ class Preflight(unittest.TestCase):
     def test_only_the_nodes_the_catalog_may_run_on_are_eligible(self):
         # #35: a node tainted NoSchedule or NoExecute takes no catalog pod (the chart tolerates none), so it is not
         # counted; a cordoned node is (the chart's spread waits for it); a node not Ready is not.
-        nodes = ready_nodes(6)
         taint = lambda key, effect: [{"key": key, "value": "x", "effect": effect}]  # noqa: E731
-        nodes["items"][1]["spec"]["taints"] = taint("colvenna-catalog/test-pool", "NoSchedule")
-        nodes["items"][2]["spec"]["taints"] = taint("dedicated", "NoExecute")
-        nodes["items"][3]["spec"]["taints"] = taint("soft", "PreferNoSchedule")
-        nodes["items"][4]["spec"]["taints"] = taint("node.kubernetes.io/unschedulable", "NoSchedule")
-        nodes["items"][4]["spec"]["unschedulable"] = True
-        nodes["items"][5]["status"]["conditions"] = [{"type": "Ready", "status": "False"}]
+        # (taints, counted): a workload's taints rule a node out; Kubernetes' own condition taints, a cloud
+        # provider's while it initializes and the autoscalers' drain marks come and go, and do not.
+        cases = [(None, True), (taint("colvenna-catalog/test-pool", "NoSchedule"), False),
+                 (taint("dedicated", "NoExecute"), False), (taint("soft", "PreferNoSchedule"), True),
+                 (taint("node.kubernetes.io/unschedulable", "NoSchedule"), True),
+                 (taint("node.kubernetes.io/disk-pressure", "NoSchedule"), True),
+                 (taint("node.kubernetes.io/out-of-service", "NoExecute"), False),
+                 (taint("node.cloudprovider.kubernetes.io/uninitialized", "NoSchedule"), True),
+                 (taint("ToBeDeletedByClusterAutoscaler", "NoSchedule"), True), (taint("karpenter.sh/disrupted", "NoSchedule"), True),
+                 (taint("node.kubernetes.io/unschedulable", "NoSchedule") + taint("dedicated", "NoSchedule"), False)]
+        nodes = ready_nodes(len(cases) + 1)
+        for node, (taints, _) in zip(nodes["items"], cases):
+            if taints:
+                node["spec"]["taints"] = taints
+        nodes["items"][-1]["status"]["conditions"] = [{"type": "Ready", "status": "False"}]
         out, _ = self.run_preflight('eligible_nodes; echo "nodes=$ELIGIBLE_NODES"', kubectl={"get nodes": {"stdout": nodes}})
         self.assertEqual(out.returncode, 0, out.stderr)
-        self.assertIn("nodes=3", out.stdout)  # the untainted, the PreferNoSchedule one and the cordoned one
+        self.assertIn(f"nodes={sum(1 for _, counted in cases if counted)}", out.stdout)
         only_tainted = ready_nodes(2)
         for node in only_tainted["items"]:
             node["spec"]["taints"] = taint("colvenna-catalog/test-pool", "NoSchedule")

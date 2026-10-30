@@ -50,6 +50,8 @@ test('replicas wait for a second node rather than join one (minDomains)', () => 
   assert.equal(constraint.minDomains, 2);
   assert.equal(constraint.topologyKey, 'kubernetes.io/hostname');
   assert.deepEqual(constraint.matchLabelKeys, ['pod-template-hash']);
+  // A node whose taints the pods do not tolerate is no domain (#35).
+  assert.equal(constraint.nodeTaintsPolicy, 'Honor');
   assert.equal(spread({ eligibleNodes: '3' }).minDomains, 2);
   assert.equal(spread({ eligibleNodes: '4' }).minDomains, 2);
   assert.equal(spread({ replicas: '3' }).minDomains, 2);

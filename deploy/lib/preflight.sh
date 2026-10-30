@@ -173,20 +173,29 @@ for a in allowed:
     "and the nodes' subnets): $(tr '\n' ';' <<<"$overlaps" | sed 's/;$//')"
 }
 
-# eligible_nodes: the Ready nodes COLVENNA_NODE_SELECTOR allows (all if empty) that the catalog's pods may run
-# on: the chart spreads its replicas over them. The chart's pods tolerate no taint, so a node with a NoSchedule
-# or NoExecute taint is not one (#35: in v1.0.0-rc.2's UAT a cluster's tainted nodes for other workloads were counted,
-# and a node more of theirs changed the chart's values). A cordoned node still counts, as the chart's spread
-# expects (values.yaml, spreadAcrossNodes): its taint node.kubernetes.io/unschedulable is not held against it.
-# Exports ELIGIBLE_NODES.
+# ELIGIBLE_JQ: the nodes (of `kubectl get nodes -o json`) the catalog's pods may run on, as jq: Ready, and with
+# no NoSchedule or NoExecute taint of a kind the cluster's workloads put there: the chart's pods tolerate no
+# taint (#35: in v1.0.0-rc.2's UAT the test cluster's tainted clients' nodes were counted, and two more of them
+# changed the chart's values on a rerun). Kubernetes' own condition taints (node.kubernetes.io/*: cordoned,
+# under pressure, network unavailable; not out-of-service), a node a cloud provider still initializes, and the
+# autoscalers' drain marks come and go: such a node still counts, so that a passing condition does not change
+# the count, as the chart's spread expects of a cordoned node (values.yaml, spreadAcrossNodes).
+ELIGIBLE_JQ='[.items[] | select(any(.status.conditions[]; .type == "Ready" and .status == "True"))
+  | select(all((.spec.taints // [])[];
+      (.effect != "NoSchedule" and .effect != "NoExecute")
+      or ((.key | startswith("node.kubernetes.io/")) and .key != "node.kubernetes.io/out-of-service")
+      or .key == "node.cloudprovider.kubernetes.io/uninitialized"
+      or .key == "ToBeDeletedByClusterAutoscaler" or .key == "DeletionCandidateOfClusterAutoscaler"
+      or (.key | startswith("karpenter.sh/"))))]'
+
+# eligible_nodes: how many nodes COLVENNA_NODE_SELECTOR allows (all if empty) are eligible (ELIGIBLE_JQ): the
+# chart spreads its replicas over them. Exports ELIGIBLE_NODES.
 eligible_nodes() {
   local args=()
   [[ -z "$COLVENNA_NODE_SELECTOR" ]] || args=(-l "$COLVENNA_NODE_SELECTOR")
-  ELIGIBLE_NODES="$(kubectl get nodes "${args[@]}" -o json \
-    | jq '[.items[] | select(any(.status.conditions[]; .type == "Ready" and .status == "True"))
-           | select(all((.spec.taints // [])[]; (.effect != "NoSchedule" and .effect != "NoExecute")
-                                                 or .key == "node.kubernetes.io/unschedulable"))] | length')"
-  ((ELIGIBLE_NODES > 0)) || refuse "No Ready node matches COLVENNA_NODE_SELECTOR=${COLVENNA_NODE_SELECTOR:-<any>}"
+  ELIGIBLE_NODES="$(kubectl get nodes "${args[@]}" -o json | jq "$ELIGIBLE_JQ | length")"
+  ((ELIGIBLE_NODES > 0)) || refuse "No Ready node matches COLVENNA_NODE_SELECTOR=${COLVENNA_NODE_SELECTOR:-<any>} without a" \
+    "NoSchedule or NoExecute taint (the catalog's pods tolerate none)"
   export ELIGIBLE_NODES
 }
 
@@ -291,8 +300,7 @@ assert_db_reachable() {
   db="$DB_DESCRIPTION"
 
   [[ -z "$COLVENNA_NODE_SELECTOR" ]] || args=(-l "$COLVENNA_NODE_SELECTOR")
-  nodes="$(kubectl get nodes "${args[@]}" -o json | jq -c '[.items[]
-    | select(any(.status.conditions[]; .type == "Ready" and .status == "True"))
+  nodes="$(kubectl get nodes "${args[@]}" -o json | jq -c "$ELIGIBLE_JQ"' | [.[]
     | {id: (.spec.providerID // "" | capture("(?<id>i-[0-9a-f]+)$").id),
        ip: [.status.addresses[]? | select(.type == "InternalIP") | .address][0]}]')"
   mapfile -t ids < <(jq -r '.[].id' <<<"$nodes")
