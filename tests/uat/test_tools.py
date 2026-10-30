@@ -24,7 +24,11 @@ class ProxySidecar(unittest.TestCase):
         self.assertEqual([c["name"] for c in init], ["jars", "proxy"])  # the jars first, then the proxy
         proxy = init[1]
         self.assertEqual(proxy["restartPolicy"], "Always")
-        self.assertEqual(proxy["startupProbe"]["tcpSocket"]["port"], tools.PROXY_PORT)
+        # Inside the pod: the proxy listens on 127.0.0.1 alone, which a tcpSocket probe (from the node) never reaches.
+        probe = proxy["startupProbe"]["exec"]["command"]
+        self.assertEqual(probe[:2], ["python3", "-c"])
+        self.assertIn(f"('127.0.0.1', {tools.PROXY_PORT})", probe[2])
+        self.assertNotIn("tcpSocket", proxy["startupProbe"])
         self.assertIn({"name": "UAT_DROP_EVERY", "value": "10"}, proxy["env"])
         self.assertIn("/ca", [m["mountPath"] for m in proxy["volumeMounts"]])
 

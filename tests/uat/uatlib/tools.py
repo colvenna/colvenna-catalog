@@ -159,7 +159,11 @@ class Tools:
             sidecars.append({
                 "name": "proxy", "image": PYTHON_IMAGE, "command": ["python3", "-u", "/uat/proxy.py"],
                 "restartPolicy": "Always",
-                "startupProbe": {"tcpSocket": {"port": PROXY_PORT}, "periodSeconds": 1, "failureThreshold": 300},
+                # The proxy listens on 127.0.0.1 alone, and a tcpSocket probe would connect from the node to the
+                # pod's address: an exec probe connects inside the pod.
+                "startupProbe": {"exec": {"command": ["python3", "-c", "import socket; socket.create_connection("
+                                                     f"('127.0.0.1', {PROXY_PORT}), 1).close()"]},
+                                 "periodSeconds": 1, "timeoutSeconds": 2, "failureThreshold": 300},
                 "env": [{"name": k, "value": v} for k, v in proxy_env.items()],
                 "securityContext": hardened(65534),
                 "resources": {"requests": {"cpu": "100m", "memory": "64Mi"}, "limits": {"memory": "256Mi"}},
@@ -268,9 +272,12 @@ class Job:
         clean-up deletes them."""
         p = self.kube.kubectl("get", "pod", self.name, "-n", self.namespace, "-o", "json", check=False)
         status = json.loads(p.stdout).get("status", {}) if p.returncode == 0 else {"phase": "Missing"}
-        logs = {c: self.kube.kubectl("logs", self.name, "-n", self.namespace, "-c", c, "--tail=200", check=False).stdout
-                for c in ("jars", "proxy", "tool")}
-        ctx.keep(f"{self.name}-not-started.json", {"status": status, "logs": logs})
+        logs = {}
+        for c in ("jars", "proxy", "tool"):
+            p = self.kube.kubectl("logs", self.name, "-n", self.namespace, "-c", c, "--tail=200", check=False)
+            logs[c] = p.stdout + (p.stderr if p.returncode else "")
+        events = self.kube.kubectl("describe", "pod", self.name, "-n", self.namespace, check=False).stdout
+        ctx.keep(f"{self.name}-not-started.json", {"status": status, "logs": logs, "describe": events[-6000:]})
 
     def facts(self):
         return lines(self.logs())
