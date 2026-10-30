@@ -31,7 +31,7 @@ Change a route, a field or a response together with the description, and with th
 
 `scripts/install-tools.sh` installs the pinned kubectl, Helm and crane into `.tools/`; the deployment scripts and the chart's tests use them from there. Install the hooks locally with `pre-commit install`, which puts in the commit-msg hook too.
 
-When GitHub Actions cannot run, `scripts/ci-local.sh` runs the same jobs on the current `HEAD`. It refuses to run (exit 2) on a dirty tree, when a tool the jobs need is not on `PATH`, or without a running Docker, and fails (exit 1) if a job fails or leaves changes behind. Run it on the pull request's exact head SHA and paste its output into the pull request; the release notes record CI as waived. It is no substitute for UAT or the performance acceptance.
+GitHub Actions is the CI of record: every job of `ci.yml` must have succeeded on a pull request's exact head SHA before it merges. `scripts/ci-local.sh` runs the same jobs on the current `HEAD`, as a supplement. It refuses to run (exit 2) on a dirty tree, when a tool the jobs need is not on `PATH`, or without a running Docker, and fails (exit 1) if a job fails or leaves changes behind. Only when Actions cannot run (its minutes used up, or an outage) is it the CI of record instead: run on the pull request's exact head SHA, its output pasted into the pull request with the waiver and its reason, which the release notes then record for that pull request. Neither is a substitute for UAT or the performance acceptance.
 
 ## Test environments
 
@@ -200,7 +200,7 @@ So a change to `pom.xml`, the lockfile or a pin fails CI until the record follow
 1. Every change starts from an issue.
 2. Work in a dedicated worktree, `.worktrees/issue-<n>-<slug>`, on the branch `codex/issue-<n>-<slug>`; never commit on `main`.
 3. Open one pull request for the issue, with the validation it ran.
-4. Review, and CI (or `scripts/ci-local.sh` on the exact SHA), must pass on a branch rebased onto the current `main`.
+4. Review, and CI (GitHub Actions on the exact SHA; `scripts/ci-local.sh` there only under a recorded waiver, when Actions cannot run), must pass on a branch rebased onto the current `main`.
 5. Merge that exact SHA, then remove the worktree and the branch.
 
 The one exception is a release candidate's pull request ([Making a candidate](#making-a-candidate)). Its commit adds `release/<candidate>/` to B, the commit the candidate's image and chart were built from, and nothing else, because `install.sh --release` refuses a tag that differs from B anywhere else. So it is on a `release-<candidate>` branch made at B, it is not rebased onto a newer `main`, and nothing else merges before it. CI ran on B.

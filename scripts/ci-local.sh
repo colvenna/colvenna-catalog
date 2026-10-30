@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Runs every job of .github/workflows/ci.yml on the current HEAD, for when GitHub Actions cannot run;
+# Runs every job of .github/workflows/ci.yml on the current HEAD: a supplement to GitHub Actions,
+# the CI of record, and its stand-in under a recorded waiver when Actions cannot run;
 # the two list the same jobs, so change them together.
 # Paste the output into the pull request: it names the exact SHA the jobs ran on.
 # Exit codes: 0 every job passed; 1 a job failed or left changes in the tree; 2 refused to run

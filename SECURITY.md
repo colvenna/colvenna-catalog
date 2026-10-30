@@ -15,7 +15,7 @@ For a confidential report, use GitHub's **Report a vulnerability** feature, on t
 ## How a report is handled
 
 - The maintainers acknowledge the report, reproduce it, and agree with the reporter when it is disclosed. No response time is guaranteed. Please do not disclose a vulnerability before its fix is in a release candidate, or before a date agreed with the maintainers.
-- The fix is delivered as any change is ([CONTRIBUTING.md](CONTRIBUTING.md)): its own issue and pull request, review, and the local CI on the exact commit merged. Until the fix is in a release candidate, they describe the problem without exploit details.
+- The fix is delivered as any change is ([CONTRIBUTING.md](CONTRIBUTING.md)): its own issue and pull request, review, and CI on the exact commit merged. Until the fix is in a release candidate, they describe the problem without exploit details.
 - The next release candidate's security record, `docs/security/<candidate>.md`, which its release notes link, names the fix.
 
 ## Security model in brief

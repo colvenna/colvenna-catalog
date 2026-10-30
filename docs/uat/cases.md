@@ -33,7 +33,7 @@ A time bound in a case checks a function: that something happens within the time
 | What | Why |
 | --- | --- |
 | Throughput, request rates, latency percentiles, capacity, load, cold-start times, cost efficiency | The performance acceptance, judged separately against [its terms](../performance/terms.md) (design 9.2, "boundary"). Not counted in UAT's numbers or verdict |
-| Unit tests, the upstream contract tests (`ColvennaCatalogContractTest`), the deployment scripts' offline tests (`tests/deploy`, including `test_helm_upgrade.py`), the CDK tests (cdk-nag, the forbidden-resource guard) | CI runs them on every commit (`scripts/ci-local.sh`); the release check cites the run on the candidate's commit |
+| Unit tests, the upstream contract tests (`ColvennaCatalogContractTest`), the deployment scripts' offline tests (`tests/deploy`, including `test_helm_upgrade.py`), the CDK tests (cdk-nag, the forbidden-resource guard) | CI runs them on every commit (GitHub Actions; `scripts/ci-local.sh` runs the same jobs locally); the release check cites the run on the candidate's commit |
 | Colvenna Lake taking over its existing install in place | Verified in Colvenna Lake's switch issue (design section 3; #23), not in this repository's UAT |
 | A rollback that keeps serving across a schema change | Before 1.0 versions do not promise compatibility with each other (design section 3). The paths 1.0 claims are UAT-DEP-06 and 07: the online upgrade; going back by a rollback when the schema is the same; and, when it moved forward, the previous version's refusal and the restore from the pre-upgrade snapshot |
 | An Iceberg REST interface, several warehouses in one instance, role-based grants, clouds other than AWS | Not in 1.0 (design section 2 and 10) |
