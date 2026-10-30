@@ -1,5 +1,6 @@
 """Offline tests that the tree reads the same once it is public: no file links to a repository of the
-series other than this one (they are private until each goes public, so the link would not resolve),
+series other than this one and those made public with it (the others are private until each goes
+public, so the link would not resolve),
 and every relative link of the Markdown files resolves. The plans in docs/superpowers/plans/ are
 records of work done, kept with the names of their time, and are not checked; nor are the rename
 record's naming of this repository's former name and the v1.0.0-rc.1 manifest, released with the
@@ -20,6 +21,9 @@ RECORDS = ("docs/rename.md", EARLIER_RECORD)
 # The series' organization; this repository is in it.
 ORGANIZATION = "colvenna"
 OWN = f"{ORGANIZATION}/colvenna-catalog"
+# The repositories of the series that go public together with this one, so a link to them resolves:
+# Colvenna Lake uses this catalog and is published with it (coordinator 2026-10-30).
+PUBLIC_WITH = {f"{ORGANIZATION}/colvenna-lake"}
 # A GitHub repository's address: https://github.com/<owner>/<name> or git@github.com:<owner>/<name>.
 GITHUB = re.compile(r"github\.com[/:]([\w.-]+)/([\w.-]+)")
 # A Markdown link's or an HTML image's target.
@@ -80,7 +84,7 @@ def other_repositories(text, clone_origin=None, earlier=None):
     for m in re.finditer(pattern, text):
         owner, name = (m[1], m[2]) if m[1] else (m[3], m[4])
         name = re.sub(r"\.git$", "", name.rstrip("."))
-        if owner in series and f"{owner}/{name}" not in own:
+        if owner in series and f"{owner}/{name}" not in own and f"{owner}/{name}" not in PUBLIC_WITH:
             found.append(f"{owner}/{name}")
     return found
 
@@ -134,7 +138,8 @@ class Patterns(unittest.TestCase):
         for own in ("https://github.com/colvenna/colvenna-catalog/blob/main/install.sh",
                     "SOURCE = \"https://github.com/colvenna/colvenna-catalog\"", "GET /colvenna/admin/v1/audit",
                     "colvenna-catalog/source-commit", "Colvenna Lake's catalog", "colvenna/colvenna-example as text",
-                    "https://github.com/someone/colvenna-fork", "https://github.com/apache/paimon"):
+                    "https://github.com/someone/colvenna-fork", "https://github.com/apache/paimon",
+                    "Colvenna Lake's issue [#6](https://github.com/colvenna/colvenna-lake/issues/6)"):
             self.assertEqual(other_repositories(own), [], own)
 
     def test_the_origins_owner_is_of_the_series_and_its_address_is_this_repository(self):
