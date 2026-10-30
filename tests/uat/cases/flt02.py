@@ -123,6 +123,8 @@ def run(ctx):
                                  cpu="100m")
                        for i in range((n + 4) // 5)]
         if not all(w.wait_running() for w in writers):
+            for job in writers:
+                job.keep_start(ctx)
             raise RuntimeError("the writers did not start")
         if faults.await_published(ctx, db, table, 5) is None:
             raise RuntimeError("the writers published no five snapshots")

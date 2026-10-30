@@ -169,6 +169,8 @@ def run(ctx):
                    tools.job("stress-c", "writer", "stress", db, table, "5", "2", "120", "500", "3000", proxy=DROP_EVERY)]
         maintenance = tools.job("maintenance", "writer", "maintenance", db, table, "30", "20")
         if not all(w.wait_running() for w in writers + [maintenance]):
+            for job in writers + [maintenance]:
+                job.keep_start(ctx)
             raise RuntimeError("the writers or the maintenance loop did not start")
         if faults.await_published(ctx, db, table, 5) is None:
             raise RuntimeError("the writers published no five snapshots")
