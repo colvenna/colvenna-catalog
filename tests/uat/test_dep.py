@@ -140,6 +140,54 @@ class Judges(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("sl2", detail)
 
+    def test_an_install_of_another_region(self):
+        """#46: the account lists roles and buckets whatever the region, so an install of another region is in
+        this region's inventory by them; its stacks there say whether its own run removed it meanwhile."""
+        here = {"ColvennaCatalogTestU1": ["UPDATE_COMPLETE", "t1"], "ColvennaCatalogSx1Serverless": ["CREATE_COMPLETE", "t2"]}
+        there = {"ColvennaCatalogEx2Eks": ["us-west-2", "CREATE_COMPLETE", "t3"], "ColvennaCatalogTestU2": ["us-west-2", "UPDATE_COMPLETE", "t0"]}
+        roles = ["colvenna-catalog-ex2-data", "colvenna-catalog-ex2-server"]
+        before = {"stacks": here, "stacksElsewhere": there, "roles": roles}
+        # Uninstalled meanwhile by its own run in its region: its roles went with it.
+        gone = {"stacks": here, "stacksElsewhere": {"ColvennaCatalogTestU2": there["ColvennaCatalogTestU2"]}, "roles": []}
+        ok, detail = deploy.others_untouched(before, gone, "sx1", "ColvennaCatalogTestU1")
+        self.assertTrue(ok, detail)
+        self.assertIn("uninstalled meanwhile by their own runs: ['ex2']", detail)
+        deleting = {"stacks": here, "stacksElsewhere": dict(there, ColvennaCatalogEx2Eks=["us-west-2", "DELETE_IN_PROGRESS", "t4"]),
+                    "roles": roles[:1]}
+        self.assertTrue(deploy.others_untouched(before, deleting, "sx1", "ColvennaCatalogTestU1")[0])
+        # Its stacks still there but its roles gone: touched.
+        ok, detail = deploy.others_untouched(before, {"stacks": here, "stacksElsewhere": there, "roles": []}, "sx1",
+                                             "ColvennaCatalogTestU1")
+        self.assertFalse(ok)
+        self.assertIn("colvenna-catalog-ex2-server", detail)
+        # Another region's test environment gone is no install's doing.
+        self.assertFalse(deploy.others_untouched(before, dict(before, stacksElsewhere={"ColvennaCatalogEx2Eks": there["ColvennaCatalogEx2Eks"]}),
+                                                 "sx1", "ColvennaCatalogTestU1")[0])
+        # An inventory written before #46 has no stacksElsewhere.
+        self.assertTrue(deploy.others_untouched({"stacks": here}, {"stacks": here}, "sx1", "ColvennaCatalogTestU1")[0])
+
+    def test_the_stacks_elsewhere(self):
+        class Fake:
+            def __init__(self, region, profile=None):
+                self.region, self.profile = region, profile or "p"
+
+            def __call__(self, *args):
+                return ["us-west-2", "us-east-2", "eu-west-1"]
+
+        seen = []
+
+        def stacks(aws):
+            seen.append(aws.region)
+            return {"ColvennaCatalogEx2Eks": ["CREATE_COMPLETE", "t"]} if aws.region == "us-west-2" else {}
+
+        old = deploy.Aws, deploy.account_stacks
+        deploy.Aws, deploy.account_stacks = Fake, stacks
+        try:
+            self.assertEqual(deploy.stacks_elsewhere(Fake("us-east-2")), {"ColvennaCatalogEx2Eks": ["us-west-2", "CREATE_COMPLETE", "t"]})
+        finally:
+            deploy.Aws, deploy.account_stacks = old
+        self.assertEqual(sorted(seen), ["eu-west-1", "us-west-2"])
+
     def test_the_inventories_differences_and_the_kept_data(self):
         self.assertEqual(deploy.differences({"buckets": ["a", "b"], "stacks": {"S": 1}}, {"buckets": ["a"], "stacks": {"S": 2}}),
                          ["buckets: gone ['b'], made []", "stacks S: 1 -> 2"])
