@@ -33,7 +33,7 @@ A run stopped with Ctrl-C, SIGTERM or SIGHUP still runs its clean-up and writes 
 - the namespaces labelled `colvenna-uat/run=<run>`: `kubectl delete namespace -l colvenna-uat/run=<run>`;
 - the catalog's objects of the run: its databases (`*_<run>`, dropped through the REST API with the admin's token, tables first), its principals (`*-<run>`, disabled) and their grants (deleted);
 - UAT-SEC-03 (serverless): the VPC endpoint tagged `colvenna-uat/run=<run>`, and the IAM role `colvenna-uat-norights-<run>`;
-- UAT-DEP-05: the Aurora cluster `uat-<run>-aurora` and its DB subnet group, the bucket `uat-<run>-elsewhere-*` in the other Region, the git worktrees under the run's scratch directory (`git worktree prune` in the candidate's checkout); and, if the run was killed while enforcement was off, `tests/environment/network-policy.sh <test-env> <region> on`, which starts the catalog pods again itself;
+- UAT-DEP-05: the Aurora cluster `uat-<run>-aurora`, its DB subnet group and its DB cluster parameter group (both named as the cluster), the bucket `uat-<run>-elsewhere-*` in the other Region, the git worktrees under the run's scratch directory (`git worktree prune` in the candidate's checkout); and, if the run was killed while enforcement was off, `tests/environment/network-policy.sh <test-env> <region> on`, which starts the catalog pods again itself;
 - UAT-DEP-08, UAT-DEP-11 (and any case that deployed the test driver): `tests/serverless/down.sh <env> <region>`;
 - UAT-DEP-11: the internal NLB, if left on: `install.sh` again with the install's own configuration;
 - UAT-DEP-04: the install's own `COLVENNA_DATA_TOKEN_DURATION`, if a round was cut short: `install.sh` again with its configuration.

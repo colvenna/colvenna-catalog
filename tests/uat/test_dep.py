@@ -441,6 +441,37 @@ class Dep05And08And09And11(unittest.TestCase):
         self.assertFalse(self.d5.judge_nothing_made({"stacks": {"ColvennaCatalogRf1Eks": 1}}, None, None, True)[0])
         self.assertFalse(self.d5.judge_nothing_made({}, ["UPDATE_COMPLETE", "t"], ["UPDATE_COMPLETE", "u"], True)[0])
 
+    def test_the_aurora_fixture_is_wrong_in_iam_authentication_only(self):
+        # #29: it requires TLS (rds.force_ssl=1 in a cluster parameter group of its own), which install.sh
+        # checks before IAM database authentication, so its refusal is the one the check is about.
+        calls, cleanups = [], []
+
+        def aws(*args, **_):
+            calls.append(args)
+            if args[1] == "describe-db-engine-versions":
+                return ["16.4", "16.6"]
+            if args[1] == "describe-db-clusters":
+                return {"DBClusters": [{"Status": "available", "Endpoint": "w", "ReaderEndpoint": "r", "Port": 5432}]}
+            return {}
+
+        ctx = types.SimpleNamespace(aws=aws, testenv=types.SimpleNamespace(output=lambda k: "subnet-a,subnet-b"),
+                                    on_cleanup=lambda what, fn: cleanups.append(what))
+        self.assertEqual(self.d5.Fixtures(ctx, "uat-r1").aurora(), ("w", "r", 5432))
+        made = {a[1]: a for a in calls}
+        self.assertEqual(made["create-db-cluster-parameter-group"][made["create-db-cluster-parameter-group"].index(
+            "--db-parameter-group-family") + 1], "aurora-postgresql16")
+        self.assertIn("ParameterName=rds.force_ssl,ParameterValue=1,ApplyMethod=pending-reboot",
+                      made["modify-db-cluster-parameter-group"])
+        cluster = made["create-db-cluster"]
+        self.assertEqual(cluster[cluster.index("--db-cluster-parameter-group-name") + 1], "uat-r1-aurora")
+        self.assertIn("--no-enable-iam-database-authentication", cluster)
+        order = [a[1] for a in calls if a[1].startswith("create") or a[1].startswith("modify")]
+        self.assertEqual(order, ["create-db-subnet-group", "create-db-cluster-parameter-group",
+                                 "modify-db-cluster-parameter-group", "create-db-cluster"])
+        # Clean-ups run last registered first: the cluster, then its parameter group, then the subnet group.
+        self.assertEqual(cleanups, ["DB subnet group uat-r1-aurora deleted", "DB cluster parameter group uat-r1-aurora deleted",
+                                    "Aurora cluster uat-r1-aurora deleted"])
+
     def test_the_endpoint_of_another_vpc_is_s1s_own(self):
         available = {"vpce-s1": "vpc-s1", "vpce-a": "vpc-other", "vpce-test": "vpc-test"}
         self.assertEqual(self.d5.choose_foreign_endpoint(available, "vpc-test", "vpce-s1"), "vpce-s1")
