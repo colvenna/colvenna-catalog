@@ -511,8 +511,50 @@ class Dep05And08And09And11(unittest.TestCase):
         self.assertTrue(self.d9.judge_nothing_left(0, "ok    stacks: none\nok    buckets: none", [])[0])
         self.assertFalse(self.d9.judge_nothing_left(1, "LEFT  buckets: b", [])[0])
         self.assertFalse(self.d9.judge_nothing_left(0, "ok    stacks: none", ["the Helm release"])[0])
-        self.assertTrue(self.d9.judge_existing_kept(True, True, True)[0])
-        self.assertFalse(self.d9.judge_existing_kept(True, False, True)[0])
+        marker = self.d9.marker_key("exw2", "u261030")
+        kept = {marker: '"e0"'}
+        self.assertTrue(self.d9.judge_existing_kept(True, True, kept, dict(kept), marker)[0])
+        self.assertFalse(self.d9.judge_existing_kept(True, False, kept, dict(kept), marker)[0])  # the database gone
+        self.assertFalse(self.d9.judge_existing_kept(False, True, kept, dict(kept), marker)[0])  # the instance changed
+        ok, detail = self.d9.judge_existing_kept(True, True, None, None, None)
+        self.assertTrue(ok)
+        self.assertIn("no bucket was given", detail)
+
+    def test_the_prefix_kept(self):
+        """#44: the cases before UAT-DEP-09 drop their tables, whose files the catalog deletes, so the case puts a
+        marker of its own under the prefix: the prefix is kept when the marker is still there, unchanged."""
+        marker = self.d9.marker_key("exw2", "u261030")
+        self.assertEqual(marker, "exw2/uat-dep09-u261030.marker")
+        judge = self.d9.judge_existing_kept
+        # The prefix held nothing but the marker.
+        self.assertTrue(judge(True, True, {marker: '"e0"'}, {marker: '"e0"'}, marker)[0])
+        ok, detail = judge(True, True, {marker: '"e0"'}, {}, marker)
+        self.assertFalse(ok)
+        self.assertIn("the marker gone or changed", detail)
+        self.assertFalse(judge(True, True, {marker: '"e0"'}, {marker: '"e1"'}, marker)[0])
+        # A dropped table's files the catalog was still deleting: reported, not a loss.
+        before = {marker: '"e0"', "exw2/db.db/t/snapshot/snapshot-1": '"a1"'}
+        ok, detail = judge(True, True, before, {marker: '"e0"'}, marker)
+        self.assertTrue(ok)
+        self.assertIn("of the 1 other objects recorded before the uninstall, 1 gone since", detail)
+        self.assertTrue(judge(True, True, before, dict(before, **{"exw2/new": '"n"'}), marker)[0])
+        # Without the marker recorded the check cannot see a prefix kept.
+        self.assertFalse(judge(True, True, {}, {marker: '"e0"'}, marker)[0])
+
+    def test_the_prefix_objects(self):
+        class Aws:
+            def __init__(self, out):
+                self.out, self.calls = out, []
+
+            def __call__(self, *args):
+                self.calls.append(args)
+                return self.out
+
+        aws = Aws({"Contents": [{"Key": "exw2/a", "ETag": '"1"'}, {"Key": "exw2/b", "ETag": '"2"'}]})
+        self.assertEqual(self.d9.prefix_objects(aws, "bucket", "exw2"), {"exw2/a": '"1"', "exw2/b": '"2"'})
+        self.assertEqual(aws.calls, [("s3api", "list-objects-v2", "--bucket", "bucket", "--prefix", "exw2/")])
+        self.assertEqual(self.d9.prefix_objects(Aws(None), "bucket", "exw2"), {})  # an empty prefix: no output
+        self.assertEqual(self.d9.prefix_objects(Aws({"RequestCharged": None}), "bucket", "exw2"), {})
 
     def test_the_internal_nlb(self):
         internal = {"Scheme": "internal", "Type": "network", "AvailabilityZones": [{"LoadBalancerAddresses": []}]}

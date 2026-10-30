@@ -36,6 +36,7 @@ A run stopped with Ctrl-C, SIGTERM or SIGHUP still runs its clean-up and writes 
 - UAT-DEP-05: the Aurora cluster `uat-<run>-aurora`, its DB subnet group and its DB cluster parameter group (both named as the cluster), the bucket `uat-<run>-elsewhere-*` in the other Region, the git worktrees under the run's scratch directory (`git worktree prune` in the candidate's checkout); and, if the run was killed while enforcement was off, `tests/environment/network-policy.sh <test-env> <region> on`, which starts the catalog pods again itself;
 - UAT-DEP-08, UAT-DEP-11 (and any case that deployed the test driver): `tests/serverless/down.sh <env> <region>`;
 - UAT-DEP-11: the internal NLB, if left on: `install.sh` again with the install's own configuration;
+- UAT-DEP-09 (E3, S3): the marker `<prefix>/uat-dep09-<run>.marker` in the bucket the install was given;
 - UAT-DEP-04: the install's own `COLVENNA_DATA_TOKEN_DURATION`, if a round was cut short: `install.sh` again with its configuration.
 
 ## The engines
@@ -80,7 +81,7 @@ The deployment cases run `install.sh` and `uninstall.sh` of the candidate's chec
 | UAT-DEP-04 | EKS, serverless | A new `COLVENNA_DATA_TOKEN_DURATION`, `install.sh` killed by `SIGHUP` and by `SIGKILL` to its process group while its change is under way (Helm `pending-upgrade`; the stack's update), then run again |
 | UAT-DEP-05 | EKS, serverless | Every refusal, each with a configuration of the case's own environment wrong in one key; the fixtures it makes and removes (an Aurora cluster without an instance, a bucket in another Region, checkouts not the candidate's); NetworkPolicy switched off and on (EKS) |
 | UAT-DEP-08 | EKS, serverless | The driver's tables and a principal, the account recorded, `uninstall.sh --yes` twice, the install again onto the kept data (its keys written into the configuration), the tables read again |
-| UAT-DEP-09 | EKS, serverless | E1 and S1 on the instance UAT-DEP-10 restored: `uninstall.sh --yes --delete-data` refused, then the instance and its log group deleted; `uninstall.sh --yes --delete-data` without the name, then with it; `tests/serverless/verify-clean.sh`; the existing database's and bucket's leftovers checked, then dropped (E3, S3) |
+| UAT-DEP-09 | EKS, serverless | E1 and S1 on the instance UAT-DEP-10 restored: `uninstall.sh --yes --delete-data` refused, then the instance and its log group deleted; `uninstall.sh --yes --delete-data` without the name, then with it; `tests/serverless/verify-clean.sh`; the existing database's and bucket's leftovers checked (a marker of the run's own under the prefix, #44), then dropped (E3, S3) |
 | UAT-DEP-11 | EKS | The install run again with the internal NLB for the client subnets; the test driver there (its CA, port 8181): the cycle, the certificate, UAT-SEC-01's requests; a pod and this host refused; the NLB off again |
 | UAT-FLT-01 | EKS, serverless | Six writers in three pods (two through the response-dropping proxy, `probe/proxy.py`), readers and maintenance; the form's faults, timed in `timeline.txt`; the writers' checks, the commits' audit, the intents and the consistency report from the database |
 | UAT-FLT-02 | EKS, serverless | Writers while a replica's node is drained and the serving replica killed (EKS), or the server's sessions ended, the environments replaced and twice the reserved concurrency writing (serverless) |
