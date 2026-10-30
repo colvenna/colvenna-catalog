@@ -32,6 +32,8 @@ CACHE_WAIT = 5
 GAP = 30
 DROP_EVERY = 10
 REPLAY = "replay of a committed request"
+# Answers that ask to be sent again: 429 (no more at once), 503 (rolled back, or a commit in doubt; #39).
+RETRYABLE = (429, 503)
 
 
 def checks(form, args=None):
@@ -75,7 +77,12 @@ def judge_dropped(dropped, events):
     again was answered as the first was. A commit (the first answer success): published once, and the
     resend answered as a replay (success, the catalog's audit naming it a replay). A refusal (an error
     status, or success false): the resend not applied either; the writer commits it again, as
-    every-commit-once judges (under another identifier, when Paimon gives up on the first)."""
+    every-commit-once judges (under another identifier, when Paimon gives up on the first). But a
+    retryable answer (#39: 429, or 503) may be followed by a resend that succeeds: a 503 is either a
+    request rolled back (a lock timeout, the database unavailable), which the resend then applies, or a
+    commit in doubt (its session lost), which the resend answers as a replay. Either way it is published
+    at most once, and the resend is a publication or a replay. These count apart: the check still needs a
+    dropped commit and its replay."""
     published, replays = {}, {}
     for e in events:
         key = (e["commitUser"], str(e["commitIdentifier"]))
@@ -83,7 +90,7 @@ def judge_dropped(dropped, events):
             published[key] = published.get(key, 0) + 1
         elif e["detail"] == REPLAY:
             replays[key] = replays.get(key, 0) + 1
-    problems, committed = [], 0
+    problems, committed, resent = [], 0, 0
     for d in dropped:
         key = (d.get("commitUser"), str(d.get("commitIdentifier")))
         first = (d.get("firstBody") or "").replace(" ", "")
@@ -96,9 +103,15 @@ def judge_dropped(dropped, events):
                 problems.append(f"{key[0]}/{key[1]}: sent again, answered {d.get('again')} {answer[:60]}, "
                                 f"{replays.get(key, 0)} replays audited")
         elif d.get("again") == 200 and '"success":true' in answer:
-            problems.append(f"{key[0]}/{key[1]}: refused at first ({d.get('first')}), then applied when sent again")
-    return bool(committed) and not problems, (f"{len(dropped)} answers dropped, {committed} of them commits; "
-                                              f"problems {problems[:5]}")
+            if d.get("first") in RETRYABLE:
+                resent += 1
+                if published.get(key, 0) > 1 or not (published.get(key, 0) == 1 or replays.get(key)):
+                    problems.append(f"{key[0]}/{key[1]}: answered {d.get('first')} at first (retryable), then success when "
+                                    f"sent again: published {published.get(key, 0)} times, {replays.get(key, 0)} replays")
+            else:
+                problems.append(f"{key[0]}/{key[1]}: refused at first ({d.get('first')}), then applied when sent again")
+    return bool(committed) and not problems, (f"{len(dropped)} answers dropped, {committed} of them commits, "
+                                              f"{resent} retryable answers whose resend succeeded; problems {problems[:5]}")
 
 
 def judge_stale(events):
