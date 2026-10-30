@@ -536,7 +536,8 @@ sl_wait_interfaces() {
 # uninstall_serverless <placeholders...>: uninstall.sh's steps for the serverless form: the serverless
 # stack (functions, API, identity pool, roles, secrets) and the images stack, with the log groups they
 # never owned; then the data as asked (remove_storage, uninstall.sh); then the network stack, unless a
-# kept database still lives in it (its security group admits the catalog's).
+# kept database still lives in it (its security group admits the catalog's). The log groups of the
+# functions CloudFormation named are uninstall.sh's delete_function_log_groups, once the stacks are gone.
 uninstall_serverless() {
   local placeholders=("$@") serverless images storage network api group zero
   zero="$(printf '0%.0s' {1..64})"
@@ -574,6 +575,5 @@ uninstall_serverless() {
     [[ -z "$group" ]] || sl_wait_interfaces "$group"
     destroy_stack "$network" "${placeholders[@]}" -c stack=network -c networkMode=create -c vpcCidr=10.80.0.0/16 \
       -c "subnetZones=${COLVENNA_REGION}a,${COLVENNA_REGION}b" -c databasePort=5432
-    delete_log_groups "/aws/lambda/$network"
   fi
 }

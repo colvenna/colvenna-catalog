@@ -9,8 +9,11 @@ set -uo pipefail
 env="$1" region="$2"
 [[ "$env" =~ ^[a-z][a-z0-9]{0,7}$ ]] || { echo "env: a lowercase letter, then lowercase letters and digits" >&2; exit 2; }
 export AWS_REGION="$region" AWS_DEFAULT_REGION="$region"
-Env="$(tr '[:lower:]' '[:upper:]' <<<"${env:0:1}")${env:1}"
-stacks="ColvennaCatalog$Env" names="colvenna-catalog-$env" left=0
+# shellcheck source-path=SCRIPTDIR source=../../deploy/lib/stacks.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../../deploy/lib/stacks.sh"
+COLVENNA_ENV="$env" COLVENNA_REGION="$region"
+stacks="$(stack_id "")" names="colvenna-catalog-$env" left=0
+mapfile -t stack_names < <(environment_stacks)
 
 check() {
   local what="$1" found
@@ -86,12 +89,15 @@ check "NAT gateways, internet gateways, Elastic IPs tagged so (never made)" "$(
 check "ECR repositories" "$(aws ecr describe-repositories --query "repositories[?starts_with(repositoryName, '$names/')].repositoryName" --output text)"
 check "S3 buckets" "$(aws s3api list-buckets --query "Buckets[?starts_with(Name, 'colvennacatalog$env')].Name" --output text)"
 # API Gateway makes each API's execution log group itself: API_IDS names the environment's APIs (their
-# IDs, recorded before the uninstall), whose groups must be gone too.
+# IDs, recorded before the uninstall), whose groups must be gone too. The functions CloudFormation
+# named after the stacks, their names cut short as it sees fit, are found as uninstall.sh finds them
+# (function_log_groups), and not another environment's whose name starts with this one's.
 read -ra apis <<<"${API_IDS:-}"
-prefixes=("/aws/lambda/$names-" "/aws/lambda/$stacks" "/aws/apigateway/$names-" "/aws/rds/instance/colvennacatalog$env" "$stacks")
+prefixes=("/aws/lambda/$names-" "/aws/apigateway/$names-" "/aws/rds/instance/colvennacatalog$env" "$stacks")
 for api in "${apis[@]}"; do
   prefixes+=("API-Gateway-Execution-Logs_$api/")
 done
 check "log groups" "$(for prefix in "${prefixes[@]}"; do
-  aws logs describe-log-groups --log-group-name-prefix "$prefix" --query 'logGroups[].logGroupName' --output text; done)"
+  aws logs describe-log-groups --log-group-name-prefix "$prefix" --query 'logGroups[].logGroupName' --output text; done
+  function_log_groups "${stack_names[@]}")"
 exit "$left"

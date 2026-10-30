@@ -25,6 +25,13 @@ err="$(mktemp)"
 if ! purpose="$(aws cloudformation describe-stacks --stack-name "$stack" \
   --query "Stacks[0].Tags[?Key=='Purpose'].Value | [0]" --output text 2>"$err")"; then
   if grep -q 'does not exist' "$err"; then
+    # What a run interrupted once the stack was gone left: its functions' log groups (lib.sh).
+    if [[ -e "$state/functions" ]]; then
+      delete_recorded_log_groups "$state/functions"
+      left="$(recorded_log_groups "$state/functions")"
+      [[ -z "$left" ]] || die "Log groups of the stack's functions are left: $left"
+      mv "$state/functions" "$evidence/functions.txt"
+    fi
     echo "$stack does not exist in $region: nothing to remove" | tee "$evidence/RESULT"
     exit 0
   fi
@@ -73,6 +80,9 @@ if [[ "$bucket" != None ]] && aws s3api head-bucket --bucket "$bucket" >/dev/nul
 fi
 
 # --- the stack ----------------------------------------------------------------------------------
+# Its functions, and its nested stacks', by name (lib.sh): their log groups outlive them.
+{ cat "$state/functions" 2>/dev/null || true; stack_functions "$stack"; } | sort -u >"$state/functions.new"
+mv "$state/functions.new" "$state/functions"
 # destroy needs the app to synthesize, not to match what was deployed: placeholders where it checks inputs.
 test_cdk "$state" destroy "$stack" --force \
   -c "name=$name" -c "account=$account" -c "region=$region" -c "sourceSha=$sha" -c "zones=$zones" \
@@ -89,14 +99,10 @@ left="$(aws resourcegroupstaggingapi get-resources --tag-filters "Key=elbv2.k8s.
 if [[ "$vpc" == vpc-* ]] && aws ec2 describe-vpcs --vpc-ids "$vpc" >/dev/null 2>&1; then
   die "The VPC $vpc is left (and whatever network interfaces keep it)"
 fi
-# CDK's provider functions (the cluster, kubectl and OIDC handlers) write log groups as they run,
-# named after the stack and its nested stacks; the stack never owned them, so they are removed here.
-aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/$stack" --query 'logGroups[].logGroupName' \
-  --output text | tr '\t' '\n' | while read -r group; do
-  [[ -z "$group" ]] || aws logs delete-log-group --log-group-name "$group"
-done
+# The stack's functions' log groups, which it never owned (lib.sh).
+delete_recorded_log_groups "$state/functions"
 groups="$(aws logs describe-log-groups --log-group-name-prefix "/aws/eks/$cluster/" --query 'length(logGroups)' --output text)"
-functions="$(aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/$stack" --query 'length(logGroups)' --output text)"
+functions="$(recorded_log_groups "$state/functions" | sed '/^$/d' | wc -l)"
 # The database went without a final snapshot and without its automated backups; its admin secret is
 # deleted without a recovery window, if the stack's deletion only scheduled it.
 if aws rds describe-db-instances --db-instance-identifier "$db" >/dev/null 2>&1; then
@@ -125,4 +131,6 @@ echo "stack: deleted; VPC: deleted; load balancer resources left: $left; cluster
 [[ "$snapshots" -eq 0 && "$backups" -eq 0 ]] || die "Snapshots or automated backups of $db are left"
 [[ "$secrets" -eq 0 ]] || die "The database's admin secret $db_secret is left"
 [[ "$buckets" -eq 0 ]] || die "The existing bucket $bucket is left"
+# The functions' names are of this stack, which is gone: kept with the evidence, not for the next one.
+mv "$state/functions" "$evidence/functions.txt"
 echo "$stack in $region is down; nothing of it is left" | tee "$evidence/RESULT"

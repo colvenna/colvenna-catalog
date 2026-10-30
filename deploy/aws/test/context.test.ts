@@ -8,10 +8,11 @@ import {
 
 const ISSUER = 'https://oidc.eks.us-west-2.amazonaws.com/id/0123456789ABCDEF0123456789ABCDEF';
 
-test('envName: a lowercase letter, then letters and digits, eight at most; release is reserved', () => {
+test('envName: a lowercase letter, then letters and digits, eight at most; release and test are reserved', () => {
   assert.equal(envName('uat'), 'uat');
   assert.equal(envName('uat2'), 'uat2');
-  for (const bad of ['', 'Uat', '2uat', 'uat-2', 'abcdefghi', 'release', undefined, 7]) {
+  assert.equal(envName('testa'), 'testa');
+  for (const bad of ['', 'Uat', '2uat', 'uat-2', 'abcdefghi', 'release', 'test', undefined, 7]) {
     assert.throws(() => envName(bad), /^Error: -c env/);
   }
 });

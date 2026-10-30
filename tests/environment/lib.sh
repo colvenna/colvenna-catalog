@@ -88,3 +88,44 @@ test_cdk() {
   shift
   (cd "$AWS_DIR" && npx cdk -a 'npx ts-node test-env/app.ts' --output "$out" --no-notices --no-version-reporting "$@")
 }
+
+# CDK's provider functions (the cluster, kubectl and OIDC handlers, the log retention one) write log
+# groups as they run, which the stack never owns. CloudFormation names each after the stack or a nested
+# stack, cutting a long name short, and a cut of one environment's stack name may be another's whole
+# (ColvennaCatalogTestAbcdef: abcdefg's cut to 25, or abcdef's), so the groups are found by the
+# functions' own names, which down.sh reads before the stack goes and keeps in the state.
+
+# stack_functions <stack>: the Lambda functions of the stack and of its nested stacks, one per line.
+stack_functions() {
+  local listed type id
+  listed="$(aws cloudformation list-stack-resources --stack-name "$1" --output text --query \
+    "StackResourceSummaries[?ResourceType=='AWS::Lambda::Function' || ResourceType=='AWS::CloudFormation::Stack'].[ResourceType,PhysicalResourceId]" \
+    </dev/null)"
+  while read -r type id; do
+    case "$type" in
+      AWS::Lambda::Function) printf '%s\n' "$id" ;;
+      AWS::CloudFormation::Stack) stack_functions "$id" ;;
+    esac
+  done <<<"$listed"
+}
+
+# recorded_log_groups <file>: the log groups (/aws/lambda/<function>) there are of the functions the
+# file names, one per line; fails when one cannot be looked up.
+recorded_log_groups() {
+  local function
+  [[ -s "$1" ]] || return 0
+  while read -r function; do
+    [[ -n "$function" ]] || continue
+    aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/$function" --output text \
+      --query "logGroups[?logGroupName=='/aws/lambda/$function'].logGroupName" </dev/null || return 1
+  done <"$1"
+}
+
+# delete_recorded_log_groups <file>: deletes the log groups of the functions the file names.
+delete_recorded_log_groups() {
+  local groups group
+  groups="$(recorded_log_groups "$1")"
+  for group in $groups; do
+    aws logs delete-log-group --log-group-name "$group"
+  done
+}

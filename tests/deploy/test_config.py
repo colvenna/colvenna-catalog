@@ -118,6 +118,9 @@ class LoadConfig(unittest.TestCase):
         for key, value in cases.items():
             with self.subTest(key=key, value=value):
                 self.refused({**REQUIRED, key: value}, key)
+        # Its stacks would be named as the test environments' are (ColvennaCatalogTest<...>).
+        self.refused({**REQUIRED, "COLVENNA_ENV": "test"}, "COLVENNA_ENV: test is reserved for the test environments")
+        self.assertEqual(self.loaded({**REQUIRED, "COLVENNA_ENV": "testa"})["COLVENNA_ENV"], "testa")
         for duration in ["PT13H", "P1D", "PT90M30S"]:
             with self.subTest(duration=duration):
                 self.refused({**REQUIRED, "COLVENNA_DATA_TOKEN_DURATION": duration}, "COLVENNA_DATA_TOKEN_DURATION")
