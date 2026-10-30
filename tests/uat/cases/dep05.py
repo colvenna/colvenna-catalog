@@ -92,7 +92,9 @@ class Fixtures:
 
     def aurora(self):
         """An Aurora PostgreSQL cluster in the test environment's VPC, without an instance (so without a
-        cost but its storage) and without IAM database authentication: (writer, reader) endpoints."""
+        cost but its storage) and without IAM database authentication: (writer, reader) endpoints. Wrong in
+        that one key only (#29): it requires TLS, rds.force_ssl=1 in a cluster parameter group of its own, as
+        install.sh asks of an existing database, which it checks before IAM database authentication."""
         aws, env = self.ctx.aws, self.ctx.testenv
         subnets = env.output("PrivateSubnetIds").split(",")
         group = f"{self.name}-aurora"
@@ -101,10 +103,17 @@ class Fixtures:
         self.ctx.on_cleanup(f"DB subnet group {group} deleted", lambda: self._delete_group(group))
         version = aws("rds", "describe-db-engine-versions", "--engine", "aurora-postgresql", "--query",
                       "DBEngineVersions[?starts_with(EngineVersion, '16.')].EngineVersion")[-1]
+        aws("rds", "create-db-cluster-parameter-group", "--db-cluster-parameter-group-name", group,
+            "--db-parameter-group-family", "aurora-postgresql16", "--description", "UAT-DEP-05 refusals: TLS required",
+            "--tags", "Key=Purpose,Value=uat")
+        self.ctx.on_cleanup(f"DB cluster parameter group {group} deleted", lambda: self._delete_parameters(group))
+        aws("rds", "modify-db-cluster-parameter-group", "--db-cluster-parameter-group-name", group, "--parameters",
+            "ParameterName=rds.force_ssl,ParameterValue=1,ApplyMethod=pending-reboot")
         aws("rds", "create-db-cluster", "--db-cluster-identifier", group, "--engine", "aurora-postgresql",
             "--engine-version", version, "--master-username", "uatadmin", "--manage-master-user-password",
-            "--db-subnet-group-name", group, "--storage-encrypted", "--no-enable-iam-database-authentication",
-            "--no-deletion-protection", "--backup-retention-period", "1", "--tags", "Key=Purpose,Value=uat")
+            "--db-subnet-group-name", group, "--db-cluster-parameter-group-name", group, "--storage-encrypted",
+            "--no-enable-iam-database-authentication", "--no-deletion-protection", "--backup-retention-period", "1",
+            "--tags", "Key=Purpose,Value=uat")
         self.cluster = group
         self.ctx.on_cleanup(f"Aurora cluster {group} deleted", self._delete_cluster)
         for _ in range(90):
@@ -124,6 +133,16 @@ class Fixtures:
                 return f"{self.cluster} deleted"
             time.sleep(10)
         raise RuntimeError(f"the Aurora cluster {self.cluster} is still there")
+
+    def _delete_parameters(self, group):
+        """The cluster's parameter group, once the cluster is gone (its clean-up runs first: registered later)."""
+        for _ in range(30):
+            p = self.ctx.aws.raw("rds", "delete-db-cluster-parameter-group", "--db-cluster-parameter-group-name", group,
+                                 check=False)
+            if p.returncode == 0 or "DBParameterGroupNotFound" in p.stderr:
+                return f"{group} deleted"
+            time.sleep(20)
+        raise RuntimeError(f"the DB cluster parameter group {group} is still there")
 
     def _delete_group(self, group):
         for _ in range(30):
