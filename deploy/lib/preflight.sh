@@ -173,13 +173,19 @@ for a in allowed:
     "and the nodes' subnets): $(tr '\n' ';' <<<"$overlaps" | sed 's/;$//')"
 }
 
-# eligible_nodes: the Ready nodes COLVENNA_NODE_SELECTOR allows (all if empty): the chart spreads its
-# replicas over them. Exports ELIGIBLE_NODES.
+# eligible_nodes: the Ready nodes COLVENNA_NODE_SELECTOR allows (all if empty) that the catalog's pods may run
+# on: the chart spreads its replicas over them. The chart's pods tolerate no taint, so a node with a NoSchedule
+# or NoExecute taint is not one (#35: in v1.0.0-rc.2's UAT a cluster's tainted nodes for other workloads were counted,
+# and a node more of theirs changed the chart's values). A cordoned node still counts, as the chart's spread
+# expects (values.yaml, spreadAcrossNodes): its taint node.kubernetes.io/unschedulable is not held against it.
+# Exports ELIGIBLE_NODES.
 eligible_nodes() {
   local args=()
   [[ -z "$COLVENNA_NODE_SELECTOR" ]] || args=(-l "$COLVENNA_NODE_SELECTOR")
   ELIGIBLE_NODES="$(kubectl get nodes "${args[@]}" -o json \
-    | jq '[.items[] | select(any(.status.conditions[]; .type == "Ready" and .status == "True"))] | length')"
+    | jq '[.items[] | select(any(.status.conditions[]; .type == "Ready" and .status == "True"))
+           | select(all((.spec.taints // [])[]; (.effect != "NoSchedule" and .effect != "NoExecute")
+                                                 or .key == "node.kubernetes.io/unschedulable"))] | length')"
   ((ELIGIBLE_NODES > 0)) || refuse "No Ready node matches COLVENNA_NODE_SELECTOR=${COLVENNA_NODE_SELECTOR:-<any>}"
   export ELIGIBLE_NODES
 }

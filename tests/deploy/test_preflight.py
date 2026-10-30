@@ -231,6 +231,26 @@ class Preflight(unittest.TestCase):
         self.assertEqual(out.returncode, 3)
         self.assertIn("role=catalog", out.stderr)
 
+    def test_only_the_nodes_the_catalog_may_run_on_are_eligible(self):
+        # #35: a node tainted NoSchedule or NoExecute takes no catalog pod (the chart tolerates none), so it is not
+        # counted; a cordoned node is (the chart's spread waits for it); a node not Ready is not.
+        nodes = ready_nodes(6)
+        taint = lambda key, effect: [{"key": key, "value": "x", "effect": effect}]  # noqa: E731
+        nodes["items"][1]["spec"]["taints"] = taint("colvenna-catalog/test-pool", "NoSchedule")
+        nodes["items"][2]["spec"]["taints"] = taint("dedicated", "NoExecute")
+        nodes["items"][3]["spec"]["taints"] = taint("soft", "PreferNoSchedule")
+        nodes["items"][4]["spec"]["taints"] = taint("node.kubernetes.io/unschedulable", "NoSchedule")
+        nodes["items"][4]["spec"]["unschedulable"] = True
+        nodes["items"][5]["status"]["conditions"] = [{"type": "Ready", "status": "False"}]
+        out, _ = self.run_preflight('eligible_nodes; echo "nodes=$ELIGIBLE_NODES"', kubectl={"get nodes": {"stdout": nodes}})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("nodes=3", out.stdout)  # the untainted, the PreferNoSchedule one and the cordoned one
+        only_tainted = ready_nodes(2)
+        for node in only_tainted["items"]:
+            node["spec"]["taints"] = taint("colvenna-catalog/test-pool", "NoSchedule")
+        out, _ = self.run_preflight("eligible_nodes", kubectl={"get nodes": {"stdout": only_tainted}})
+        self.assertEqual(out.returncode, 3)
+
     def test_a_bucket_of_another_region_is_refused(self):
         out, _ = self.run_preflight("assert_bucket", config={"COLVENNA_BUCKET": "bucket"},
                                     aws={"s3api get-bucket-location": {"stdout": {"LocationConstraint": "eu-west-1"}}})
