@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Proves that nothing of the serverless form's environment <env> is left in <region> after
 # uninstall.sh --delete-data (and tests/serverless/down.sh): one line per check, names only (never an
-# ARN or an account ID); exits 1 when anything remains, or a read fails. While all that remains is
+# ARN or an account ID); exits 1 when anything remains, or a listing fails. While all that remains is
 # what RDS is still deleting (below), it reads the account again, and says how long it waited. The
 # caller sets AWS_PROFILE.
 # Usage: [API_IDS=<id> ...] [RDS_DELETING_WAIT=<s>] [RDS_DELETING_SECONDS=<s>] tests/serverless/verify-clean.sh <env> <region>
@@ -32,7 +32,9 @@ RDS_DELETING_SECONDS="${RDS_DELETING_SECONDS:-1200}"
   || { echo "RDS_DELETING_WAIT and RDS_DELETING_SECONDS: whole seconds" >&2; exit 2; }
 
 # listing <aws arguments>...: what aws answers, and UNREADABLE when it fails, which no check takes for
-# nothing left: a read that failed, while waiting say, must not pass for one that found nothing.
+# nothing left: a listing that failed, while waiting say, must not pass for one that found nothing. A
+# check over what an UNREADABLE listing lists (the functions' URLs, the groups' interfaces) is UNREADABLE
+# too. Not listings: the reads of what the tagging index lists, and function_log_groups' (stacks.sh).
 UNREADABLE="(unreadable)"
 listing() {
   aws "$@" || echo "$UNREADABLE"
@@ -139,6 +141,7 @@ survey() {
   functions="$(listing lambda list-functions --query "Functions[?starts_with(FunctionName, '$names-')].FunctionName" --output text)"
   check "Lambda functions" "$functions"
   check "Lambda function URLs (never made)" "$(for f in $functions; do
+    [[ "$f" != "$UNREADABLE" ]] || { echo "$UNREADABLE"; continue; }
     listing lambda list-function-url-configs --function-name "$f" --query 'FunctionUrlConfigs[].FunctionUrl' --output text; done)"
   check "REST APIs" "$(listing apigateway get-rest-apis --query "items[?starts_with(name, '$names-')].name" --output text)"
   # The purge function's schedule (EventBridge Scheduler schedules carry no tags) and its alarm (#69).
@@ -178,8 +181,10 @@ survey() {
   groups="$(listing ec2 describe-security-groups --filters "Name=tag:Environment,Values=$env" Name=tag:Project,Values=colvenna-catalog \
     --query 'SecurityGroups[].GroupId' --output text)"
   check "security groups" "$groups"
-  check "network interfaces of those groups" "$(for g in $groups; do listing ec2 describe-network-interfaces \
-    --filters "Name=group-id,Values=$g" --query 'NetworkInterfaces[].NetworkInterfaceId' --output text; done)"
+  check "network interfaces of those groups" "$(for g in $groups; do
+    [[ "$g" != "$UNREADABLE" ]] || { echo "$UNREADABLE"; continue; }
+    listing ec2 describe-network-interfaces --filters "Name=group-id,Values=$g" \
+      --query 'NetworkInterfaces[].NetworkInterfaceId' --output text; done)"
   # shellcheck disable=SC2016  # JMESPath literals, for aws
   check "NAT gateways, internet gateways, Elastic IPs tagged so (never made)" "$(
     listing ec2 describe-nat-gateways --filter "Name=tag:Environment,Values=$env" --query 'NatGateways[?State!=`deleted`].NatGatewayId' --output text

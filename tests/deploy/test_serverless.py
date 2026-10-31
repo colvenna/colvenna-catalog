@@ -750,7 +750,8 @@ class VerifyCleanWaitsForRds(unittest.TestCase):
         stubs = Stubs({"aws": {"": {"stdout": ""}, **responses}})
         out = run_bash(f'"{REPO}/tests/serverless/verify-clean.sh" ux1e us-west-2', path_prepend=stubs.bin,
                        env={**stubs.env, "AWS_PROFILE": "stub", "RDS_DELETING_WAIT": wait, "RDS_DELETING_SECONDS": seconds})
-        reads = len([c for c in stubs.calls() if c.startswith(f"aws {self.SNAPSHOTS_LISTED}")])
+        self.calls = stubs.calls()
+        reads = len([c for c in self.calls if c.startswith(f"aws {self.SNAPSHOTS_LISTED}")])
         # Nothing on stderr but the errors the stub was told to answer with, no shell error; a refusal
         # (exit 2) says why there.
         if out.returncode != 2:
@@ -824,10 +825,14 @@ class VerifyCleanWaitsForRds(unittest.TestCase):
         self.assertIn(f"LEFT  {self.TAGGED_LINE}: (unreadable) ", lines)
         self.assertIn("LEFT  RDS snapshots: (unreadable) ", lines)
         self.assertRegex(lines[-1], r"for what RDS is still deleting, until something else was left$")
-        # Any other read too, at the first read.
-        out, lines, reads = self.clean({"s3api list-buckets": self.THROTTLED})
+        # Any other listing too, at the first read; and what is checked of what it lists.
+        out, lines, reads = self.clean({"s3api list-buckets": self.THROTTLED, "lambda list-functions": self.THROTTLED,
+                                        "ec2 describe-security-groups": self.THROTTLED})
         self.assert_at_once(out, lines, reads)
-        self.assertIn("LEFT  S3 buckets: (unreadable) ", lines)
+        for line in ("S3 buckets", "Lambda functions", "Lambda function URLs (never made)", "security groups",
+                     "network interfaces of those groups"):
+            self.assertIn(f"LEFT  {line}: (unreadable) ", lines)
+        self.assertFalse([c for c in self.calls if "(unreadable)" in c], self.calls)
 
     def test_something_else_left_while_waiting_ends_the_wait(self):
         out, lines, reads = self.clean(self.deleting(**{
