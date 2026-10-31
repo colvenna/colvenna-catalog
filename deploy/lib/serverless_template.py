@@ -32,7 +32,7 @@ def load(path):
         raise ValueError(f"{path}: not a template ({e})") from e
 
 
-def the_function(template, name, which):
+def named_function(template, name, which):
     found = [rid for rid, r in template.get("Resources", {}).items()
              if r.get("Type") == "AWS::Lambda::Function" and r.get("Properties", {}).get("FunctionName") == name]
     if len(found) != 1:
@@ -40,9 +40,18 @@ def the_function(template, name, which):
     return found[0]
 
 
+def attribute_of(value):
+    """The logical ID an Fn::GetAtt names, in either of its forms ([id, attribute], or "id.attribute")."""
+    target = value["Fn::GetAtt"]
+    return target[0] if isinstance(target, list) else target.split(".")[0]
+
+
 def role_policy(template, function_id, which):
-    """The logical ID of the one AWS::IAM::Policy of the function's role, or None if it has none."""
-    role = template["Resources"][function_id]["Properties"].get("Role", {}).get("Fn::GetAtt", [None])[0]
+    """(the logical ID of the function's role, that of the role's one AWS::IAM::Policy or None if it has none)."""
+    role = template["Resources"][function_id]["Properties"].get("Role")
+    if not (isinstance(role, dict) and "Fn::GetAtt" in role):
+        raise ValueError(f"the {which} template's {function_id} does not take the ARN of a role of its own")
+    role = attribute_of(role)
     policies = [rid for rid, r in template["Resources"].items() if r.get("Type") == "AWS::IAM::Policy"
                 and {"Ref": role} in r.get("Properties", {}).get("Roles", [])]
     if len(policies) > 1:
@@ -56,11 +65,11 @@ def references(value):
     if isinstance(value, dict):
         for key, inner in value.items():
             if key == "Ref":
-                out.add(inner)
+                out.add(str(inner))
             elif key == "Fn::GetAtt":
-                out.add(inner[0] if isinstance(inner, list) else inner.split(".")[0])
+                out.add(attribute_of(value))
             elif key == "Fn::Sub":
-                text, local = (inner[0], inner[1]) if isinstance(inner, list) else (inner, {})
+                text, local = (inner[0], inner[1] if len(inner) > 1 else {}) if isinstance(inner, list) else (inner, {})
                 out |= {part.split("}")[0].split(".")[0] for part in text.split("${")[1:] if not part.startswith("!")} - set(local)
                 out |= references(list(local.values()))
             else:
@@ -75,7 +84,7 @@ def maintenance_first(deployed, synthesized, name):
     """The deployed template with the maintenance function, its role's policy and the output naming its
     image as the synthesized template has them; nothing else changed."""
     out = copy.deepcopy(deployed)
-    d_id, s_id = the_function(deployed, name, "deployed"), the_function(synthesized, name, "synthesized")
+    d_id, s_id = named_function(deployed, name, "deployed"), named_function(synthesized, name, "synthesized")
     (d_role, d_policy), (s_role, s_policy) = role_policy(deployed, d_id, "deployed"), role_policy(synthesized, s_id, "synthesized")
     if d_role != s_role:
         raise ValueError(f"{name}'s role is {s_role} in the synthesized template, {d_role} in the deployed one")
@@ -100,14 +109,15 @@ def maintenance_first(deployed, synthesized, name):
 
 def main(args):
     if len(args) != 4 or args[0] != "maintenance-first":
-        print(__doc__, file=sys.stderr)
+        print(__doc__[__doc__.index("usage:"):], file=sys.stderr)
         return 2
     try:
         changed = maintenance_first(load(args[1]), load(args[2]), args[3])
-    except ValueError as e:
+    except (ValueError, TypeError, KeyError, IndexError) as e:
         print(f"serverless_template.py: {e}", file=sys.stderr)
         return 1
-    print(json.dumps(changed, separators=(",", ":")))
+    # UTF-8, as CloudFormation measures a template; nothing escaped that the template does not escape.
+    sys.stdout.buffer.write(json.dumps(changed, separators=(",", ":"), ensure_ascii=False).encode("utf-8") + b"\n")
     return 0
 
 

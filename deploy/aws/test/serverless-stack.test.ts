@@ -447,8 +447,9 @@ test('an upgrade migrates before anything that serves changes: the maintenance f
 });
 
 test('the template fits in a CloudFormation request, which sl_maintenance_first sends it in (#63)', () => {
-  // The largest the stack makes: SnapStart on, per-table credentials, two execute-api endpoints; with the
-  // metadata the CDK CLI adds to what it deploys.
+  // SnapStart on, per-table credentials, two execute-api endpoints and two subnets (more make it larger), with the
+  // metadata the CDK CLI adds to what it deploys; sl_maintenance_first refuses a template over the limit, before
+  // any change.
   const app = new App({ context: { 'aws:cdk:enable-path-metadata': true, 'aws:cdk:enable-asset-metadata': true } });
   const stack = new CatalogServerlessStack(app, 'ColvennaCatalogUatServerless', { ...props, snapStart: true });
   const bytes = Buffer.byteLength(JSON.stringify(Template.fromStack(stack).toJSON()));

@@ -75,9 +75,9 @@ export interface CatalogServerlessStackProps extends StackProps {
   apiEndpointIds: string[];
   /**
    * The image of the server, maintenance and purge functions: the images stack's repository, by digest.
-   * An upgrade does not deploy this stack before it migrates: install.sh changes only the maintenance
-   * function's image in the deployed template first (deploy/lib/serverless.sh, sl_maintenance_first;
-   * #63), so the output MaintenanceImage and the function's Code.ImageUri are what it changes.
+   * An upgrade does not deploy this stack before it migrates: install.sh first gives the deployed template
+   * the maintenance function's properties, its role's policy document and the output MaintenanceImage of
+   * this synthesis, and nothing else (deploy/lib/serverless.sh, sl_maintenance_first; #63).
    */
   imageUri: string;
   bucketName: string;

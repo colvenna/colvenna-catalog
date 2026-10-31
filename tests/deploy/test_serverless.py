@@ -650,6 +650,16 @@ class ServerlessTemplate(unittest.TestCase):
         other_role = json.loads(json.dumps(SYNTHESIZED))
         other_role["Resources"]["maintenance"]["Properties"]["Role"] = {"Fn::GetAtt": ["otherRole", "Arn"]}
         self.assertIn("role is otherRole in the synthesized template", self.change(DEPLOYED, synthesized=other_role).stderr)
+        # Fn::GetAtt's other form names the same role; a role that is no GetAtt is refused, never a traceback.
+        dotted = json.loads(json.dumps(SYNTHESIZED))
+        dotted["Resources"]["maintenance"]["Properties"]["Role"] = {"Fn::GetAtt": "maintenanceRole.Arn"}
+        self.assertEqual(self.change(DEPLOYED, synthesized=dotted).returncode, 0)
+        given = json.loads(json.dumps(SYNTHESIZED))
+        given["Resources"]["maintenance"]["Properties"]["Role"] = "arn:aws:iam::111122223333:role/given"
+        out = self.change(DEPLOYED, synthesized=given)
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("does not take the ARN of a role of its own", out.stderr)
+        self.assertNotIn("Traceback", out.stderr)
 
 
 class MaintenanceFirst(unittest.TestCase):
@@ -669,7 +679,7 @@ class MaintenanceFirst(unittest.TestCase):
         work, state = tempfile.mkdtemp(), Path(tempfile.mkdtemp())
         (state / "cdk.out").mkdir()
         write(state / "cdk.out" / f"{SERVERLESS_STACK}.template.json", json.dumps(SYNTHESIZED))
-        out, stubs = stubbed('sl_stack_settled() { echo UPDATE_COMPLETE; }; sl_maintenance_first;'
+        out, stubs = stubbed('stack_settled() { echo UPDATE_COMPLETE; }; sl_maintenance_first;'
                              ' echo "functions $MAINTENANCE_FUNCTION"', aws=aws, env={"WORK": work, "STATE_DIR": str(state)})
         return out, stubs, Path(work)
 
@@ -714,7 +724,7 @@ class MaintenanceFirst(unittest.TestCase):
         self.assertEqual([c for c in stubs.calls() if " update-stack " in c], [])
 
     def test_it_waits_for_an_operation_under_way(self):
-        out, _ = stubbed(f'sleep() {{ :; }}; sl_stack_settled {SERVERLESS_STACK}', aws={
+        out, _ = stubbed(f'sleep() {{ :; }}; stack_settled {SERVERLESS_STACK}', aws={
             f"cloudformation describe-stacks --region us-west-2 --stack-name {SERVERLESS_STACK} --query Stacks[0].StackStatus":
                 [{"stdout": "UPDATE_IN_PROGRESS\n"}, {"stdout": "UPDATE_ROLLBACK_IN_PROGRESS\n"}, {"stdout": "UPDATE_ROLLBACK_COMPLETE\n"}]})
         self.assertEqual(out.returncode, 0, out.stderr)

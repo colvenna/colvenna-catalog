@@ -388,19 +388,6 @@ sl_deploy_serverless() {
   export API_URL SERVER_FUNCTION MAINTENANCE_FUNCTION PURGE_FUNCTION AUTHORIZER_FUNCTION OPS_FUNCTION ADMIN_TOKEN_SECRET_ARN API_ID
 }
 
-# sl_stack_settled <stack>: the stack's status once no operation of it is under way (one a run that was
-# stopped left going on, UAT-DEP-04), waiting an hour at most.
-sl_stack_settled() {
-  local status
-  for _ in $(seq 1 360); do
-    status="$(stack_status "$1")"
-    [[ "$status" == *_IN_PROGRESS ]] || { printf '%s\n' "$status"; return 0; }
-    sleep 10
-  done
-  echo "$1 is still $status after an hour" >&2
-  return 1
-}
-
 # sl_maintenance_first: an upgrade's first change, while the server runs another image (#63): the
 # serverless stack as it is deployed, with the maintenance function as this version makes it (its image,
 # its settings and the database it migrates, which install onto a restored instance changes too, and its
@@ -419,7 +406,7 @@ sl_maintenance_first() {
   local stack maintenance keys key parameters=() deployed="$WORK/serverless-deployed.json" template="$WORK/serverless-template.json"
   local err="$WORK/update-stack.err"
   stack="$(stack_id Serverless)"
-  sl_stack_settled "$stack" >/dev/null
+  stack_settled "$stack" >/dev/null
   maintenance="$(cfn_output "$stack" MaintenanceFunctionName)"
   [[ -n "$maintenance" ]] || { echo "$stack has no output MaintenanceFunctionName: not a serverless stack this knows" >&2; return 1; }
   MAINTENANCE_FUNCTION="$maintenance"
