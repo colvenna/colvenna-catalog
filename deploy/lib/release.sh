@@ -58,7 +58,7 @@ release_checkout() {
   fi
   listed="$(release_tool added "$manifest")"
   mapfile -t added <<<"$listed"
-  changed="$(git -C "$REPO" diff --name-only "$built_from" HEAD -- . "${added[@]/#/:(exclude)}")"
+  changed="$(git -C "$REPO" diff --no-renames --name-only "$built_from" HEAD -- . "${added[@]/#/:(exclude)}")"
   if [[ -n "$changed" ]]; then
     rm -f "$err"
     refuse "This checkout differs from $built_from, the commit $name was built from, outside" \
@@ -226,13 +226,14 @@ fetch_release_chart() {
 }
 
 # release_verify_artifacts <dir>: the release registry's image and chart are those of the commit the
-# candidate was built from, B (source.built_from; a release's is its candidate's), or the install is refused (status 3), naming each
-# mismatch. After release_auth; <dir> is scratch space. The image (read by its digest) carries the label
-# RELEASE_REVISION_LABEL=B and is for the manifest's platform. The chart, pulled by its digest
-# (fetch_release_chart), is the manifest's name and version, names B in its RELEASE_SOURCE_ANNOTATION
-# annotation, and holds exactly B's chart directory (chart.path, whose tree is chart.tree) as a release
-# packages it: so chart.digest is chart.tree's. A release's chart is its candidate's with only its version
-# and appVersion changed (promote.sh), and is held to its own (chart.version, chart.appVersion).
+# candidate was built from, B (source.built_from; a release's is its candidate's), or the install is
+# refused (status 3), naming each mismatch. After release_auth; <dir> is scratch space. The image (read
+# by its digest) carries the label RELEASE_REVISION_LABEL=B and is for the manifest's platform. The
+# chart, pulled by its digest (fetch_release_chart), is the manifest's name and version, names B in its
+# RELEASE_SOURCE_ANNOTATION annotation, and holds exactly B's chart directory (chart.path, whose tree is
+# chart.tree) as a release packages it: so chart.digest is chart.tree's. A release's chart is its
+# candidate's with only its version and appVersion changed (promote.sh), and is held to its own
+# (chart.version, chart.appVersion).
 release_verify_artifacts() {
   local dir="$1" built_from image config revision platform name version path differences annotation problems=()
   built_from="$(release_value source.built_from)"

@@ -193,7 +193,6 @@ class ReleaseCheckout(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(out.stdout.split(), [self.built_from, str(self.repo / f"release/{RELEASE}/manifest.json")])
 
-
     def test_the_candidate_s_directory_changed_after_its_tag(self):
         self.promote()
         self.write(f"release/{self.PROMOTED}/notes.md", "changed on the release's tag\n")
@@ -201,7 +200,6 @@ class ReleaseCheckout(unittest.TestCase):
         self.assertRefused(self.checkout(), "does not describe this checkout",
                            f"differs from {self.tag_commit}, {self.PROMOTED}'s tag commit, outside release/{RELEASE}/",
                            f"release/{self.PROMOTED}/notes.md")
-
 
     def test_a_candidate_s_manifest_that_is_not_its_tag_s(self):
         self.promote(manifest_blob="e" * 40)
@@ -213,7 +211,6 @@ class ReleaseCheckout(unittest.TestCase):
             m["configurations"]["regions"] = ["us-west-2", "eu-west-1"]
         self.promote(change=regions)
         self.assertRefused(self.checkout(), f"is not {self.PROMOTED}'s under the release's names", "configurations")
-
 
     def test_a_candidate_not_judged_go(self):
         self.promote(verdict=self.GO.replace("| GO |", "| NO-GO |"))
@@ -531,7 +528,7 @@ class Verify(unittest.TestCase):
 
 
 class CopyImage(unittest.TestCase):
-    def run_copy(self, held, after=IMAGE):
+    def run_copy(self, held, after=IMAGE, of=None):
         stubs = Stubs({"aws": {
             "ecr get-login-password": {"stdout": "password\n"},
             "ecr describe-images": held,
@@ -543,7 +540,7 @@ class CopyImage(unittest.TestCase):
         reading_stdin(stubs, "crane")
         fake_helm(stubs.bin, names="unused.tgz")
         out = run_bash(f'release_auth; copy_release_image "{OWN}"; echo "$IMAGE_REPOSITORY@$IMAGE_DIGEST"',
-                       env=release_env(**stubs.env), path_prepend=stubs.bin)
+                       env=release_env(of, **stubs.env), path_prepend=stubs.bin)
         return out, stubs
 
     def copied(self, stubs):
@@ -559,6 +556,13 @@ class CopyImage(unittest.TestCase):
         self.assertEqual([c.split()[3] for c in logins], [REGISTRY, OWN.split("/")[0]])
         regions = [c for c in stubs.calls() if c.startswith("aws ecr get-login-password")]
         self.assertEqual([c.split()[-1] for c in regions], ["us-east-2", "us-east-2", "us-west-2"])
+
+    def test_a_release_s_image_is_its_candidate_s_copied_under_the_release_s_name(self):
+        out, stubs = self.run_copy({"stdout": "None\n"}, of=release_manifest())
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(self.copied(stubs), [
+            f"crane copy {REGISTRY}/colvenna-catalog-release/colvenna-catalog@{IMAGE} {OWN}:{RELEASE}"])
+        self.assertTrue(any(c.startswith("aws ecr describe-images") and f"imageTag={RELEASE}" in c for c in stubs.calls()))
 
     def test_an_image_already_there_is_not_copied_again(self):
         out, stubs = self.run_copy({"stdout": IMAGE + "\n"})

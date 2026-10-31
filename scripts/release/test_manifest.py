@@ -68,7 +68,6 @@ class Names(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "v<major>.<minor>.<patch>-rc.<n>"):
             manifest.names("v1.0.0")
 
-
     def test_install_sh_takes_a_candidate_s_name_or_a_release_s(self):
         for name, kind in (("v1.0.0-rc.1", "candidate"), ("v10.2.3-rc.12", "candidate"), ("v1.0.0", "release"),
                            ("v0.1.0", "release"), ("v10.2.3", "release")):

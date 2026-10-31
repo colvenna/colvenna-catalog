@@ -448,11 +448,11 @@ def notes(m, template):
     return re.sub(r"\{\{(\w+)\}\}", fill, template)
 
 
-def promotion():
+def promotion_module():
     """promotion.py, which defines a release's manifest. It imports this module, so it is imported here only
     when a release's manifest is read."""
-    import promotion as module
-    return module
+    import promotion
+    return promotion
 
 
 def is_release(m):
@@ -475,7 +475,7 @@ def added(m):
 
 def installed_tree_problems(m, repo, commit):
     """Where the commit is not what a valid manifest, a candidate's or a release's, describes."""
-    return promotion().tree_problems(m, repo, commit) if is_release(m) else tree_problems(m, repo, commit)
+    return promotion_module().tree_problems(m, repo, commit) if is_release(m) else tree_problems(m, repo, commit)
 
 
 def load(path):
@@ -490,7 +490,7 @@ def valid(path, name=None, go=False):
     valid, or, with go, if it is a candidate's that is not fit for GO (a release's always is)."""
     m = load(path)
     if is_release(m):
-        found = promotion().problems(m, name)
+        found = promotion_module().problems(m, name)
     else:
         found = problems(m, name)
         if not found and go:

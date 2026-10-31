@@ -403,9 +403,10 @@ def problems(m, release=None):
     return found
 
 
-def outside(repo, commit, other, directory):
-    """The paths in which the two commits differ outside the directory, or None if git cannot compare them."""
-    changed = manifest.git(repo, "diff", "--name-only", commit, other)
+def changed_outside(repo, commit, other, directory):
+    """The paths in which the two commits differ outside the directory, or None if git cannot compare them.
+    Without rename detection, a file moved into the directory is changed where it was taken from too."""
+    changed = manifest.git(repo, "diff", "--no-renames", "--name-only", commit, other)
     if changed is None:
         return None
     return [path for path in changed.splitlines() if not path.startswith(f"{directory}/")]
@@ -422,7 +423,7 @@ def provenance_problems(m, repo, commit):
     if manifest.git(repo, "rev-parse", "-q", "--verify", f"{tag_commit}^{{commit}}") is None:
         return [f"promotion.tag_commit: this clone lacks {tag_commit}, {candidate}'s tag commit: git fetch origin --tags"]
     found = []
-    changed = outside(repo, tag_commit, commit, f"release/{release}")
+    changed = changed_outside(repo, tag_commit, commit, f"release/{release}")
     if changed is None:
         found.append(f"{commit} cannot be compared with {tag_commit}, {candidate}'s tag commit")
     elif changed:

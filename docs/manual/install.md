@@ -203,7 +203,7 @@ Before it changes anything, it checks that the tree is clean and is the candidat
 A release (`v1.0.0`) is a candidate judged GO and promoted from it, never rebuilt ([Promoting a GO candidate](../development.md#promoting-a-go-candidate)). It installs the same way, from a clean checkout of its own tag, with the same registry:
 
 ```bash
-git fetch origin --tags         # the tags, and main, which holds the candidate's verdict
+git fetch origin --tags
 git checkout v1.0.0
 AWS_PROFILE=<profile> ./install.sh --config deploy/config/<env>.env --release v1.0.0
 ```
@@ -212,7 +212,7 @@ Its manifest, `release/v1.0.0/manifest.json`, is the candidate's under the relea
 
 - the checkout is the candidate's tag commit (`promotion.tag_commit`) with `release/v1.0.0/` added, nothing else;
 - the candidate's manifest there is the one recorded (`promotion.manifest`), and the release's manifest is that one under the release's names: the same image digest, commit, pinned files, UAT cases, performance terms, forms and Regions;
-- the commit that records the candidate's verdict (`promotion.acceptance`, on `main`) is in the clone and has the candidate's tag commit, and its `release/<candidate>/notes.md` is the recorded file and gives the release verdict `GO`, beside the same manifest. A clone that lacks it is refused: `git fetch origin`.
+- the commit whose release notes recorded the candidate's verdict when it was promoted (`promotion.acceptance`; `promote.sh` reads them on `origin/main` unless told otherwise) is in the clone and has the candidate's tag commit, and its `release/<candidate>/notes.md` is the recorded file and gives the release verdict `GO`, beside the same manifest. A clone that lacks that commit, a shallow or single-branch one say, is refused: fetch it (`git fetch origin`).
 
 The image is the candidate's, by the same digest, tagged `v1.0.0` in the environment's repository. The chart, pulled by its own digest, must be version `1.0.0` (appVersion `1.0.0`) and otherwise the candidate's: the chart directory of the commit the candidate was built from, annotated with that commit. The pods carry `colvenna-catalog/release: v1.0.0`. `scripts/release/verify-artifacts.sh v1.0.0` makes the same checks. A release's install has run only in offline tests: no release has been promoted yet.
 

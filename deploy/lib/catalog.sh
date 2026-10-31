@@ -56,7 +56,8 @@ chart_value() {
 # chart_args: the chart's values, one "--set-json=<key>=<json>" argument per line (JSON, so that commas
 # and dots in values are never taken for separators). Reads IMAGE_REPOSITORY, IMAGE_DIGEST,
 # WAREHOUSE_ROOT, DB_ENDPOINT, DB_PORT, SERVER_ROLE_ARN, DATA_ROLE_ARN, ELIGIBLE_NODES, SOURCE_SHA,
-# TLS_FINGERPRINT, NLB_HEALTH_CHECK_CIDRS and RELEASE_CANDIDATE (if any) besides the configuration.
+# TLS_FINGERPRINT, NLB_HEALTH_CHECK_CIDRS and RELEASE_CANDIDATE (if any: a candidate's or a release's
+# name) besides the configuration.
 chart_args() {
   chart_value image.repository "$(json_string "$IMAGE_REPOSITORY")"
   chart_value image.digest "$(json_string "$IMAGE_DIGEST")"
@@ -83,7 +84,7 @@ chart_args() {
     --arg v "${COLVENNA_CLIENT_NAMESPACE_LABEL#*=}" '{key: $k, value: $v}')"
   chart_value metricsClientLabel "$(json_string "${COLVENNA_METRICS_NAMESPACE_LABEL%%=*}")"
   # A new server certificate changes the pods' template, so the rollout that serves it happens with the
-  # upgrade, after an interrupted run too. A release's pods also name the candidate they run.
+  # upgrade, after an interrupted run too. A release's pods also name the candidate or the release they run.
   chart_value podAnnotations "$(jq -cn --arg s "$SOURCE_SHA" --arg t "$TLS_FINGERPRINT" --arg r "${RELEASE_CANDIDATE:-}" \
     '{"colvenna-catalog/source-sha": $s, "colvenna-catalog/tls-sha256": $t}
       + (if $r == "" then {} else {"colvenna-catalog/release": $r} end)')"

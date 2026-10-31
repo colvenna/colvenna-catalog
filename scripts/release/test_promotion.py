@@ -390,6 +390,13 @@ class Validate(unittest.TestCase):
         self.assertEqual(run("check-tree", str(path), str(repo), "HEAD").returncode, 0)
         # Before promote.sh commits the release, HEAD is C.
         self.assertEqual(run("check-tree", str(path), str(repo), c).returncode, 0)
+        # A file moved into release/<release>/ is a change outside it, where it was taken from.
+        git("mv", "install.sh", f"release/{RELEASE}/install.sh")
+        git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "moved")
+        out = run("check-tree", str(path), str(repo), "HEAD")
+        self.assertEqual(out.returncode, 1)
+        self.assertIn(f"differs from {c}, {CANDIDATE}'s tag commit, outside release/{RELEASE}/: install.sh", out.stderr)
+        git("checkout", "-q", "--detach", "HEAD^")
         for name, change, needle in (
                 ("a pinned tree", lambda m: m["chart"].update(tree="e" * 40), "chart: deploy/helm/colvenna-catalog is"),
                 ("a tag commit this clone lacks", lambda m: m["promotion"].update(tag_commit="e" * 40),
@@ -404,6 +411,7 @@ class Validate(unittest.TestCase):
                 out = run("check-tree", str(path), str(repo), "HEAD")
                 self.assertEqual(out.returncode, 1)
                 self.assertIn(needle, out.stderr)
+
 
 class Notes(unittest.TestCase):
     def setUp(self):
