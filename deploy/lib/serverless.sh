@@ -419,6 +419,27 @@ sl_deploy_serverless() {
   ADMIN_TOKEN_SECRET_ARN="$(stack_output "$stack" AdminTokenSecretArn)"
   API_ID="$(stack_output "$stack" ApiId)"
   export API_URL SERVER_FUNCTION MAINTENANCE_FUNCTION PURGE_FUNCTION AUTHORIZER_FUNCTION OPS_FUNCTION ADMIN_TOKEN_SECRET_ARN API_ID
+  sl_redeploy_stage
+}
+
+# sl_redeploy_stage: the API's stage serves the API as its stack now has it (#34). A gateway response
+# takes effect with a deployment of the API, which CDK makes depend on the responses the stack has; one
+# the stack no longer has is deleted only in CloudFormation's clean-up, after the new deployment, whose
+# snapshot keeps it (measured: an upgrade from a version that set INTEGRATION_FAILURE to 503 went on
+# answering an oversize request 503). So once the stack is deployed, a new deployment of the API is the
+# stage's; the deployment it replaces is deleted if it was this function's (one of CloudFormation's is
+# CloudFormation's to delete).
+sl_redeploy_stage() {
+  local before owned deployed
+  before="$(aws apigateway get-stage --region "$COLVENNA_REGION" --rest-api-id "$API_ID" --stage-name catalog \
+    --query deploymentId --output text)"
+  owned="$(stack_resources "$(stack_id Serverless)" AWS::ApiGateway::Deployment)"
+  deployed="$(aws apigateway create-deployment --region "$COLVENNA_REGION" --rest-api-id "$API_ID" --stage-name catalog \
+    --description "install.sh ($SOURCE_SHA): the API as its stack left it" --query id --output text)"
+  if [[ -n "$before" && "$before" != None && "$before" != "$deployed" ]] && ! grep -qxF -- "$before" <<<"$owned"; then
+    aws apigateway delete-deployment --region "$COLVENNA_REGION" --rest-api-id "$API_ID" --deployment-id "$before" >/dev/null
+  fi
+  echo "  the stage catalog serves the API as its stack left it (deployment $deployed)"
 }
 
 # sl_maintenance_first: an upgrade's first change, while the server runs another image (#63): the

@@ -853,6 +853,46 @@ class OrphanLogGroups(unittest.TestCase):
         self.assertTrue(steps[0].endswith(f"/cdk.out/{SERVERLESS_STACK}.template.json"), steps[0])
 
 
+class RedeployStage(unittest.TestCase):
+    """sl_redeploy_stage (#34): once the stack is deployed, the stage serves a new deployment of the API as it is, since a
+    gateway response the stack dropped is deleted only after CloudFormation's own new deployment, which keeps it."""
+
+    def run_step(self, marked):
+        aws = {
+            "apigateway create-deployment --region us-west-2 --rest-api-id abc --stage-name catalog": {"stdout": "new1\n"},
+            "apigateway get-deployments --region us-west-2 --rest-api-id abc": {"stdout": f"{marked}\n"},
+            "apigateway delete-deployment": {"stdout": "{}"},
+        }
+        out, stubs = stubbed("sl_redeploy_stage", aws=aws, env={"API_ID": "abc", "SOURCE_SHA": "b" * 40})
+        return out, stubs.calls()
+
+    def test_the_stage_takes_a_new_deployment_and_only_install_sh_s_others_go(self):
+        out, calls = self.run_step(marked="mine0\tmine1")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        create = next(c for c in calls if " create-deployment " in c)
+        self.assertIn("--description install.sh (" + "b" * 40 + "): the API as its stack left it", create)
+        listing = next(c for c in calls if " get-deployments " in c)
+        # Only those marked as install.sh's, never the new one: CloudFormation's and any other stay.
+        self.assertIn("items[?starts_with(description || '', 'install.sh (') && id != 'new1'].id", listing)
+        self.assertEqual([c.split("--deployment-id ")[1] for c in calls if " delete-deployment " in c], ["mine0", "mine1"])
+        # The new one first, so that the stage never points at a deployment that is gone.
+        self.assertLess(calls.index(create), calls.index(next(c for c in calls if " delete-deployment " in c)))
+        self.assertIn("serves the API as its stack left it (deployment new1)", out.stdout)
+
+    def test_none_marked(self):
+        out, calls = self.run_step(marked="None")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual([c for c in calls if " delete-deployment " in c], [])
+
+    def test_the_stack_s_deploy_ends_with_it(self):
+        script = ('sl_delete_orphan_log_groups() { :; }; deploy_assembly() { echo "deploy $1" >>"$WORK/steps"; };'
+                  ' stack_output() { echo "$2"; }; sl_redeploy_stage() { echo "redeploy $API_ID" >>"$WORK/steps"; }; sl_deploy_serverless')
+        work = tempfile.mkdtemp()
+        out, _ = stubbed(script, env={"WORK": work})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual((Path(work) / "steps").read_text().split(), ["deploy", "ColvennaCatalogSl1Serverless", "redeploy", "ApiId"])
+
+
 class Flow(unittest.TestCase):
     """install_serverless and uninstall_serverless, each step replaced by a recorder of its name."""
 
