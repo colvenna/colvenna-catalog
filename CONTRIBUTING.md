@@ -33,7 +33,7 @@ The [README](README.md) is the overview, and [docs/development.md](docs/developm
 
    Then remove the worktree and the branch.
 
-The one exception is a release candidate's pull request. Its branch is `release-<candidate>`, made at the commit the candidate was built from. It is never rebased, and nothing else merges before it ([Making a candidate](docs/development.md#making-a-candidate)).
+The exceptions are the release pull requests. A release candidate's branch is `release-<candidate>`, made at the commit the candidate was built from. It is never rebased, and nothing else merges before it ([Making a candidate](docs/development.md#making-a-candidate)). A release's branch is `release-<release>`, made at its GO candidate's tag commit by `scripts/release/promote.sh`, which tags its commit. It is never rebased, and merges with a merge commit ([Promoting a GO candidate](docs/development.md#promoting-a-go-candidate)).
 
 ## CI
 
