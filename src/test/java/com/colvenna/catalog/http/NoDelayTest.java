@@ -37,9 +37,9 @@ import org.junit.jupiter.api.io.TempDir;
  * its headers (about 40 ms on Linux). Each check runs in a JVM of its own, since the JDK reads the
  * setting once a JVM; the same server code serves HTTPS ({@code HttpsServer}), the API port's.
  *
- * <p>The checks read {@code TCP_NODELAY} on the connections the server accepted, as it answers on
- * them, which is what turns Nagle's algorithm off ({@link StandardSocketOptions#TCP_NODELAY}). They
- * do not time the answers: what Nagle's algorithm costs depends on the host's delayed ACKs and its
+ * <p>The check reads {@code TCP_NODELAY} on the connections the server accepted, as it answers on
+ * them, which is what turns Nagle's algorithm off ({@link StandardSocketOptions#TCP_NODELAY}). It
+ * does not time the answers: how long an answer takes depends on the host's delayed ACKs and its
  * load, and a comparison of times failed on a busy host (#66).
  */
 @Timeout(value = 3, unit = TimeUnit.MINUTES)
@@ -47,31 +47,27 @@ class NoDelayTest {
 
     @TempDir Path dir;
 
-    @Test
-    void theServersConnectionsHaveNagleOffOnceRestServerIsLoaded() throws Exception {
-        Map<String, String> on = probe(true);
-        assertThat(on).containsEntry("nodelay", "true").containsEntry("tcpNoDelay", "true");
-        Map<String, String> off = probe(false);
-        assertThat(off).containsEntry("tcpNoDelay", "false"); // the control: the JDK's default
-    }
-
     /**
-     * The answers #37 found 40 ms slower are those after the first on a kept-alive connection: each
-     * of them, and each on a new connection, goes out on a connection with TCP_NODELAY.
+     * Once RestServer is loaded, every answer goes out on a connection with TCP_NODELAY: each on a
+     * kept-alive connection, where #37 found every answer about 40 ms slower, and each on a new
+     * one. In the control, without RestServer, none does: the JDK's default.
      */
     @Test
-    void soEveryAnswerGoesOutWithNagleOffOnAKeptAliveConnectionOrANewOne() throws Exception {
+    void everyAnswerGoesOutWithNagleOffOnceRestServerIsLoaded() throws Exception {
         String answers = String.valueOf(Probe.KEPT_ALIVE + Probe.NEW_CONNECTIONS);
         Map<String, String> on = probe(true);
         assertThat(on)
+                .containsEntry("nodelay", "true")
                 .containsEntry("answers", answers)
-                .containsEntry("connections", String.valueOf(1 + Probe.NEW_CONNECTIONS))
-                .containsEntry("keptAlive", String.valueOf(Probe.KEPT_ALIVE))
-                .containsEntry("tcpNoDelays", "true");
-        Map<String, String> off = probe(false);
-        assertThat(off) // the control: the JDK's default, on every connection
+                .containsEntry("tcpNoDelayOfEveryAnswer", "true");
+        // That the client kept a connection alive, and opened new ones; how many answers it sent
+        // on each is its own pool's affair, not the server's.
+        assertThat(Integer.parseInt(on.get("mostOnOneConnection"))).isGreaterThan(1);
+        assertThat(Integer.parseInt(on.get("connections")))
+                .isGreaterThanOrEqualTo(1 + Probe.NEW_CONNECTIONS);
+        assertThat(probe(false))
                 .containsEntry("answers", answers)
-                .containsEntry("tcpNoDelays", "false");
+                .containsEntry("tcpNoDelayOfEveryAnswer", "false");
     }
 
     private Map<String, String> probe(boolean loadRestServer) throws Exception {
@@ -104,9 +100,8 @@ class NoDelayTest {
     /**
      * In a fresh JVM: loads RestServer (or not), serves a 2 KiB answer {@link #KEPT_ALIVE} times on
      * one kept-alive connection and once on each of {@link #NEW_CONNECTIONS} new ones, and prints
-     * the property, whether the first accepted connection has TCP_NODELAY, and, over every answer,
-     * how many there were, on how many connections, how many on the one kept alive longest, and the
-     * TCP_NODELAY values their connections had as each was answered.
+     * the property; over every answer, how many there were, on how many connections, and the most
+     * on one connection; and the TCP_NODELAY values their connections had as each was answered.
      */
     static final class Probe {
         static final int KEPT_ALIVE = 45;
@@ -156,12 +151,12 @@ class NoDelayTest {
                 IdentityHashMap<SocketChannel, Integer> perConnection = new IdentityHashMap<>();
                 answers.forEach(a -> perConnection.merge(a.channel(), 1, Integer::sum));
                 System.out.println("nodelay=" + System.getProperty(RestServer.NODELAY));
-                System.out.println("tcpNoDelay=" + answers.get(0).noDelay());
                 System.out.println("answers=" + answers.size());
                 System.out.println("connections=" + perConnection.size());
-                System.out.println("keptAlive=" + Collections.max(perConnection.values()));
                 System.out.println(
-                        "tcpNoDelays="
+                        "mostOnOneConnection=" + Collections.max(perConnection.values()));
+                System.out.println(
+                        "tcpNoDelayOfEveryAnswer="
                                 + answers.stream()
                                         .map(a -> String.valueOf(a.noDelay()))
                                         .distinct()
