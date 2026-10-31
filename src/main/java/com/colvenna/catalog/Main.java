@@ -144,7 +144,7 @@ public final class Main {
             int recorded = Migrations.recordedVersion(db);
             int needed = Migrations.serverVersion();
             if (recorded != needed) {
-                // Mid-upgrade this function takes the new image before migrate has run. No metric:
+                // The schema is not this image's (no migrate yet, or a newer schema). No metric:
                 // an install left so for an hour sets off the purge function's backlog alarm.
                 LOG.warn(
                         "Catalog schema is at version {}, this server needs {}: not purging",

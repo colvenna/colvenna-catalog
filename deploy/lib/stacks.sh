@@ -91,12 +91,45 @@ stack_status() {
   rm -f "$err"
 }
 
+# How long stack_settled waits for an operation of a stack under way to end.
+STACK_SETTLE_MINUTES=60
+
+# stack_settled <stack>: the stack's status once no operation of it is under way (one a run that was
+# stopped left going on, UAT-DEP-04), waiting STACK_SETTLE_MINUTES at most.
+stack_settled() {
+  local status
+  for _ in $(seq 1 $((STACK_SETTLE_MINUTES * 6))); do
+    status="$(stack_status "$1")"
+    [[ "$status" == *_IN_PROGRESS ]] || { printf '%s\n' "$status"; return 0; }
+    sleep 10
+  done
+  echo "$1 is still $status after $STACK_SETTLE_MINUTES minutes" >&2
+  return 1
+}
+
 # deploy_stack <stack> <cdk arguments...>: deploys the stack, leaving its outputs in STATE_DIR/<stack>.json.
 deploy_stack() {
   local stack="$1"
   shift
   (cd "$REPO/deploy/aws" && npx cdk deploy "$stack" --require-approval never --no-notices --no-version-reporting \
     --output "$STATE_DIR/cdk.out" --outputs-file "$STATE_DIR/$stack.json" "$@") >>"$EVIDENCE/cdk.log" 2>&1 \
+    || { tail -30 "$EVIDENCE/cdk.log" >&2; return 1; }
+}
+
+# synth_stack <stack> <cdk arguments...>: the stack synthesized into STATE_DIR/cdk.out, for a look at its
+# template (STATE_DIR/cdk.out/<stack>.template.json) before deploy_assembly deploys it.
+synth_stack() {
+  local stack="$1"
+  shift
+  (cd "$REPO/deploy/aws" && npx cdk synth "$stack" --quiet --no-notices --no-version-reporting \
+    --output "$STATE_DIR/cdk.out" "$@") >>"$EVIDENCE/cdk.log" 2>&1 || { tail -30 "$EVIDENCE/cdk.log" >&2; return 1; }
+}
+
+# deploy_assembly <stack>: deploys the stack synth_stack synthesized, as it is (no synthesis again),
+# leaving its outputs in STATE_DIR/<stack>.json as deploy_stack does.
+deploy_assembly() {
+  (cd "$REPO/deploy/aws" && npx cdk deploy "$1" --app "$STATE_DIR/cdk.out" --require-approval never --no-notices \
+    --no-version-reporting --outputs-file "$STATE_DIR/$1.json") >>"$EVIDENCE/cdk.log" 2>&1 \
     || { tail -30 "$EVIDENCE/cdk.log" >&2; return 1; }
 }
 

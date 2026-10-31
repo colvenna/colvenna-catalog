@@ -15,7 +15,7 @@ export const CONTEXT_KEYS = [
   'env', 'oidcIssuer', 'bucket', 'warehousePrefix', 'namespace', 'serviceAccount', 'databaseUser',
   'createBucket', 'createDatabase', 'vpcId', 'subnetIds', 'subnetZones', 'clientSecurityGroupId',
   'pullAccounts',
-  'networkMode', 'vpcCidr', 'securityGroupId', 'apiEndpointIds', 'imageUri', 'maintenanceImageUri', 'warehouseName', 'databaseEndpoint',
+  'networkMode', 'vpcCidr', 'securityGroupId', 'apiEndpointIds', 'imageUri', 'warehouseName', 'databaseEndpoint',
   'databasePort', 'databaseName', 'databaseResourceId', 'dataTokens', 'dataTokenDuration', 'memory', 'concurrency', 'snapStart',
 ] as const;
 type Context = Partial<Record<(typeof CONTEXT_KEYS)[number], string>>;
@@ -113,7 +113,6 @@ export function buildApp(context: Context, app: App = new App()): App {
       securityGroupId: need('securityGroupId'),
       apiEndpointIds: need('apiEndpointIds').split(','),
       imageUri: need('imageUri'),
-      maintenanceImageUri: context.maintenanceImageUri || undefined,
       bucketName: need('bucket'),
       warehousePrefix: need('warehousePrefix'),
       warehouseName: need('warehouseName'),

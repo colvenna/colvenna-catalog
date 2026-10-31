@@ -58,9 +58,11 @@ class Judges(unittest.TestCase):
         self.assertTrue(dep07.judge_refused("eks", 1, 0, log, (3, 2), None, None)[0])
         self.assertFalse(dep07.judge_refused("eks", 1, 1, log, (3, 2), None, None)[0])
         self.assertFalse(dep07.judge_refused("eks", 1, 0, "refused", (3, 2), None, None)[0])
-        self.assertTrue(dep07.judge_refused("serverless", 1, None, log, (3, 2), "7", "7")[0])
-        self.assertFalse(dep07.judge_refused("serverless", 1, None, log, (3, 2), "7", "8")[0])
-        self.assertFalse(dep07.judge_refused("serverless", 0, None, log, (3, 2), "7", "7")[0])
+        self.assertTrue(dep07.judge_refused("serverless", 1, None, log, (3, 2), ("7", ["7"]), ("7", ["7"]))[0])
+        self.assertFalse(dep07.judge_refused("serverless", 1, None, log, (3, 2), ("7", ["7"]), ("8", ["7", "8"]))[0])
+        self.assertFalse(dep07.judge_refused("serverless", 0, None, log, (3, 2), ("7", ["7"]), ("7", ["7"]))[0])
+        # A version published, the alias left where it was: the server function changed all the same (#63).
+        self.assertFalse(dep07.judge_refused("serverless", 1, None, log, (3, 2), ("7", ["7"]), ("7", ["7", "8"]))[0])
 
     def test_nothing_written_and_restored_as_at_the_snapshot(self):
         self.assertTrue(dep07.judge_nothing_written(([1], [2]), ([1], [2]))[0])

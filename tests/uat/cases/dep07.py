@@ -96,15 +96,17 @@ def names_versions(text, versions):
 def judge_refused(form, code, ready, text, versions, live_before, live_after):
     """The previous version refused the newer schema, naming the versions (newer, older): EKS, none of
     its pods ever ready (ready: how many were) and their log naming both; serverless, its install.sh
-    failing with both named, the alias live as it was (its migrate refused before the server function
-    changed)."""
+    failing with both named, and the server function as it was (live: the alias live's version and the
+    function's published versions; its migrate refused before the server function changed, and published
+    none, #63)."""
     named = names_versions(text, versions)
     if form == "eks":
         return ready == 0 and named, (f"the previous release's pods ready: {ready}; the versions {versions} named: "
                                       f"{named}; the rollback exited {code}")
     same = live_before is not None and live_before == live_after
     return code != 0 and named and same, (f"the previous release's install.sh exited {code}; the versions {versions} "
-                                          f"named: {named}; the alias live {live_before} then {live_after}")
+                                          f"named: {named}; the alias live and the published versions {live_before} "
+                                          f"then {live_after}")
 
 
 def judge_nothing_written(before, after):
@@ -157,9 +159,11 @@ def known_keys(checkout):
 
 
 def live_version(ctx):
-    """Serverless: the version the server function's alias live is on."""
+    """Serverless: (the version the server function's alias live is on, the function's published versions)."""
     fn = ctx.install.output("Serverless", "ServerFunctionName")
-    return ctx.aws("lambda", "get-alias", "--function-name", fn, "--name", "live")["FunctionVersion"]
+    alias = ctx.aws("lambda", "get-alias", "--function-name", fn, "--name", "live")["FunctionVersion"]
+    published = ctx.aws("lambda", "list-versions-by-function", "--function-name", fn, "--query", "Versions[].Version") or []
+    return alias, sorted(v for v in published if v != "$LATEST")
 
 
 def previous_pods(ctx, previous):
