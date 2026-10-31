@@ -404,8 +404,8 @@ sl_deploy_serverless() {
 # rolls back if that fails; a template with nothing to change (a run again after a refused or failed
 # migrate) is no failure. A template over TEMPLATE_BODY_MAX (the stack's is, with the metadata CDK puts
 # in it: 51,365 bytes measured) goes by its URL in the CDK bootstrap's staging bucket, as CDK sends its
-# own, and is deleted from there once the update is over. Exports the name the migrate step uses, from
-# the stack's outputs.
+# own, and is deleted from there once the update is over (the bucket's versioning keeps a noncurrent
+# copy as its lifecycle rule says). Exports the name the migrate step uses, from the stack's outputs.
 sl_maintenance_first() {
   local stack maintenance keys key parameters=() deployed="$WORK/serverless-deployed.json" template="$WORK/serverless-template.json"
   local err="$WORK/update-stack.err" source=() bucket="" object="" updated=0
@@ -418,15 +418,6 @@ sl_maintenance_first() {
   aws cloudformation get-template --region "$COLVENNA_REGION" --stack-name "$stack" --template-stage Original \
     --query TemplateBody --output json >"$deployed"
   python3 "$SL_TEMPLATE" maintenance-first "$deployed" "$STATE_DIR/cdk.out/$stack.template.json" "$maintenance" >"$template"
-  if (($(wc -c <"$template") > TEMPLATE_BODY_MAX)); then
-    bucket="$(cfn_output CDKToolkit BucketName)"
-    [[ -n "$bucket" ]] || { echo "The CDK bootstrap stack CDKToolkit names no staging bucket (output BucketName)" >&2; return 1; }
-    object="colvenna-catalog/$stack/maintenance-first-$(sha256sum "$template" | cut -c1-64).json"
-    aws s3 cp --region "$COLVENNA_REGION" --only-show-errors "$template" "s3://$bucket/$object"
-    source=(--template-url "https://$bucket.s3.$COLVENNA_REGION.amazonaws.com/$object")
-  else
-    source=(--template-body "file://$template")
-  fi
   # The stack's parameters (CDK's BootstrapVersion) as they are.
   keys="$(aws cloudformation describe-stacks --region "$COLVENNA_REGION" --stack-name "$stack" \
     --query 'Stacks[0].Parameters[].ParameterKey' --output text)"
@@ -434,13 +425,26 @@ sl_maintenance_first() {
     [[ "$key" == None ]] || parameters+=("ParameterKey=$key,UsePreviousValue=true")
   done
   ((${#parameters[@]} == 0)) || parameters=(--parameters "${parameters[@]}")
+  if (($(wc -c <"$template") > TEMPLATE_BODY_MAX)); then
+    bucket="$(cfn_output CDKToolkit BucketName)"
+    [[ -n "$bucket" ]] || { echo "The CDK bootstrap stack CDKToolkit names no staging bucket (output BucketName)" >&2; return 1; }
+    object="colvenna-catalog/$stack/maintenance-first-$(sha256sum "$template" | cut -c1-64).json"
+    aws s3 cp --region "$COLVENNA_REGION" --only-show-errors "$template" "s3://$bucket/$object"
+    # Path-style, as CDK gives its own templates' URLs.
+    source=(--template-url "https://s3.$COLVENNA_REGION.amazonaws.com/$bucket/$object")
+  else
+    source=(--template-body "file://$template")
+  fi
   if aws cloudformation update-stack --region "$COLVENNA_REGION" --stack-name "$stack" "${source[@]}" \
     "${parameters[@]}" --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND >/dev/null 2>"$err"; then
     aws cloudformation wait stack-update-complete --region "$COLVENNA_REGION" --stack-name "$stack" && updated=1
   elif grep -q "No updates are to be performed" "$err"; then
     updated=2
   fi
-  [[ -z "$object" ]] || aws s3 rm --region "$COLVENNA_REGION" --only-show-errors "s3://$bucket/$object"
+  # Best effort: what the update came to is the step's answer, not this.
+  if [[ -n "$object" ]] && ! aws s3 rm --region "$COLVENNA_REGION" --only-show-errors "s3://$bucket/$object" 2>/dev/null; then
+    echo "  (s3://$bucket/$object could not be deleted; it is a copy of the template, and may go)" >&2
+  fi
   case "$updated" in
     1) echo "  $maintenance as this version makes it; nothing else of $stack changed" ;;
     2) echo "  $maintenance already as this version makes it" ;;

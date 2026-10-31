@@ -665,7 +665,7 @@ class ServerlessTemplate(unittest.TestCase):
 class MaintenanceFirst(unittest.TestCase):
     """sl_maintenance_first: CloudFormation updates the deployed template so changed; no CDK, no other change."""
 
-    def run_step(self, update=None, wait=None, statuses=("UPDATE_COMPLETE",), deployed=None):
+    def run_step(self, update=None, wait=None, statuses=("UPDATE_COMPLETE",), deployed=None, rm=None):
         outputs = stack_outputs(SERVERLESS_STACK, MaintenanceFunctionName="colvenna-catalog-sl1-maintenance")
         describe = f"cloudformation describe-stacks --region us-west-2 --stack-name {SERVERLESS_STACK}"
         aws = {
@@ -677,7 +677,7 @@ class MaintenanceFirst(unittest.TestCase):
             "cloudformation wait stack-update-complete": wait or {"stdout": ""},
             **stack_outputs("CDKToolkit", BucketName="cdk-staging"),
             "s3 cp": {"stdout": ""},
-            "s3 rm": {"stdout": ""},
+            "s3 rm": rm or {"stdout": ""},
         }
         work, state = tempfile.mkdtemp(), Path(tempfile.mkdtemp())
         (state / "cdk.out").mkdir()
@@ -729,7 +729,7 @@ class MaintenanceFirst(unittest.TestCase):
         self.assertRegex(put, r"s3://cdk-staging/colvenna-catalog/ColvennaCatalogSl1Serverless/maintenance-first-[0-9a-f]{64}\.json$")
         key = put.split("s3://cdk-staging/")[1]
         update = next(c for c in calls if " update-stack " in c)
-        self.assertIn(f"--template-url https://cdk-staging.s3.us-west-2.amazonaws.com/{key}", update)
+        self.assertIn(f"--template-url https://s3.us-west-2.amazonaws.com/cdk-staging/{key}", update)
         self.assertNotIn("--template-body", update)
         # Gone from the bucket once the update is over, whatever it came to.
         self.assertTrue(any(f" s3 rm --region us-west-2 --only-show-errors s3://cdk-staging/{key}" in c for c in calls))
@@ -737,6 +737,11 @@ class MaintenanceFirst(unittest.TestCase):
         out, stubs, _ = self.run_step(deployed=big, update={"code": 254, "stderr": "An error occurred (ValidationError): bad\n"})
         self.assertEqual(out.returncode, 1)
         self.assertTrue(any(" s3 rm " in c for c in stubs.calls()))
+        self.assertIn("ValidationError): bad", out.stderr)
+        # A copy that cannot be deleted changes nothing of the answer.
+        out, *_ = self.run_step(deployed=big, rm={"code": 1, "stderr": "AccessDenied\n"})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("could not be deleted", out.stderr)
 
     def test_it_waits_for_an_operation_under_way(self):
         out, _ = stubbed(f'sleep() {{ :; }}; stack_settled {SERVERLESS_STACK}', aws={
