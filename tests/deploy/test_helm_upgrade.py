@@ -138,6 +138,14 @@ class HelmUpgradeTest(unittest.TestCase):
         # running its EXIT trap, so the record must not depend on one.
         self.kill_in_upgrade(signal.SIGHUP)
 
+    def test_a_run_hung_up_is_rolled_back_even_when_this_test_inherited_sighup_ignored(self):
+        # As under nohup (#76): this process ignores SIGHUP; the run it starts must still get it.
+        previous = signal.signal(signal.SIGHUP, signal.SIG_IGN)
+        try:
+            self.kill_in_upgrade(signal.SIGHUP)
+        finally:
+            signal.signal(signal.SIGHUP, previous)
+
     def test_a_run_killed_in_its_upgrade_is_rolled_back_by_the_next(self):
         # As when the host goes: SIGKILL to the whole session.
         self.kill_in_upgrade(signal.SIGKILL)
@@ -152,9 +160,14 @@ class HelmUpgradeTest(unittest.TestCase):
     def kill_in_upgrade(self, sig):
         # The first run's helm hangs in the upgrade, the release pending, and the session gets the signal.
         self.release("superseded", "deployed")
+        # The run starts as on an operator's host, the signal at its default disposition, whatever this test
+        # inherited: under nohup SIGHUP comes ignored, and bash cannot reset a signal ignored on entry (#76).
+        # Only SIGHUP: of the signals the harness resets (uatlib.deploy.SESSION_SIGNALS), the only one these
+        # tests send that a parent can leave ignored (SIGKILL cannot be).
         first = subprocess.Popen(["bash", "-c", f'source "{HELPER}"; helm_upgrade rel ./chart --namespace ns --wait'],
                                  env={**self.env, "HELM_STUB_HANG": "1"}, start_new_session=True,
-                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                 preexec_fn=lambda: signal.signal(signal.SIGHUP, signal.SIG_DFL))
         for _ in range(100):
             if self.statuses()[-1:] == ["pending-upgrade"]:
                 break

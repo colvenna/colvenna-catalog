@@ -753,7 +753,7 @@ The time of each step is recorded, not judged.
 
 **Cleanup**: the install is left at the default duration.
 
-**Harness**: `tests/uat/uat.py run UAT-DEP-04` (#52): each run of `install.sh` in a process group of its own, the signal sent to the whole group once the step's change is under way (the Helm release's status, the stack's).
+**Harness**: `tests/uat/uat.py run UAT-DEP-04` (#52): each run of `install.sh` in a process group of its own, started with the session's signals at their default whatever the harness inherited (#76), the signal sent to the whole group once the step's change is under way (the Helm release's status, the stack's).
 
 #### UAT-DEP-05 Refused configurations
 
