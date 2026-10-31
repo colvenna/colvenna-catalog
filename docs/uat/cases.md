@@ -89,7 +89,7 @@ In each Region, in this order (cases in one step may run at once unless the case
 9. UAT-DEP-02: E3 and S3, at once, each run naming the other's configuration (`--alongside`), since both install into the test environment's database and bucket (#43); UAT-DEP-11 on E3; then UAT-DEP-09 on E3 and S3, so that E3 is gone before E2 is made.
 10. The previous release on E2 and S2, then UAT-DEP-06, then UAT-DEP-07.
 11. UAT-DEP-08 on E1, S1, E2 and S2.
-12. UAT-DEP-09 on E1, S1, E2 and S2. Then the extra runs of UAT-DEP-06 and 07, if their rule "When the previous release fails a check itself" needs any, on an install in E2's or S2's place.
+12. UAT-DEP-09 on E1, S1, E2 and S2. Then the extra runs of UAT-DEP-06 and 07, if their rule "When the previous release fails a check itself" needs any, on an install in E2's or S2's place, which UAT-DEP-09 then removes (with the instance its UAT-DEP-07 restored, as E2's and S2's).
 13. `tests/environment/down.sh uat<r> <region>`.
 
 **Room on the catalogs' nodes** (#65). A case that changes a running EKS install rolls its Deployment: the chart's rolling update starts one more catalog pod before it stops one (`maxSurge: 1`, `maxUnavailable: 0`), and that pod needs room on a catalogs' node. UAT-DEP-04, 06 and 07 roll an install, and so do the runs of `install.sh` that change a setting in UAT-CAT-03, UAT-DEP-10 and UAT-DEP-11, and `tests/environment/network-policy.sh` in UAT-DEP-05. Per catalogs' node, by CPU requests, as measured on a test environment of this layout (2026-10-29):
@@ -1136,7 +1136,7 @@ This set holds for every candidate from the first after `v1.0.0-rc.1`, until thi
 
 - Each case runs in `us-west-2` and in `us-east-2`, in each form the row names that the candidate's manifest lists in `configurations.forms`. A candidate that names only `eks` runs the EKS rows; one that names `serverless` runs its rows too.
 - The declarations in `tests/compat/declared.tsv` at the candidate's commit are part of the set: each entry declared `supported` for a form must pass in that form; an entry declared `limitation` does not count against the case. A form without declarations cannot run its UAT-CMP cases, which are then `NOT_RUN`; both forms are declared (#52).
-- The report gives each case, Region and form one result (section 3.3). Every one must be `PASS` for a `GO` (design 9.4). A failed check of UAT-DEP-06 or 07 that their rule gives to the previous release does not count against the candidate (section 3.3): the report's counts keep the case's `FAIL` and say how many of the `FAIL`s are such, and the release verdict leaves those out.
+- The report gives each case, Region and form one result (section 3.3). Every one must be `PASS` for a `GO` (design 9.4). A failed check of UAT-DEP-06 or 07 that their rule gives to the previous release does not count against the candidate (section 3.3): the report's counts keep the case's `FAIL` and say how many of the `FAIL`s have no failed check but such ones, and the release verdict leaves those out; a run with any other failed check still counts against the candidate.
 
 <!-- required-cases:start -->
 
