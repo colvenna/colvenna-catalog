@@ -17,13 +17,23 @@ A manifest is valid when its every field is as the schema says (problems); it is
 when the UAT cases document and the performance terms exist and the required cases are fixed too
 (go_problems).
 
+install.sh --release <name> installs a candidate, or a release promoted from a GO candidate
+(v<major>.<minor>.<patch>, release/<release>/manifest.json, promotion.py): validate, check-tree, name and
+added read either manifest, and hold a release's to promotion.py.
+
 usage:
   manifest.py assemble <work>                 the manifest, from what make-manifest.sh gathered in
                                               <work> (see assemble), on stdout
-  manifest.py validate <manifest> [--candidate <candidate>] [--go]
+  manifest.py validate <manifest> [--name <name>] [--go]
+                                              a candidate's or a release's manifest (of that name);
                                               --go: also what a candidate for GO still lacks
   manifest.py check-tree <manifest> <repo> <commit>
-                                              the manifest's git objects are the commit's
+                                              the manifest's git objects are the commit's (a release's:
+                                              and where it was promoted from, promotion.py)
+  manifest.py kind <name>                     candidate or release, the names install.sh --release takes
+  manifest.py name <manifest>                 the candidate's or the release's name
+  manifest.py added <manifest>                the directories its tag adds to the commit it was built
+                                              from, one per line
   manifest.py names <candidate>               image and chart: repository, tag, tab-separated
   manifest.py repositories                    the release registry's repositories, one per line
   manifest.py paths                           the paths whose git objects a manifest pins
@@ -80,6 +90,8 @@ PINNED = (
 PINNED_PATHS = tuple(path for _, _, path, _ in PINNED)
 
 CANDIDATE = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc\.[1-9][0-9]*$")
+# A release: one of its candidates (v<major>.<minor>.<patch>-rc.<n>) judged GO and promoted (promotion.py).
+RELEASE = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 SHA = re.compile(r"^[0-9a-f]{40}$")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 UTC = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
@@ -102,6 +114,16 @@ def candidate_problems(name):
     if isinstance(name, str) and CANDIDATE.fullmatch(name):
         return []
     return [f"candidate: {name!r} is not v<major>.<minor>.<patch>-rc.<n> (n from 1)"]
+
+
+def kind(name):
+    """candidate or release: what install.sh --release installs under that name; ValueError if neither."""
+    if isinstance(name, str) and CANDIDATE.fullmatch(name):
+        return "candidate"
+    if isinstance(name, str) and RELEASE.fullmatch(name):
+        return "release"
+    raise ValueError(f"{name!r} is neither a candidate, v<major>.<minor>.<patch>-rc.<n> (n from 1), nor a release,"
+                     " v<major>.<minor>.<patch>")
 
 
 def chart_version(candidate):
@@ -426,6 +448,36 @@ def notes(m, template):
     return re.sub(r"\{\{(\w+)\}\}", fill, template)
 
 
+def promotion_module():
+    """promotion.py, which defines a release's manifest. It imports this module, so it is imported here only
+    when a release's manifest is read."""
+    import promotion
+    return promotion
+
+
+def is_release(m):
+    """Whether the manifest is a release's (promotion.py: it has release where a candidate's has candidate)."""
+    return isinstance(m, dict) and "release" in m
+
+
+def name_of(m):
+    """The candidate's or the release's name, of a valid manifest."""
+    return m["release"] if is_release(m) else m["candidate"]
+
+
+def added(m):
+    """The directories a valid manifest's tag adds to the commit it was built from: release/<candidate>; a
+    release's tag adds release/<release> to its candidate's."""
+    if is_release(m):
+        return [f"release/{m['promotion']['candidate']}", f"release/{m['release']}"]
+    return [f"release/{m['candidate']}"]
+
+
+def installed_tree_problems(m, repo, commit):
+    """Where the commit is not what a valid manifest, a candidate's or a release's, describes."""
+    return promotion_module().tree_problems(m, repo, commit) if is_release(m) else tree_problems(m, repo, commit)
+
+
 def load(path):
     try:
         return json.loads(read(path))
@@ -433,11 +485,16 @@ def load(path):
         raise ValueError(f"{path}: not JSON ({error})") from None
 
 
-def valid(path, candidate=None, go=False):
+def valid(path, name=None, go=False):
+    """The manifest at path, a candidate's or a release's (of that name, if given); ValueError if it is not
+    valid, or, with go, if it is a candidate's that is not fit for GO (a release's always is)."""
     m = load(path)
-    found = problems(m, candidate)
-    if not found and go:
-        found = go_problems(m)
+    if is_release(m):
+        found = promotion_module().problems(m, name)
+    else:
+        found = problems(m, name)
+        if not found and go:
+            found = go_problems(m)
     if found:
         raise ValueError(f"{path}:\n  " + "\n  ".join(found))
     return m
@@ -458,15 +515,21 @@ def main(argv):
     rest = [a for a in args if a != "--go"]
     if command == "assemble" and len(args) == 1:
         print(json.dumps(assemble(args[0]), indent=2))
-    elif command == "validate" and len(rest) in (1, 3) and (len(rest) == 1 or rest[1] == "--candidate"):
+    elif command == "validate" and len(rest) in (1, 3) and (len(rest) == 1 or rest[1] == "--name"):
         valid(rest[0], rest[2] if len(rest) == 3 else None, go=bool(flags))
     elif command == "check-tree" and len(args) == 3:
-        found = tree_problems(valid(args[0]), args[1], args[2])
+        found = installed_tree_problems(valid(args[0]), args[1], args[2])
         if found:
             raise ValueError(f"{args[0]}:\n  " + "\n  ".join(found))
     elif command == "names" and len(args) == 1:
         for row in names(args[0]):
             print("\t".join(row))
+    elif command == "kind" and len(args) == 1:
+        print(kind(args[0]))
+    elif command == "name" and len(args) == 1:
+        print(name_of(valid(args[0])))
+    elif command == "added" and len(args) == 1:
+        print("\n".join(added(valid(args[0]))))
     elif command == "repositories" and not args:
         print(IMAGE_REPOSITORY)
         print(CHART_REPOSITORY)

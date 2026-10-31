@@ -61,11 +61,13 @@ class ChartArgs(unittest.TestCase):
             self.assertIn(f'COLVENNA_FILEIO_FS_S3A_ENDPOINT_REGION: "{region}"', manifests)
             self.assertIn(f'COLVENNA_FILEIO_S3_REGION: "{region}"', manifests)
 
-    def test_a_release_s_pods_name_the_candidate(self):
+    def test_a_release_s_pods_name_the_candidate_or_the_release(self):
         self.assertNotIn("colvenna-catalog/release", render())
-        manifests = render(RELEASE_CANDIDATE="v1.0.0-rc.1")
-        self.assertIn("colvenna-catalog/release: v1.0.0-rc.1", manifests)
-        self.assertIn("colvenna-catalog/source-sha: " + "b" * 40, manifests)
+        for name in ("v1.0.0-rc.1", "v1.0.0"):
+            with self.subTest(name):
+                manifests = render(RELEASE_CANDIDATE=name)
+                self.assertIn(f"colvenna-catalog/release: {name}\n", manifests)
+                self.assertIn("colvenna-catalog/source-sha: " + "b" * 40, manifests)
 
     def test_the_database_url(self):
         self.assertIn('COLVENNA_JDBC_URL: "jdbc:postgresql://db.example.com:5432/colvenna_catalog?sslmode=verify-full'

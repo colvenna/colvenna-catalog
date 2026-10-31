@@ -80,7 +80,7 @@ tag_commit="$(git -C "$REPO" rev-parse -q --verify "refs/tags/$candidate^{commit
 ! git -C "$REPO" cat-file -e "HEAD:release/$release" 2>/dev/null || fail "release/$release is already at $head" 2
 manifest="$REPO/release/$candidate/manifest.json"
 [[ -f "$manifest" ]] || fail "No release/$candidate/manifest.json at $candidate's tag" 2
-python3 "$manifest_py" validate "$manifest" --candidate "$candidate" --go \
+python3 "$manifest_py" validate "$manifest" --name "$candidate" --go \
   || fail "$candidate's manifest is not that of a candidate for GO" 2
 built_from="$(python3 "$manifest_py" get "$manifest" source.built_from)"
 git -C "$REPO" cat-file -e "$built_from^{commit}" 2>/dev/null \

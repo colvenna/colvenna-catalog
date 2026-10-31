@@ -1,6 +1,7 @@
 """Offline tests of manifest.py: the release manifest's schema and validation, the names of a
-candidate's image and chart, how make-manifest.sh's gathered files become a manifest, the checks
-against a checkout, the required cases, the release notes' draft, and the command line."""
+candidate's image and chart, the names install.sh --release takes (a candidate's or a release's), how
+make-manifest.sh's gathered files become a manifest, the checks against a checkout, the required cases,
+the release notes' draft, and the command line, for a candidate's manifest and a release's."""
 import copy
 import json
 import os
@@ -15,6 +16,7 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 TOOL = os.path.join(HERE, "manifest.py")
 sys.path.insert(0, HERE)
 import manifest  # noqa: E402
+import promotion  # noqa: E402
 
 SHA = "b" * 40
 IMAGE = "sha256:" + "1" * 64
@@ -65,6 +67,24 @@ class Names(unittest.TestCase):
         ])
         with self.assertRaisesRegex(ValueError, "v<major>.<minor>.<patch>-rc.<n>"):
             manifest.names("v1.0.0")
+
+    def test_install_sh_takes_a_candidate_s_name_or_a_release_s(self):
+        for name, kind in (("v1.0.0-rc.1", "candidate"), ("v10.2.3-rc.12", "candidate"), ("v1.0.0", "release"),
+                           ("v0.1.0", "release"), ("v10.2.3", "release")):
+            with self.subTest(name):
+                self.assertEqual(manifest.kind(name), kind)
+        for name in ("1.0.0", "1.0.0-rc.1", "v1.0", "v01.0.0", "v1.0.0-rc.0", "v1.0.0-dev.1", "v1.0.0\n", "latest", "",
+                     None):
+            with self.subTest(repr(name)):
+                with self.assertRaisesRegex(ValueError, "neither a candidate, .*, nor a release"):
+                    manifest.kind(name)
+
+
+def release_of(candidate):
+    """The release promoted from the candidate (a candidate for GO of v1.0.0), as promote.sh assembles it."""
+    return promotion.build(candidate, {
+        "release": "v1.0.0", "generated": "2026-11-02T06:00:00Z", "tag_commit": "d" * 40, "manifest_blob": "e" * 40,
+        "acceptance": {"commit": "f" * 40, "blob": "0" * 40}, "chart_digest": "sha256:" + "3" * 64, "chart_files": 10})
 
 
 class Build(unittest.TestCase):
@@ -295,7 +315,7 @@ class FailsThenPasses(unittest.TestCase):
         def validate():
             with open(path, "w") as f:
                 json.dump(broken, f)
-            return subprocess.run([sys.executable, TOOL, "validate", path, "--candidate", "v1.0.0-rc.1"],
+            return subprocess.run([sys.executable, TOOL, "validate", path, "--name", "v1.0.0-rc.1"],
                                   capture_output=True, text=True)
 
         out = validate()
@@ -500,8 +520,8 @@ class Cli(unittest.TestCase):
         self.assertEqual(out.returncode, 1)
         self.assertIn("#19", out.stderr)
         present = self.file(manifest.build(with_cases()))
-        self.assertEqual(self.run_tool("validate", present, "--candidate", "v1.0.0-rc.1", "--go").returncode, 0)
-        self.assertEqual(self.run_tool("validate", present, "--candidate", "v1.0.0-rc.2").returncode, 1)
+        self.assertEqual(self.run_tool("validate", present, "--name", "v1.0.0-rc.1", "--go").returncode, 0)
+        self.assertEqual(self.run_tool("validate", present, "--name", "v1.0.0-rc.2").returncode, 1)
         not_json = os.path.join(tempfile.mkdtemp(), "manifest.json")
         with open(not_json, "w") as f:
             f.write("{")
@@ -531,6 +551,36 @@ class Cli(unittest.TestCase):
         self.assertEqual(self.run_tool("get", path, "configurations.regions").stdout, '["us-west-2", "us-east-2"]\n')
         self.assertEqual(self.run_tool("get", path, "chart.nothing").returncode, 1)
         self.assertEqual(self.run_tool("bogus").returncode, 1)
+
+    def test_a_candidate_s_manifest_or_a_release_s(self):
+        """What install.sh --release reads of either: valid for the name given, the name, and the directories
+        the tag adds to the commit it was built from."""
+        candidate = manifest.build(with_cases(candidate="v1.0.0-rc.2"))
+        rc, release = self.file(candidate), self.file(release_of(candidate))
+        for path, name, added in ((rc, "v1.0.0-rc.2", "release/v1.0.0-rc.2\n"),
+                                  (release, "v1.0.0", "release/v1.0.0-rc.2\nrelease/v1.0.0\n")):
+            with self.subTest(name):
+                self.assertEqual(self.run_tool("validate", path, "--name", name).returncode, 0)
+                self.assertEqual(self.run_tool("validate", path, "--name", name, "--go").returncode, 0)
+                self.assertEqual(self.run_tool("name", path).stdout, name + "\n")
+                self.assertEqual(self.run_tool("added", path).stdout, added)
+        for path, name, mine in ((rc, "v1.0.0", "v1.0.0-rc.2"), (release, "v1.0.0-rc.2", "v1.0.0"),
+                                 (release, "v1.0.1", "v1.0.0")):
+            with self.subTest(f"{mine}'s as {name}'s"):
+                out = self.run_tool("validate", path, "--name", name)
+                self.assertEqual(out.returncode, 1)
+                self.assertIn(f"the manifest is '{mine}''s, not {name}'s", out.stderr)
+        self.assertEqual(self.run_tool("kind", "v1.0.0").stdout, "release\n")
+        self.assertEqual(self.run_tool("kind", "v1.0.0-rc.2").stdout, "candidate\n")
+        self.assertEqual(self.run_tool("kind", "1.0.0").returncode, 1)
+
+    def test_a_release_s_manifest_is_held_to_promotion_py(self):
+        broken = release_of(manifest.build(with_cases(candidate="v1.0.0-rc.2")))
+        broken["promotion"]["acceptance"]["verdict"] = "NO-GO"
+        out = self.run_tool("validate", self.file(broken), "--name", "v1.0.0")
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("promotion.acceptance.verdict: 'NO-GO', not GO", out.stderr)
+        self.assertEqual(self.run_tool("name", self.file(broken)).returncode, 1)
 
     def test_notes_from_the_command_line(self):
         out = self.run_tool("notes", self.file(manifest.build(inputs())), stdin="{{candidate}} {{chart_digest}}\n")

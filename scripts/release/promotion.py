@@ -19,6 +19,10 @@ GO candidate"). promote.sh makes it on top of the candidate's tag commit:
 A candidate is judged GO when its release notes' verdict table says so, with a basis that links the
 release check (verdict).
 
+install.sh --release <release> installs a release from a checkout of its tag (manifest.py reads its
+manifest with this module): check-tree holds the checkout to the manifest's promotion as well, as
+promote.sh made it (provenance_problems).
+
 publish-ghcr.sh copies a release's image and chart by digest to the GitHub Container Registry, and
 only there: target says which repositories it may publish to.
 
@@ -36,7 +40,8 @@ usage:
   promotion.py assemble <work>                the release's manifest (see assemble), on stdout
   promotion.py validate <manifest> [--release <release>]
   promotion.py check-tree <manifest> <repo> <commit>
-                                              the manifest's git objects are the commit's
+                                              the manifest's git objects are the commit's, and the commit
+                                              is where the manifest says the release was promoted from
   promotion.py notes <manifest> < notes       the release notes, from the candidate's as accepted
   promotion.py registry <registry>            the release registry's kind: ecr (an ECR registry of a
                                               standard Region) or loopback (a rehearsal's)
@@ -56,7 +61,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import manifest  # noqa: E402
 
 SCHEMA = 1
-RELEASE = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+RELEASE = manifest.RELEASE
 # The GitHub Container Registry's repositories of a release (design 9.4): the image, and the chart
 # as an OCI artifact.
 GHCR_IMAGE = "ghcr.io/colvenna/colvenna-catalog"
@@ -398,6 +403,86 @@ def problems(m, release=None):
     return found
 
 
+def changed_outside(repo, commit, other, directory):
+    """The paths in which the two commits differ outside the directory, or None if git cannot compare them.
+    Without rename detection, a file moved into the directory is changed where it was taken from too."""
+    changed = manifest.git(repo, "diff", "--no-renames", "--name-only", commit, other)
+    if changed is None:
+        return None
+    return [path for path in changed.splitlines() if not path.startswith(f"{directory}/")]
+
+
+def provenance_problems(m, repo, commit):
+    """Where the commit is not what a valid release's manifest says the release was promoted from, as
+    promote.sh made it: the candidate's tag commit (promotion.tag_commit) with release/<release>/ added,
+    nothing else; that commit's release/<candidate>/manifest.json the recorded one (promotion.manifest),
+    of which the release's manifest is the candidate's under the release's names (candidate_view, but
+    generated); and the acceptance record as acceptance_problems says."""
+    release, tag_commit = m["release"], m["promotion"]["tag_commit"]
+    candidate = m["promotion"]["candidate"]
+    if manifest.git(repo, "rev-parse", "-q", "--verify", f"{tag_commit}^{{commit}}") is None:
+        return [f"promotion.tag_commit: this clone lacks {tag_commit}, {candidate}'s tag commit: git fetch origin --tags"]
+    found = []
+    changed = changed_outside(repo, tag_commit, commit, f"release/{release}")
+    if changed is None:
+        found.append(f"{commit} cannot be compared with {tag_commit}, {candidate}'s tag commit")
+    elif changed:
+        found.append(f"{commit} differs from {tag_commit}, {candidate}'s tag commit, outside release/{release}/:"
+                     f" {' '.join(changed[:20])}")
+    recorded = m["promotion"]["manifest"]
+    blob = manifest.git(repo, "rev-parse", "-q", "--verify", f"{tag_commit}:{recorded['path']}")
+    if blob != recorded["blob"]:
+        return found + [f"promotion.manifest: {recorded['path']} is {blob or 'not there'} at {tag_commit}, not the"
+                        f" recorded {recorded['blob']}"]
+    try:
+        held = json.loads(manifest.git(repo, "cat-file", "blob", blob))
+    except json.JSONDecodeError as error:
+        return found + [f"promotion.manifest: {recorded['path']} at {tag_commit} is not JSON ({error})"]
+    view = candidate_view(m)
+    if isinstance(held, dict):
+        view["generated"] = held.get("generated")
+    if view != held:
+        differing = sorted(key for key in set(view) | set(held) if view.get(key) != held.get(key)) \
+            if isinstance(held, dict) else ["the manifest"]
+        found.append(f"the release's manifest is not {candidate}'s under the release's names (at {tag_commit}):"
+                     f" {', '.join(differing)} differ")
+    return found + acceptance_problems(m, repo)
+
+
+def acceptance_problems(m, repo):
+    """Where the acceptance record is not what promote.sh promoted on: a commit that has the candidate's tag
+    commit, whose release/<candidate>/notes.md is the recorded blob and gives the release verdict GO (verdict),
+    beside the same release/<candidate>/manifest.json as that tag commit's."""
+    p = m["promotion"]
+    acceptance, tag_commit, candidate = p["acceptance"], p["tag_commit"], p["candidate"]
+    record = acceptance["commit"]
+    if manifest.git(repo, "rev-parse", "-q", "--verify", f"{record}^{{commit}}") is None:
+        return [f"promotion.acceptance: this clone lacks {record}, the commit whose {acceptance['path']} judged"
+                f" {candidate} GO: git fetch origin"]
+    if manifest.git(repo, "merge-base", "--is-ancestor", tag_commit, record) is None:
+        return [f"promotion.acceptance: {record} does not have {tag_commit}, {candidate}'s tag commit"]
+    blob = manifest.git(repo, "rev-parse", "-q", "--verify", f"{record}:{acceptance['path']}")
+    if blob != acceptance["blob"]:
+        return [f"promotion.acceptance: {acceptance['path']} is {blob or 'not there'} at {record}, not the recorded"
+                f" {acceptance['blob']}"]
+    found = []
+    try:
+        verdict(manifest.git(repo, "cat-file", "blob", blob))
+    except ValueError as error:
+        found.append(f"promotion.acceptance: {acceptance['path']} at {record}: {error}")
+    held = manifest.git(repo, "rev-parse", "-q", "--verify", f"{record}:{p['manifest']['path']}")
+    if held != p["manifest"]["blob"]:
+        found.append(f"promotion.acceptance: {p['manifest']['path']} is {held or 'not there'} at {record}, not the"
+                     f" one {candidate}'s tag commit holds ({p['manifest']['blob']})")
+    return found
+
+
+def tree_problems(m, repo, commit):
+    """Where the commit is not what the release's manifest describes: the git objects it pins, and where it
+    was promoted from (provenance_problems)."""
+    return manifest.tree_problems(candidate_view(m), repo, commit) + provenance_problems(m, repo, commit)
+
+
 def valid(path, release=None):
     m = manifest.load(path)
     found = problems(m, release)
@@ -524,7 +609,7 @@ def main(argv):
     elif command == "validate" and len(args) in (1, 3) and (len(args) == 1 or args[1] == "--release"):
         valid(args[0], args[2] if len(args) == 3 else None)
     elif command == "check-tree" and len(args) == 3:
-        found = manifest.tree_problems(candidate_view(valid(args[0])), args[1], args[2])
+        found = tree_problems(valid(args[0]), args[1], args[2])
         if found:
             raise ValueError(f"{args[0]}:\n  " + "\n  ".join(found))
     elif command == "notes" and len(args) == 1:

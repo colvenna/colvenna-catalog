@@ -354,31 +354,63 @@ class Validate(unittest.TestCase):
         path.write_text(json.dumps(candidate_manifest()))
         self.assertEqual(run("validate", str(path)).returncode, 1)
 
-    def test_check_tree_holds_the_release_to_the_commit(self):
+    def test_check_tree_holds_the_release_to_the_commit_and_where_it_was_promoted_from(self):
+        """B; the candidate's tag commit C, B + release/<candidate>/; the record on C, its notes judging it GO;
+        and the release's commit R, C + release/<release>/."""
         repo = Path(tempfile.mkdtemp())
 
         def git(*args):
             return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True).stdout.strip()
+
+        def commit(files):
+            for path, text in files.items():
+                (repo / path).parent.mkdir(parents=True, exist_ok=True)
+                (repo / path).write_text(text)
+            git("add", "-A")
+            git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "c")
+            return git("rev-parse", "HEAD")
         git("init", "-q")
-        for path in ("install.sh", "uninstall.sh", "deploy/lib/a.sh", "deploy/aws/app.ts",
-                     "deploy/helm/colvenna-catalog/Chart.yaml", manifest.CASES_PATH, manifest.PERFORMANCE_PATH):
-            (repo / path).parent.mkdir(parents=True, exist_ok=True)
-            (repo / path).write_text(path)
-        git("add", "-A")
-        git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "c")
-        head = git("rev-parse", "HEAD")
-        objects = {p: git("rev-parse", f"HEAD:{p}") for p in manifest.PINNED_PATHS}
-        documents = {key: {"commit": head, "blob": git("rev-parse", f"HEAD:{path}")} for key, path in manifest.DOCUMENTS}
-        m = promotion.build(candidate_manifest(objects=objects, uat_cases=documents["uat_cases"],
-                                               performance=documents["performance"]), params())
+        b = commit({path: path for path in ("install.sh", "uninstall.sh", "deploy/lib/a.sh", "deploy/aws/app.ts",
+                                            "deploy/helm/colvenna-catalog/Chart.yaml", manifest.CASES_PATH,
+                                            manifest.PERFORMANCE_PATH)})
+        objects = {p: git("rev-parse", f"{b}:{p}") for p in manifest.PINNED_PATHS}
+        documents = {key: {"commit": b, "blob": git("rev-parse", f"{b}:{path}")} for key, path in manifest.DOCUMENTS}
+        candidate = candidate_manifest(built_from=b, objects=objects, uat_cases=documents["uat_cases"],
+                                       performance=documents["performance"])
+        draft = manifest.notes(candidate, (REPO / "release/notes-template.md").read_text())
+        c = commit({f"release/{CANDIDATE}/manifest.json": json.dumps(candidate), f"release/{CANDIDATE}/notes.md": draft})
+        record = commit({f"release/{CANDIDATE}/notes.md": notes_with("GO")})
+        git("checkout", "-q", "--detach", c)
+        m = promotion.build(candidate, params(
+            tag_commit=c, manifest_blob=git("rev-parse", f"{c}:release/{CANDIDATE}/manifest.json"),
+            acceptance={"commit": record, "blob": git("rev-parse", f"{record}:release/{CANDIDATE}/notes.md")}))
+        commit({f"release/{RELEASE}/manifest.json": json.dumps(m)})
         path = repo.parent / f"{repo.name}-manifest.json"
         path.write_text(json.dumps(m))
         self.assertEqual(run("check-tree", str(path), str(repo), "HEAD").returncode, 0)
-        m["chart"]["tree"] = "e" * 40
-        path.write_text(json.dumps(m))
+        # Before promote.sh commits the release, HEAD is C.
+        self.assertEqual(run("check-tree", str(path), str(repo), c).returncode, 0)
+        # A file moved into release/<release>/ is a change outside it, where it was taken from.
+        git("mv", "install.sh", f"release/{RELEASE}/install.sh")
+        git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "moved")
         out = run("check-tree", str(path), str(repo), "HEAD")
         self.assertEqual(out.returncode, 1)
-        self.assertIn("chart: deploy/helm/colvenna-catalog is", out.stderr)
+        self.assertIn(f"differs from {c}, {CANDIDATE}'s tag commit, outside release/{RELEASE}/: install.sh", out.stderr)
+        git("checkout", "-q", "--detach", "HEAD^")
+        for name, change, needle in (
+                ("a pinned tree", lambda m: m["chart"].update(tree="e" * 40), "chart: deploy/helm/colvenna-catalog is"),
+                ("a tag commit this clone lacks", lambda m: m["promotion"].update(tag_commit="e" * 40),
+                 f"this clone lacks {'e' * 40}"),
+                ("a record that judged it otherwise", lambda m: m["promotion"]["acceptance"].update(
+                    blob=git("rev-parse", f"{c}:release/{CANDIDATE}/notes.md"), commit=c),
+                 "the release verdict is <GO / NO-GO>, not GO")):
+            with self.subTest(name):
+                changed = copy.deepcopy(m)
+                change(changed)
+                path.write_text(json.dumps(changed))
+                out = run("check-tree", str(path), str(repo), "HEAD")
+                self.assertEqual(out.returncode, 1)
+                self.assertIn(needle, out.stderr)
 
 
 class Notes(unittest.TestCase):
