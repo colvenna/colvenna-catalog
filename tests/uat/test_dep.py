@@ -190,6 +190,17 @@ class Judges(unittest.TestCase):
         ok, detail = deploy.others_untouched(before, dict(back, stacks=before["stacks"]), "sx3", "ColvennaCatalogTestU1")
         self.assertFalse(ok)
         self.assertIn("colvenna-catalog-su2-purge", detail)
+        # Its test driver redeployed is no update of the install.
+        driver = {"stacks": dict(before["stacks"], ColvennaCatalogTestSu2Driver=["CREATE_COMPLETE", "t5"]),
+                  "functions": before["functions"], "roles": before["roles"]}
+        redeployed = dict(back, stacks=dict(driver["stacks"], ColvennaCatalogTestSu2Driver=["UPDATE_COMPLETE", "t6"]))
+        self.assertFalse(deploy.others_untouched(driver, redeployed, "sx3", "ColvennaCatalogTestU1")[0])
+        # In another region too.
+        there = {"stacks": {"ColvennaCatalogTestU1": ["UPDATE_COMPLETE", "t1"]},
+                 "stacksElsewhere": {"ColvennaCatalogSu2Serverless": ["UPDATE_COMPLETE", "t2", "us-east-2"]},
+                 "roles": ["colvenna-catalog-su2-purge"]}
+        moved = dict(there, stacksElsewhere={"ColvennaCatalogSu2Serverless": ["UPDATE_COMPLETE", "t3", "us-east-2"]}, roles=[])
+        self.assertTrue(deploy.others_untouched(there, moved, "sx3", "ColvennaCatalogTestU1")[0])
         # The case's own scripts naming that install's stacks: not excused.
         self.assertFalse(deploy.others_untouched(before, back, "sx3", "ColvennaCatalogTestU1",
                                                  said="updating ColvennaCatalogSu2Serverless")[0])

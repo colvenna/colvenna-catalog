@@ -761,7 +761,7 @@ def env_of(item):
     return None
 
 
-KEEPS = ("buckets", "databases")  # what no update of an install removes: its data (#52)
+DATA_KEYS = ("buckets", "databases")  # the inventory's data of an install, which no update of it removes (#52)
 
 
 def others_untouched(before, after, env, test_stack, said=""):
@@ -771,8 +771,8 @@ def others_untouched(before, after, env, test_stack, said=""):
     removes (one of its stacks, or its test driver's, deleted or being deleted meanwhile, in this
     region or another, #46) takes its own resources with it; one another run updates (one of its
     stacks changed meanwhile: UAT-DEP-06's upgrade, UAT-DEP-07's way back, which may remove what one
-    version has and the other not, #52) may lose its functions, roles and the like, never its data
-    (KEEPS: its buckets and database instances). Either, unless the output of the case's own
+    version has and the other not, #52; its test driver's stack does not count) may lose its functions,
+    roles and the like, never its data (DATA_KEYS: its buckets and database instances). Either, unless the output of the case's own
     scripts (said) names that install's stacks."""
     problems = []
     for stack in (test_stack, "ColvennaCatalogRelease"):
@@ -783,7 +783,7 @@ def others_untouched(before, after, env, test_stack, said=""):
     deleting = {env_of(s) for s, v in stacks_after.items() if str(v[0]).startswith("DELETE_")}
     removed = ({env_of(s) for s in stacks_before if s not in stacks_after} | deleting) - {None, env}
     updated = {env_of(s) for s, v in stacks_after.items()
-               if s in stacks_before and v[:2] != stacks_before[s][:2]} - {None, env} - removed
+               if s in stacks_before and v[:2] != stacks_before[s][:2] and not DRIVER_STACK.match(s)} - {None, env} - removed
     named = sorted(e for e in removed | updated if names_of(e)[0] in said)
     if named:
         problems.append(f"the case's own scripts named the stacks of {named}, removed or updated meanwhile")
@@ -794,7 +794,7 @@ def others_untouched(before, after, env, test_stack, said=""):
         old = {x.split(" ")[0] for x in b[key]}
         new = {x.split(" ")[0] for x in a.get(key, [])}
         gone = sorted(x for x in old - new
-                      if env_of(x) not in removed and (key in KEEPS or env_of(x) not in updated))
+                      if env_of(x) not in removed and (key in DATA_KEYS or env_of(x) not in updated))
         if gone:
             problems.append(f"{key} gone: {gone}")
     detail = "; ".join(problems) or "the test environment and the release registry as recorded; nothing of the others gone"
