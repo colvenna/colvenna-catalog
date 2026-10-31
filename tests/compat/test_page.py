@@ -70,6 +70,29 @@ class Page(unittest.TestCase):
         self.assertIn("1. It misses rows in level 0.", text)
         self.assertNotIn("Doris bundles Paimon 1.4.2.", text)
 
+    def test_a_declaration_changed_since_the_run_is_named_with_its_reason(self):
+        declared = {("eks", "doris-4.1.5", "pk", "read"): ("limitation", "its JNI reader fails its first read"),
+                    ("eks", "doris-4.1.5", "pk-dv", "read"): ("limitation", "Doris bundles Paimon 1.4.2"),
+                    ("eks", "spark-3.5-paimon-2.0.0", "pk", "read"): ("supported", "")}
+        text = page.render([self.dir], "runs", declared=declared)
+        self.assertIn("**`declared.tsv`'s declarations have changed since this run.**", text)
+        self.assertIn("- Doris 4.1.5, primary key, read: declared supported for the run, now a limitation: "
+                      "its JNI reader fails its first read.", text)
+        self.assertNotIn("Spark 3.5.9, primary key, read: declared", text)
+        # The verdicts stay the run's, judged by its own declarations.
+        self.assertIn("| Doris 4.1.5 | 1.4.2 (bundled) | 14 of 14 | 1 | pass |", text)
+
+    def test_a_limitation_now_supported_is_named_too(self):
+        declared = {("eks", "doris-4.1.5", "pk-dv", "read"): ("supported", "")}
+        text = page.render([self.dir], "runs", declared=declared)
+        self.assertIn("- Doris 4.1.5, primary key, deletion vectors, read: declared a limitation for the run, "
+                      "now supported.", text)
+
+    def test_unchanged_declarations_name_no_change(self):
+        declared = {("eks", "doris-4.1.5", "pk-dv", "read"): ("limitation", "it misses rows in level 0")}
+        text = page.render([self.dir], "runs", declared=declared)
+        self.assertNotIn("have changed since this run", text)
+
     def test_a_run_judged_again_says_so(self):
         doris = json.loads((self.dir / "cells" / "doris-4.1.5.json").read_text())
         doris["rejudged"] = {"matrixCommit": "abcdef1234567890", "changed": ["pk-dv credentials: FAIL -> PASS"]}  # pragma: allowlist secret - a made-up commit id

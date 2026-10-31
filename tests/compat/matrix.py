@@ -53,7 +53,8 @@ def parser():
     r.add_argument("--principal", help="the token's principal, to read only its requests from the access log")
     r.add_argument("--read-principal", help="the read token's principal")
     r.add_argument("--starrocks-s3-file",
-                   help="JSON of StarRocks's own read-only S3 properties (aws.s3.*) for the StarRocks cell")
+                   help="JSON of StarRocks's own read-only S3 properties for the StarRocks cell: aws.s3.*, and with "
+                        "short-lived credentials paimon.option.fs.s3a.* too (docs/manual/user.md, section 4.5)")
     r.add_argument("--starrocks-s3-description",
                    help="what StarRocks's own credentials are (stated in its cell), e.g. which role and what it may read")
     r.add_argument("--fixture-writer", help="the writer cell that writes the readers' tables (default: cells.json's)")
