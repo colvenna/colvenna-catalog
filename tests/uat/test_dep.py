@@ -166,6 +166,55 @@ class Judges(unittest.TestCase):
         # An inventory without the other regions' stacks judges as before.
         self.assertTrue(deploy.others_untouched({"stacks": here}, {"stacks": here}, "sx1", "ColvennaCatalogTestU1")[0])
 
+    def test_an_install_uninstalled_and_made_again_meanwhile_by_its_own_runs(self):
+        """#62: another install deleted (--delete-data) and installed again under the same names while the case ran:
+        its stacks are there before and after, but they are other stacks (their ids differ), so its run removed
+        the first install's buckets and instances, as an uninstall does (#46), not this case."""
+        u1 = ["UPDATE_COMPLETE", "t1", "11111111-1111-4111-8111-111111111111"]
+        before = {"stacks": {"ColvennaCatalogTestU1": u1,
+                             "ColvennaCatalogEu2Storage": ["CREATE_COMPLETE", "t2", "22222222-2222-4222-8222-222222222222"],
+                             "ColvennaCatalogEu2Eks": ["CREATE_COMPLETE", "t2", "33333333-3333-4333-8333-333333333333"]},
+                  "stacksElsewhere": {"ColvennaCatalogEu3Storage": ["CREATE_COMPLETE", "t2", "44444444-4444-4444-8444-444444444444",
+                                                                    "us-east-2"]},
+                  "buckets": ["colvennacatalogeu2storage-warehouse-a", "colvennacatalogeu3storage-warehouse-c"],
+                  "databases": ["colvennacatalogeu2storage-db-a available"]}
+        remade = {"stacks": {"ColvennaCatalogTestU1": u1,
+                             "ColvennaCatalogEu2Storage": ["CREATE_COMPLETE", "t5", "55555555-5555-4555-8555-555555555555"],
+                             "ColvennaCatalogEu2Eks": ["CREATE_COMPLETE", "t5", "66666666-6666-4666-8666-666666666666"]},
+                  "stacksElsewhere": {"ColvennaCatalogEu3Storage": ["CREATE_COMPLETE", "t5", "77777777-7777-4777-8777-777777777777",
+                                                                    "us-east-2"]},
+                  "buckets": ["colvennacatalogeu2storage-warehouse-b", "colvennacatalogeu3storage-warehouse-d"],
+                  "databases": ["colvennacatalogeu2storage-db-b available"]}
+        ok, detail = deploy.others_untouched(before, remade, "sx1", "ColvennaCatalogTestU1")
+        self.assertTrue(ok, detail)
+        self.assertIn("uninstalled meanwhile by their own runs: ['eu2', 'eu3']", detail)
+        self.assertIn("installed again under the same names: ['eu2', 'eu3']", detail)
+        # The same stacks (their ids kept), merely updated: their data still may not go (#52).
+        updated = dict(remade, stacks={k: v[:2] + before["stacks"][k][2:] for k, v in remade["stacks"].items()},
+                       stacksElsewhere={k: v[:2] + before["stacksElsewhere"][k][2:] for k, v in remade["stacksElsewhere"].items()})
+        ok, detail = deploy.others_untouched(before, updated, "sx1", "ColvennaCatalogTestU1")
+        self.assertFalse(ok)
+        self.assertIn("buckets gone", detail)
+        self.assertIn("databases gone", detail)
+        # A record made before the ids were (two fields; three with the region elsewhere) judges as before.
+        old = {k: {s: v[:2] + v[3:] for s, v in before[k].items()} if k.startswith("stacks") else v for k, v in before.items()}
+        ok, _ = deploy.others_untouched(old, {k: {s: v[:2] + v[3:] for s, v in remade[k].items()} if k.startswith("stacks") else v
+                                              for k, v in remade.items()}, "sx1", "ColvennaCatalogTestU1")
+        self.assertFalse(ok)
+        self.assertIsNone(deploy.stack_uuid(["CREATE_COMPLETE", "t2", "us-east-2"]))
+        # The case's own scripts naming that install's stacks are no excuse.
+        ok, detail = deploy.others_untouched(before, remade, "sx1", "ColvennaCatalogTestU1", said="ColvennaCatalogEu2Storage")
+        self.assertFalse(ok)
+
+    def test_the_account_s_stacks_carry_their_ids(self):
+        class Aws:
+            def __call__(self, *args):
+                return [{"StackName": "ColvennaCatalogEu2Storage", "StackStatus": "CREATE_COMPLETE", "CreationTime": "t2",
+                         "StackId": "arn:aws:cloudformation:us-west-2:111122223333:stack/ColvennaCatalogEu2Storage/"
+                                    "22222222-2222-4222-8222-222222222222"}]
+        self.assertEqual(deploy.account_stacks(Aws()),
+                         {"ColvennaCatalogEu2Storage": ["CREATE_COMPLETE", "t2", "22222222-2222-4222-8222-222222222222"]})
+
     def test_an_install_updated_meanwhile_by_its_own_run(self):
         """#52: another install's stacks updated meanwhile (UAT-DEP-07 taking it back to a release without its
         purge function) changed its own resources; one whose stacks did not change was touched."""
@@ -220,11 +269,14 @@ class Judges(unittest.TestCase):
                 if self.region in self.refused:
                     raise deploy.AwsError(list(args), 254, "AccessDenied")
                 if self.region == "us-west-2":
-                    return [{"StackName": "ColvennaCatalogEx2Eks", "StackStatus": "CREATE_COMPLETE", "CreationTime": "t"}]
+                    return [{"StackName": "ColvennaCatalogEx2Eks", "StackStatus": "CREATE_COMPLETE", "CreationTime": "t",
+                             "StackId": "arn:aws:cloudformation:us-west-2:111122223333:stack/ColvennaCatalogEx2Eks/"
+                                        "33333333-3333-4333-8333-333333333333"}]
                 return []
 
         here = FakeAws("us-east-2")
-        self.assertEqual(deploy.stacks_elsewhere(here), {"ColvennaCatalogEx2Eks": ["CREATE_COMPLETE", "t", "us-west-2"]})
+        self.assertEqual(deploy.stacks_elsewhere(here), {"ColvennaCatalogEx2Eks": [
+            "CREATE_COMPLETE", "t", "33333333-3333-4333-8333-333333333333", "us-west-2"]})
         self.assertEqual(here.calls, [("ec2", "describe-regions", "--query", "Regions[].RegionName")])  # the enabled ones only
         # A region that refuses the call is left out.
         self.assertEqual(deploy.stacks_elsewhere(FakeAws("us-east-2", refused=("us-west-2",))), {})
