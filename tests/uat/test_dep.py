@@ -498,6 +498,34 @@ class Dep01And02(unittest.TestCase):
         self.assertTrue(self.d1.judge_run_sh_cycle(0, "cycle: PASS\n")[0])
         self.assertFalse(self.d1.judge_run_sh_cycle(1, "")[0])
 
+    def test_the_installs_alongside_by_their_configurations(self):
+        class Inst:
+            env, prefix = "ex1", "ex1"
+            config = {"COLVENNA_DB": "existing", "COLVENNA_DB_ENDPOINT": "db.example.com", "COLVENNA_BUCKET": "bucket",
+                      "COLVENNA_DB_NAME": "ex1_catalog", "COLVENNA_DB_USER": "ex1_catalog"}
+
+            def get(self, key):
+                return self.config.get(key, "")
+
+        work = Path(tempfile.mkdtemp())
+
+        def config(name, **values):
+            path = work / f"{name}.env"
+            settings = dict(COLVENNA_ENV=name, COLVENNA_DB="existing", COLVENNA_DB_ENDPOINT="db.example.com", COLVENNA_BUCKET="bucket",
+                            COLVENNA_DB_NAME=f"{name}_catalog", COLVENNA_DB_USER=f"{name}_catalog", COLVENNA_WAREHOUSE_PREFIX=name)
+            path.write_text("".join(f"{k}={v}\n" for k, v in dict(settings, **values).items()))
+            return str(path)
+
+        names = self.d2.alongside_names(Inst(), [config("sx1")])
+        self.assertEqual(names, {"databases": {"sx1_catalog"}, "roles": {"sx1_catalog", "sx1_catalog_authz"}, "prefixes": {"sx1/"}})
+        self.assertEqual(self.d2.alongside_names(Inst(), []), {"databases": set(), "roles": set(), "prefixes": set()})
+        for bad, needle in ((config("ex1"), "not another install"),
+                            (config("sx2", COLVENNA_DB_ENDPOINT="other.example.com", COLVENNA_BUCKET="other"), "not another install"),
+                            (config("sx3", COLVENNA_DB_USER="ex1_catalog"), "this install's names ['ex1_catalog', 'ex1_catalog_authz']")):
+            with self.assertRaises(ValueError) as raised:
+                self.d2.alongside_names(Inst(), [bad])
+            self.assertIn(needle, str(raised.exception))
+
     def test_existing_untouched_and_fifteen_minutes(self):
         own = {"databases": {"cat"}, "roles": {"cat", "cat_authz"}, "prefixes": {"wh/"}, "stacks": {"ColvennaCatalogEx1Eks"}}
         made = {"databases": ["cat"], "roles": ["cat"], "prefixes": ["wh/"], "stacks": ["ColvennaCatalogEx1Eks"]}
@@ -505,6 +533,22 @@ class Dep01And02(unittest.TestCase):
         self.assertFalse(self.d2.judge_existing_untouched({"vpc": 1, "database": 2}, {"vpc": 1, "database": 3}, made, own)[0])
         self.assertFalse(self.d2.judge_existing_untouched({"vpc": 1}, {"vpc": 1}, dict(made, roles=["cat", "other"]), own)[0])
         self.assertFalse(self.d2.judge_existing_untouched({"vpc": 1}, {"vpc": 1}, dict(made, stacks=["ColvennaCatalogX"]), own)[0])
+        # #43: another install into the same instance at the same time (E3 and S3 in one step) adds its own; named
+        # with --alongside, they are its, not this install's; anything else added still is a problem.
+        both = {"databases": ["cat", "sx_catalog"], "roles": ["cat", "sx_catalog", "sx_catalog_authz"], "prefixes": ["sx/", "wh/"],
+                "stacks": ["ColvennaCatalogEx1Eks"]}
+        alongside = {"databases": {"sx_catalog"}, "roles": {"sx_catalog", "sx_catalog_authz"}, "prefixes": {"sx/"}}
+        ok, detail = self.d2.judge_existing_untouched({"vpc": 1}, {"vpc": 1}, both, own)
+        self.assertFalse(ok, "without --alongside, as before")
+        ok, detail = self.d2.judge_existing_untouched({"vpc": 1}, {"vpc": 1}, both, own, alongside)
+        self.assertTrue(ok, detail)
+        self.assertIn("the installs alongside's: {'databases': ['sx_catalog']", detail)
+        ok, detail = self.d2.judge_existing_untouched({"vpc": 1}, {"vpc": 1}, dict(both, roles=both["roles"] + ["colvenna_catalog"]),
+                                                      own, alongside)
+        self.assertFalse(ok)
+        self.assertIn("not the install's: {'roles': ['colvenna_catalog']}", detail)
+        # The instance itself changed: alongside or not, touched.
+        self.assertFalse(self.d2.judge_existing_untouched({"database": 2}, {"database": 3}, both, own, alongside)[0])
         self.assertEqual(self.d2.deployed_stacks({"cdk.log": "ColvennaCatalogEx1Eks: deploying... ColvennaCatalogEx1Storage/B"}),
                          ["ColvennaCatalogEx1Eks", "ColvennaCatalogEx1Storage"])
         self.assertTrue(self.d2.judge_ready_within("2026-10-29T00:00:00Z", "2026-10-29T00:14:59Z", True)[0])

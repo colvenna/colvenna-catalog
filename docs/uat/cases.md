@@ -86,7 +86,7 @@ In each Region, in this order (cases in one step may run at once unless the case
 6. UAT-FLT-01, 02, 03 on E1 and S1, one at a time: each needs its install to itself.
 7. UAT-DEP-10 on E1 and S1, one at a time.
 8. UAT-CAT-03 (about 1 hour 45 minutes) on E1 and S1.
-9. UAT-DEP-02: E3 and S3; UAT-DEP-11 on E3; then UAT-DEP-09 on E3 and S3, so that E3 is gone before E2 is made.
+9. UAT-DEP-02: E3 and S3, at once, each run naming the other's configuration (`--alongside`), since both install into the test environment's database and bucket (#43); UAT-DEP-11 on E3; then UAT-DEP-09 on E3 and S3, so that E3 is gone before E2 is made.
 10. The previous release on E2 and S2, then UAT-DEP-06, then UAT-DEP-07.
 11. UAT-DEP-08 on E1, S1, E2 and S2.
 12. UAT-DEP-09 on E1, S1, E2 and S2.
@@ -692,12 +692,12 @@ The time of each step is recorded, not judged.
 | Check | Expected |
 | --- | --- |
 | `install-exit`, `every-step-done`, `runs-the-candidate`, `nothing-built`, `admin-token-not-printed`, `readable-writable` | As UAT-DEP-01 |
-| `existing-untouched` | The VPC, subnets, route tables, endpoints, the database instance (its parameters, security groups and settings) and the bucket's configuration and policy are as recorded before; the install made only its own database, users, prefix and stacks |
+| `existing-untouched` | The VPC, subnets, route tables, endpoints, the database instance (its parameters, security groups and settings) and the bucket's configuration and policy are as recorded before; the install made only its own database, users, prefix and stacks: whatever else was added is the database, users and prefix of the installs that ran alongside it, named by their configurations (#43), or it fails |
 | `eks-ready-within-15-minutes` | (EKS) From the command's start to the client's first successful write and read: at most 15 minutes. Serverless: recorded only (the claim is the EKS form's) |
 
 **Cleanup**: the install stays for UAT-DEP-11 (E3); UAT-DEP-09 removes it, keeping the existing resources.
 
-**Harness**: `tests/uat/uat.py run UAT-DEP-02` (#52): as UAT-DEP-01's, with the existing resources recorded before and after, and what is in them (the instance's databases and roles, read by psql as its admin; the bucket's top-level prefixes); the stacks the run deployed are those its CDK log names.
+**Harness**: `tests/uat/uat.py run UAT-DEP-02 [--alongside <the other install's configuration>]` (#52): as UAT-DEP-01's, with the existing resources recorded before and after, and what is in them (the instance's databases and roles, read by psql as its admin; the bucket's top-level prefixes); the stacks the run deployed are those its CDK log names. `--alongside` (repeatable, #43) names another install into the same database or bucket that runs at the same time: its database (`COLVENNA_DB_NAME`), users (`COLVENNA_DB_USER` and its `_authz`) and prefix (`COLVENNA_WAREHOUSE_PREFIX`), as its configuration gives them, are not counted against this install; a configuration that is this install's, into other resources, or with any of this install's names is refused before anything runs. Without it, run E3's and S3's one after the other.
 
 #### UAT-DEP-03 Run again
 
