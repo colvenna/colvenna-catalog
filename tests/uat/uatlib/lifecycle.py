@@ -99,18 +99,34 @@ def same_snapshots(a, b, table):
     return bool(sa) and sa.keys() == sb.keys() and all(same_snapshot(sa[k], sb[k]) for k in sa)
 
 
+def expired(before, now):
+    """The snapshots of before that Paimon's own expiry took (#56): those missing now that all come before
+    the earliest snapshot still there. Each commit expires its table's snapshots older than
+    snapshot.time-retained (1 hour by default), earliest first, so a table the loops write to for longer
+    than that loses its first snapshots; one missing after the earliest is not an expiry."""
+    if not now:
+        return []
+    earliest = min(int(k) for k in now)
+    return sorted((k for k in before if k not in now and int(k) < earliest), key=int)
+
+
 def data_unchanged(before, after, writer_table=None, writer_user="uat-loop-writer"):
-    """(ok, detail): every snapshot from before reads the same; the only new ones are the writer's."""
-    problems = []
+    """(ok, detail): every snapshot from before reads the same; the only new ones are the writer's; of
+    the writer's table, the earliest may have been expired by Paimon meanwhile (reported, not judged)."""
+    problems, gone = [], []
     for table, snaps in before["snapshots"].items():
         now = after["snapshots"].get(table, {})
+        old = expired(snaps, now) if table == writer_table else []
+        gone += [f"{table} {k}" for k in old]
         for sid, s in snaps.items():
-            if not same_snapshot(s, now.get(sid)):
+            if sid not in old and not same_snapshot(s, now.get(sid)):
                 problems.append(f"{table} snapshot {sid}: {s} then {now.get(sid)}")
         for sid, s in now.items():
             if sid not in snaps and not (table == writer_table and s.get("commitUser") == writer_user):
                 problems.append(f"{table} snapshot {sid} new, by {s.get('commitUser')}")
-    return not problems, f"{sum(len(s) for s in before['snapshots'].values())} snapshots compared; problems {problems[:5]}"
+    expiry = f"; expired by Paimon meanwhile (the earliest of the writer's table): {len(gone)} {gone[:3]}" if gone else ""
+    return not problems, (f"{sum(len(s) for s in before['snapshots'].values())} snapshots compared; problems {problems[:5]}"
+                          f"{expiry}")
 
 
 def identities_unchanged(before, after, new_tokens=()):
