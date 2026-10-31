@@ -414,8 +414,7 @@ sl_stack_settled() {
 # keeps the stack's role (the CDK bootstrap's execution role) and tags (its API reference, read
 # 2026-10-31: https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_UpdateStack.html). It
 # rolls back if that fails; a template with nothing to change (a run again after a refused or failed
-# migrate) is no failure. Exports the names the database and migrate steps use, from the stack's outputs:
-# the database step runs on the ops function the stack has, the one of the version that serves.
+# migrate) is no failure. Exports the name the migrate step uses, from the stack's outputs.
 sl_maintenance_first() {
   local stack maintenance keys key parameters=() deployed="$WORK/serverless-deployed.json" template="$WORK/serverless-template.json"
   local err="$WORK/update-stack.err"
@@ -424,8 +423,7 @@ sl_maintenance_first() {
   maintenance="$(cfn_output "$stack" MaintenanceFunctionName)"
   [[ -n "$maintenance" ]] || { echo "$stack has no output MaintenanceFunctionName: not a serverless stack this knows" >&2; return 1; }
   MAINTENANCE_FUNCTION="$maintenance"
-  OPS_FUNCTION="$(cfn_output "$stack" OpsFunctionName)"
-  export MAINTENANCE_FUNCTION OPS_FUNCTION
+  export MAINTENANCE_FUNCTION
   aws cloudformation get-template --region "$COLVENNA_REGION" --stack-name "$stack" --template-stage Original \
     --query TemplateBody --output json >"$deployed"
   python3 "$SL_TEMPLATE" maintenance-first "$deployed" "$STATE_DIR/cdk.out/$stack.template.json" "$maintenance" >"$template"
@@ -537,9 +535,10 @@ sl_smoke() {
 
 # install_serverless: install.sh's steps for the serverless form, after the tools and, for --release,
 # the candidate's checks. An upgrade, or a way back to an older version, migrates first: only the
-# maintenance function takes this version's image (sl_maintenance_first), then migrate runs, and only
-# once it has succeeded does the whole stack take this version, the server's new version and the alias
-# live among it (#63). A migrate that refuses ends the run with the server as it was.
+# maintenance function takes this version (sl_maintenance_first), then migrate runs, and only once it has
+# succeeded does the whole stack take this version, the server's new version and the alias live among it
+# (#63), and this version's ops function brings the database's users in line. A migrate that refuses ends
+# the run with the server as it was, and nothing written.
 install_serverless() {
   step "preflight"
   if [[ -n "$RELEASE_CANDIDATE" ]]; then
@@ -577,12 +576,19 @@ install_serverless() {
     sl_deploy_serverless
   fi
   step "database"
-  sl_database
+  if [[ -n "$upgrade" ]]; then
+    # The ops function deployed is the serving version's, on the database it serves; the install's database
+    # (another, once moved onto a restored instance) has the catalog's users already.
+    echo "  after migrate, by this version's ops function (step server)"
+  else
+    sl_database
+  fi
   step "migrate"
   sl_maintenance migrate
   if [[ -n "$upgrade" ]]; then
     step "server"
     sl_deploy_serverless
+    sl_database
   fi
   # The grants of this version's ops function, once it is deployed.
   sl_grants

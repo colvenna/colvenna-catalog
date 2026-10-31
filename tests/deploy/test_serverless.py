@@ -656,8 +656,7 @@ class MaintenanceFirst(unittest.TestCase):
     """sl_maintenance_first: CloudFormation updates the deployed template so changed; no CDK, no other change."""
 
     def run_step(self, update=None, wait=None, statuses=("UPDATE_COMPLETE",), deployed=None):
-        outputs = stack_outputs(SERVERLESS_STACK, MaintenanceFunctionName="colvenna-catalog-sl1-maintenance",
-                                OpsFunctionName="colvenna-catalog-sl1-ops")
+        outputs = stack_outputs(SERVERLESS_STACK, MaintenanceFunctionName="colvenna-catalog-sl1-maintenance")
         describe = f"cloudformation describe-stacks --region us-west-2 --stack-name {SERVERLESS_STACK}"
         aws = {
             **outputs,
@@ -671,7 +670,7 @@ class MaintenanceFirst(unittest.TestCase):
         (state / "cdk.out").mkdir()
         write(state / "cdk.out" / f"{SERVERLESS_STACK}.template.json", json.dumps(SYNTHESIZED))
         out, stubs = stubbed('sl_stack_settled() { echo UPDATE_COMPLETE; }; sl_maintenance_first;'
-                             ' echo "functions $MAINTENANCE_FUNCTION $OPS_FUNCTION"', aws=aws, env={"WORK": work, "STATE_DIR": str(state)})
+                             ' echo "functions $MAINTENANCE_FUNCTION"', aws=aws, env={"WORK": work, "STATE_DIR": str(state)})
         return out, stubs, Path(work)
 
     def test_the_deployed_template_with_the_maintenance_function_as_this_version_makes_it(self):
@@ -690,7 +689,7 @@ class MaintenanceFirst(unittest.TestCase):
         self.assertEqual({k: v for k, v in sent["Resources"].items() if not k.startswith("maintenance")},
                          {k: v for k, v in DEPLOYED["Resources"].items() if not k.startswith("maintenance")})
         self.assertTrue(any(" wait stack-update-complete " in c for c in calls))
-        self.assertIn("functions colvenna-catalog-sl1-maintenance colvenna-catalog-sl1-ops", out.stdout)
+        self.assertIn("functions colvenna-catalog-sl1-maintenance", out.stdout)
         # Never the CDK, which would deploy this version's whole stack.
         self.assertEqual([c for c in calls if c.startswith("npx")], [])
 
@@ -755,22 +754,26 @@ class Flow(unittest.TestCase):
         self.assertIn("ensure_admin sl_", steps)
 
     def test_an_upgrade_migrates_before_anything_that_serves_changes(self):
-        # #63: the maintenance function alone takes the new image; the stack, the server's new version and the
-        # alias live among it, only once migrate has succeeded; then the grants of the new ops function.
+        # #63: the maintenance function alone takes the new version; the stack, the server's new version and the
+        # alias live among it, only once migrate has succeeded; then the new ops function's database step and grants.
         out, steps = self.run_flow("install_serverless", running="repo@sha256:old")
         self.assertEqual(out.returncode, 0, out.stderr)
         order = [s for s in steps if s.startswith(("synth", "deploy", "maintenance", "sl_database", "sl_grants"))]
-        self.assertEqual(order, ["synth repo@sha256:new", "maintenance_first", "sl_database", "maintenance migrate", "deploy", "sl_grants"])
+        self.assertEqual(order, ["synth repo@sha256:new", "maintenance_first", "maintenance migrate", "deploy", "sl_database", "sl_grants"])
+        # The steps announced in their usual order (the UAT harness's every-step-done), the server's after migrate.
+        announced = [line[3:] for line in out.stdout.splitlines() if line.startswith("== ")]
+        self.assertEqual(announced, ["preflight", "stacks", "image", "functions", "database", "migrate", "server", "admin", "smoke"])
         self.assertIn("== server", out.stdout)
 
     def test_a_migrate_that_refuses_leaves_the_stack_as_it_was(self):
         # Going back onto a newer schema (UAT-DEP-07's newer-schema-refused): the run ends at migrate, and the
-        # serverless stack was never deployed, so the server function, its versions and the alias are as they were.
+        # serverless stack was never deployed, so the server function, its versions and the alias are as they were;
+        # nor did the database step run.
         out, steps = self.run_flow("set -E; trap 'on_error install.sh' ERR; install_serverless", running="repo@sha256:newer",
                                    env={"MIGRATE_REFUSES": "1"})
         self.assertEqual(out.returncode, 1)
         self.assertIn('failed at step "migrate"', out.stderr)
-        self.assertEqual([s for s in steps if s.startswith(("deploy", "maintenance"))], ["maintenance_first", "maintenance migrate"])
+        self.assertEqual([s for s in steps if s.startswith(("deploy", "maintenance", "sl_database"))], ["maintenance_first", "maintenance migrate"])
         # A first install, or a run again of the same image, has nothing serving to keep: the stack goes first.
         out, steps = self.run_flow("install_serverless", running="repo@sha256:new", env={"MIGRATE_REFUSES": "1"})
         self.assertEqual(out.returncode, 1)
