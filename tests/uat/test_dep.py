@@ -166,6 +166,45 @@ class Judges(unittest.TestCase):
         # An inventory without the other regions' stacks judges as before.
         self.assertTrue(deploy.others_untouched({"stacks": here}, {"stacks": here}, "sx1", "ColvennaCatalogTestU1")[0])
 
+    def test_an_install_updated_meanwhile_by_its_own_run(self):
+        """#52: another install's stacks updated meanwhile (UAT-DEP-07 taking it back to a release without its
+        purge function) changed its own resources; one whose stacks did not change was touched."""
+        before = {"stacks": {"ColvennaCatalogTestU1": ["UPDATE_COMPLETE", "t1"],
+                             "ColvennaCatalogSu2Serverless": ["UPDATE_COMPLETE", "t2"]},
+                  "functions": ["colvenna-catalog-su2-purge", "colvenna-catalog-su2-server"],
+                  "roles": ["colvenna-catalog-su2-purge"]}
+        back = {"stacks": dict(before["stacks"], ColvennaCatalogSu2Serverless=["UPDATE_COMPLETE", "t3"]),
+                "functions": ["colvenna-catalog-su2-server"], "roles": []}
+        ok, detail = deploy.others_untouched(before, back, "sx3", "ColvennaCatalogTestU1")
+        self.assertTrue(ok, detail)
+        self.assertIn("updated meanwhile by their own runs: ['su2']", detail)
+        going = dict(back, stacks=dict(before["stacks"], ColvennaCatalogSu2Serverless=["UPDATE_IN_PROGRESS", "t3"]))
+        self.assertTrue(deploy.others_untouched(before, going, "sx3", "ColvennaCatalogTestU1")[0])
+        # An update never takes an install's data: its database gone was touched.
+        lost = dict(back, databases=[])
+        ok, detail = deploy.others_untouched(dict(before, databases=["colvennacatalogsu2storage-db available"]), lost, "sx3",
+                                             "ColvennaCatalogTestU1")
+        self.assertFalse(ok)
+        self.assertIn("databases gone", detail)
+        # Its stacks as they were: its function gone was touched.
+        ok, detail = deploy.others_untouched(before, dict(back, stacks=before["stacks"]), "sx3", "ColvennaCatalogTestU1")
+        self.assertFalse(ok)
+        self.assertIn("colvenna-catalog-su2-purge", detail)
+        # Its test driver redeployed is no update of the install.
+        driver = {"stacks": dict(before["stacks"], ColvennaCatalogTestSu2Driver=["CREATE_COMPLETE", "t5"]),
+                  "functions": before["functions"], "roles": before["roles"]}
+        redeployed = dict(back, stacks=dict(driver["stacks"], ColvennaCatalogTestSu2Driver=["UPDATE_COMPLETE", "t6"]))
+        self.assertFalse(deploy.others_untouched(driver, redeployed, "sx3", "ColvennaCatalogTestU1")[0])
+        # In another region too.
+        there = {"stacks": {"ColvennaCatalogTestU1": ["UPDATE_COMPLETE", "t1"]},
+                 "stacksElsewhere": {"ColvennaCatalogSu2Serverless": ["UPDATE_COMPLETE", "t2", "us-east-2"]},
+                 "roles": ["colvenna-catalog-su2-purge"]}
+        moved = dict(there, stacksElsewhere={"ColvennaCatalogSu2Serverless": ["UPDATE_COMPLETE", "t3", "us-east-2"]}, roles=[])
+        self.assertTrue(deploy.others_untouched(there, moved, "sx3", "ColvennaCatalogTestU1")[0])
+        # The case's own scripts naming that install's stacks: not excused.
+        self.assertFalse(deploy.others_untouched(before, back, "sx3", "ColvennaCatalogTestU1",
+                                                 said="updating ColvennaCatalogSu2Serverless")[0])
+
     def test_the_stacks_elsewhere(self):
         class FakeAws:
             def __init__(self, region, refused=()):
