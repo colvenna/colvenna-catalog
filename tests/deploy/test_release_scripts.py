@@ -1,6 +1,7 @@
 """The release scripts (scripts/release) refuse a bad argument or setting before they read anything from
 AWS: deploy-registry.sh's pull accounts (account IDs, never "*") and Region, make-manifest.sh's
-candidate name and Regions, verify-artifacts.sh's candidate name and registry. What they do against AWS is proved on the release registry itself."""
+candidate name (a release is promoted, never built) and Regions, verify-artifacts.sh's candidate or release
+name and registry. What they do against AWS is proved on the release registry itself."""
 import os
 import subprocess
 import unittest
@@ -47,16 +48,19 @@ class Scripts(unittest.TestCase):
                 self.assertEqual(out.returncode, 2, out.stderr)
                 self.assertEqual(stubs.calls(), [])
 
-    def test_verify_artifacts_needs_a_candidate_s_name_and_a_registry(self):
+    def test_verify_artifacts_needs_a_candidate_s_or_a_release_s_name_and_a_registry(self):
         registry = "444455556666.dkr.ecr.us-east-2.amazonaws.com"
-        cases = [((), {"COLVENNA_RELEASE_REGISTRY": registry}), (("v1.0.0",), {"COLVENNA_RELEASE_REGISTRY": registry}),
-                 (("v1.0.0-rc.1",), {}), (("v1.0.0-rc.1",), {"COLVENNA_RELEASE_REGISTRY": "ghcr.io"}),
-                 (("v1.0.0-rc.1",), {"COLVENNA_RELEASE_REGISTRY": "444455556666.dkr.ecr.cn-north-1.amazonaws.com"})]
+        cases = [((), {"COLVENNA_RELEASE_REGISTRY": registry}), (("1.0.0",), {"COLVENNA_RELEASE_REGISTRY": registry}),
+                 (("v1.0",), {"COLVENNA_RELEASE_REGISTRY": registry}), (("v1.0.0-rc.1",), {}), (("v1.0.0",), {}),
+                 (("v1.0.0-rc.1",), {"COLVENNA_RELEASE_REGISTRY": "ghcr.io"}),
+                 (("v1.0.0",), {"COLVENNA_RELEASE_REGISTRY": "444455556666.dkr.ecr.cn-north-1.amazonaws.com"})]
         for args, env in cases:
             with self.subTest(args=args, env=env):
                 out, stubs = self.run_script("verify-artifacts.sh", *args, **env)
                 self.assertEqual(out.returncode, 2, out.stderr)
                 self.assertEqual(stubs.calls(), [])
+        out, _ = self.run_script("verify-artifacts.sh", "v1.0.0")
+        self.assertIn("the release registry that holds v1.0.0", out.stderr)
 
 
 if __name__ == "__main__":

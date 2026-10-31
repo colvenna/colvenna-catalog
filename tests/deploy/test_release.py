@@ -1,6 +1,7 @@
-"""install.sh --release (deploy/lib/release.sh), and the release scripts' refusals (scripts/release):
-the checkout must be the candidate's tag, the release registry must hold its image and chart by
-digest, the image is copied by digest and the chart pulled by digest, and nothing is built."""
+"""install.sh --release (deploy/lib/release.sh) of a candidate or of a release promoted from one, and the
+release scripts' refusals (scripts/release): the checkout must be the candidate's or the release's tag
+(a release's, where its manifest says it was promoted from), the release registry must hold its image
+and chart by digest, the image is copied by digest and the chart pulled by digest, and nothing is built."""
 import json
 import shutil
 import stat
@@ -15,8 +16,11 @@ from stubs import Stubs
 
 sys.path.insert(0, str(REPO / "scripts" / "release"))
 import manifest  # noqa: E402
+import promotion  # noqa: E402
 
 CANDIDATE = "v1.0.0-rc.1"
+# The release promoted from a candidate of its own version (scripts/release/promotion.py).
+RELEASE = "v1.0.0"
 REGISTRY = "444455556666.dkr.ecr.us-east-2.amazonaws.com"
 OWN = "111122223333.dkr.ecr.us-west-2.amazonaws.com/colvenna-catalog-uat/colvenna-catalog"
 IMAGE = "sha256:" + "1" * 64
@@ -118,13 +122,155 @@ class Checkout(unittest.TestCase):
         self.assertRefused(self.checkout(), "does not describe this checkout", "chart")
 
 
-def release_env(**over):
-    """A loaded configuration with a release manifest (RELEASE_MANIFEST) and scratch directories."""
-    path = Path(tempfile.mkdtemp()) / "manifest.json"
-    path.write_text(json.dumps(manifest.build({
-        "candidate": CANDIDATE, "built_from": "b" * 40, "generated": "2026-10-28T06:00:00Z", "image_digest": IMAGE,
+class ReleaseCheckout(unittest.TestCase):
+    """release_checkout of a release's tag, as promote.sh makes it, in a repository of its own: B; the
+    candidate's tag commit C = B + release/<candidate>/; on C, the record A that gives the candidate's verdict
+    in release/<candidate>/notes.md; and the release's tag commit R = C + release/<release>/."""
+    PROMOTED = "v1.0.0-rc.2"
+    GO = "| Release verdict | GO | [the release check](https://example.com/check.md) |\n"
+
+    def setUp(self):
+        self.repo = Path(tempfile.mkdtemp())
+        git(self.repo, "init", "-q")
+        git(self.repo, "config", "user.email", "test@example.com")
+        git(self.repo, "config", "user.name", "test")
+        (self.repo / "scripts/release").mkdir(parents=True)
+        for tool in ("manifest.py", "promotion.py"):
+            shutil.copy(REPO / "scripts/release" / tool, self.repo / "scripts/release" / tool)
+        for path in ("install.sh", "uninstall.sh", "deploy/lib/config.sh", "deploy/aws/src/app.ts",
+                     "deploy/helm/colvenna-catalog/Chart.yaml", manifest.CASES_PATH, manifest.PERFORMANCE_PATH):
+            self.write(path, f"{path}\n")
+        self.built_from = b = self.commit()
+        objects = {path: git(self.repo, "rev-parse", f"{b}:{path}") for path in manifest.PINNED_PATHS}
+        documents = {key: {"commit": b, "blob": git(self.repo, "rev-parse", f"{b}:{path}")}
+                     for key, path in manifest.DOCUMENTS}
+        self.candidate = manifest.build({
+            "candidate": self.PROMOTED, "built_from": b, "generated": "2026-10-30T06:00:00Z", "image_digest": IMAGE,
+            "chart_digest": CHART, "objects": objects, "uat_cases": documents["uat_cases"],
+            "required_cases": ["UAT-CAT-01"], "performance": documents["performance"],
+            "regions": ["us-west-2", "us-east-2"]})
+        self.write(f"release/{self.PROMOTED}/manifest.json", json.dumps(self.candidate))
+        self.write(f"release/{self.PROMOTED}/notes.md", "the candidate's identity only\n")
+        self.tag_commit = self.commit()
+
+    def write(self, path, text):
+        full = self.repo / path
+        full.parent.mkdir(parents=True, exist_ok=True)
+        full.write_text(text)
+
+    def commit(self):
+        git(self.repo, "add", "-A")
+        git(self.repo, "commit", "-q", "-m", "c")
+        return git(self.repo, "rev-parse", "HEAD")
+
+    def promote(self, verdict=GO, change=None, **params):
+        """The record A on C, then R on C with the release's manifest (change(manifest) alters it); HEAD at R."""
+        self.write(f"release/{self.PROMOTED}/notes.md", verdict)
+        self.record = self.commit()
+        git(self.repo, "checkout", "-q", "--detach", self.tag_commit)
+        notes = git(self.repo, "rev-parse", f"{self.record}:release/{self.PROMOTED}/notes.md")
+        m = promotion.build(self.candidate, {
+            "release": RELEASE, "generated": "2026-11-02T06:00:00Z", "tag_commit": self.tag_commit,
+            "manifest_blob": git(self.repo, "rev-parse", f"{self.tag_commit}:release/{self.PROMOTED}/manifest.json"),
+            "acceptance": {"commit": self.record, "blob": notes}, "chart_digest": "sha256:" + "5" * 64,
+            "chart_files": 3, **params})
+        if change:
+            change(m)
+        self.write(f"release/{RELEASE}/manifest.json", json.dumps(m))
+        return self.commit()
+
+    def checkout(self, name=RELEASE):
+        return run_bash(f'REPO="{self.repo}"; release_checkout {name}; echo "$SOURCE_SHA $RELEASE_MANIFEST"')
+
+    def assertRefused(self, out, *needles):
+        self.assertEqual(out.returncode, 3, out.stdout + out.stderr)
+        for needle in needles:
+            self.assertIn(needle, out.stderr)
+
+    def test_the_release_s_tag_installs_as_the_commit_its_candidate_was_built_from(self):
+        self.promote()
+        out = self.checkout()
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.split(), [self.built_from, str(self.repo / f"release/{RELEASE}/manifest.json")])
+
+
+    def test_the_candidate_s_directory_changed_after_its_tag(self):
+        self.promote()
+        self.write(f"release/{self.PROMOTED}/notes.md", "changed on the release's tag\n")
+        self.commit()
+        self.assertRefused(self.checkout(), "does not describe this checkout",
+                           f"differs from {self.tag_commit}, {self.PROMOTED}'s tag commit, outside release/{RELEASE}/",
+                           f"release/{self.PROMOTED}/notes.md")
+
+
+    def test_a_candidate_s_manifest_that_is_not_its_tag_s(self):
+        self.promote(manifest_blob="e" * 40)
+        self.assertRefused(self.checkout(), f"promotion.manifest: release/{self.PROMOTED}/manifest.json is",
+                           f"at {self.tag_commit}, not the recorded {'e' * 40}")
+
+    def test_a_release_s_manifest_that_is_not_its_candidate_s_under_the_release_s_names(self):
+        def regions(m):
+            m["configurations"]["regions"] = ["us-west-2", "eu-west-1"]
+        self.promote(change=regions)
+        self.assertRefused(self.checkout(), f"is not {self.PROMOTED}'s under the release's names", "configurations")
+
+
+    def test_a_candidate_not_judged_go(self):
+        self.promote(verdict=self.GO.replace("| GO |", "| NO-GO |"))
+        self.assertRefused(self.checkout(), "promotion.acceptance", "the release verdict is NO-GO, not GO")
+
+    def test_an_acceptance_record_this_clone_lacks(self):
+        self.promote(change=lambda m: m["promotion"]["acceptance"].update(commit="e" * 40))
+        self.assertRefused(self.checkout(), f"this clone lacks {'e' * 40}", "git fetch origin")
+
+    def test_an_acceptance_record_that_does_not_have_the_candidate_s_tag_commit(self):
+        git(self.repo, "checkout", "-q", "--detach", self.built_from)
+        self.write(f"release/{self.PROMOTED}/notes.md", self.GO)
+        elsewhere = self.commit()
+        git(self.repo, "checkout", "-q", "--detach", self.tag_commit)
+        self.promote(change=lambda m: m["promotion"]["acceptance"].update(commit=elsewhere))
+        self.assertRefused(self.checkout(), f"{elsewhere} does not have {self.tag_commit}")
+
+    def test_an_acceptance_record_whose_notes_are_not_the_recorded_ones(self):
+        self.promote(change=lambda m: m["promotion"]["acceptance"].update(blob="f" * 40))
+        self.assertRefused(self.checkout(), f"promotion.acceptance: release/{self.PROMOTED}/notes.md is",
+                           f"not the recorded {'f' * 40}")
+
+    def test_an_acceptance_record_beside_another_manifest(self):
+        self.write(f"release/{self.PROMOTED}/manifest.json", json.dumps(dict(self.candidate, generated="2026-10-31T00:00:00Z")))
+        self.write(f"release/{self.PROMOTED}/notes.md", self.GO)
+        record = self.commit()
+        git(self.repo, "checkout", "-q", "--detach", self.tag_commit)
+        self.promote(change=lambda m: m["promotion"]["acceptance"].update(commit=record))
+        self.assertRefused(self.checkout(), f"release/{self.PROMOTED}/manifest.json is",
+                           f"at {record}, not the one {self.PROMOTED}'s tag commit holds")
+
+
+def candidate_manifest(built_from="b" * 40, **changes):
+    return manifest.build({
+        "candidate": CANDIDATE, "built_from": built_from, "generated": "2026-10-28T06:00:00Z", "image_digest": IMAGE,
         "chart_digest": CHART, "objects": {p: "3" * 40 for p in manifest.PINNED_PATHS}, "uat_cases": None,
-        "required_cases": [], "regions": ["us-west-2", "us-east-2"]})))
+        "required_cases": [], "regions": ["us-west-2", "us-east-2"], **changes})
+
+
+# The release's chart in the release registry: the candidate's, re-versioned (promote.sh).
+RELEASE_CHART = "sha256:" + "4" * 64
+
+
+def release_manifest(built_from="b" * 40):
+    """The release's manifest, promoted from a candidate for GO of its version built from built_from."""
+    candidate = candidate_manifest(built_from, uat_cases={"commit": "6" * 40, "blob": "7" * 40},
+                                   required_cases=["UAT-CAT-01"], performance={"commit": "8" * 40, "blob": "9" * 40})
+    return promotion.build(candidate, {
+        "release": RELEASE, "generated": "2026-11-02T06:00:00Z", "tag_commit": "c" * 40, "manifest_blob": "d" * 40,
+        "acceptance": {"commit": "e" * 40, "blob": "f" * 40}, "chart_digest": RELEASE_CHART, "chart_files": 10})
+
+
+def release_env(of=None, **over):
+    """A loaded configuration with a candidate's manifest, or the one given (RELEASE_MANIFEST), and scratch
+    directories."""
+    path = Path(tempfile.mkdtemp()) / "manifest.json"
+    path.write_text(json.dumps(of or candidate_manifest()))
     return {"REPO": str(REPO), "RELEASE_MANIFEST": str(path), "COLVENNA_RELEASE_REGISTRY": REGISTRY, "COLVENNA_REGION": "us-west-2",
             "WORK": tempfile.mkdtemp(), "EVIDENCE": tempfile.mkdtemp(), **over}
 
@@ -300,13 +446,13 @@ class ChartSource(unittest.TestCase):
 class Verify(unittest.TestCase):
     """release_verify_artifacts: the image and the chart the registry holds are built_from's."""
 
-    def verify(self, config=None, chart=None, built_from=HEAD):
+    def verify(self, config=None, chart=None, built_from=HEAD, of=None):
         stubs = Stubs({"aws": {"ecr get-login-password": {"stdout": "password\n"}},
                        "crane": {"auth login": {"stdout": ""}, "config": {"stdout": config or image_config()}}},
                       commands=("aws", "crane"))
         reading_stdin(stubs, "crane")
         fake_helm(stubs.bin, chart or package(tempfile.mkdtemp()))
-        env = release_env(**stubs.env)
+        env = release_env(of, **stubs.env)
         data = json.loads(Path(env["RELEASE_MANIFEST"]).read_text())
         data["source"]["built_from"] = built_from
         Path(env["RELEASE_MANIFEST"]).write_text(json.dumps(data))
@@ -355,6 +501,22 @@ class Verify(unittest.TestCase):
     def test_a_chart_of_another_version(self):
         out, _, _ = self.verify(chart=package(tempfile.mkdtemp(), version="0.1.0", app="0.1.0"))
         self.assertRefused(out, "chart: not version 1.0.0-rc.1")
+
+    def test_a_release_s_image_and_its_candidate_s_chart_re_versioned(self):
+        work = Path(tempfile.mkdtemp())
+        candidate = package(work / "candidate")
+        directory = promotion.rechart(str(candidate), str(work / "release"), "1.0.0", "1.0.0")
+        subprocess.run([str(HELM), "package", directory, "-d", str(work / "packaged")], check=True, capture_output=True)
+        out, env, stubs = self.verify(chart=next((work / "packaged").glob("*.tgz")), of=release_manifest())
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertTrue(any(c.startswith(f"helm pull oci://{REGISTRY}/colvenna-catalog-release/charts/colvenna-catalog"
+                                         f"@{RELEASE_CHART} ") for c in stubs.calls()))
+        self.assertIn(f"colvenna-catalog 1.0.0, annotated colvenna-catalog/source-commit={HEAD}",
+                      (Path(env["EVIDENCE"]) / "release.txt").read_text())
+
+    def test_a_release_s_manifest_with_its_candidate_s_chart(self):
+        out, _, _ = self.verify(of=release_manifest())
+        self.assertRefused(out, f"{RELEASE} is not what the registry holds", "chart: not version 1.0.0")
 
     def test_a_pull_that_leaves_no_single_package(self):
         stubs = Stubs({"aws": {"ecr get-login-password": {"stdout": "password\n"}},
@@ -452,18 +614,23 @@ class InstallArguments(unittest.TestCase):
                        path_prepend=stubs.bin)
         return out, stubs
 
-    def test_a_candidate_s_name(self):
-        for args in ("--release", "--release 1.0.0-rc.1", "--release v1.0.0", "--release v1.0.0-rc.1 --from-source"):
+    def test_a_name_that_is_neither_a_candidate_s_nor_a_release_s(self):
+        for args in ("--release", "--release 1.0.0-rc.1", "--release 1.0.0", "--release v1.0", "--release v1.0.0-rc.0",
+                     "--release latest", "--release v1.0.0-rc.1 --from-source"):
             with self.subTest(args):
                 out, stubs = self.install(args)
                 self.assertEqual(out.returncode, 2, out.stderr)
+                self.assertNotIn("required with --release", out.stderr)
                 self.assertEqual(stubs.calls(), [])
 
-    def test_a_release_needs_its_registry(self):
-        out, stubs = self.install(f"--release {CANDIDATE}")
-        self.assertEqual(out.returncode, 2)
-        self.assertIn("COLVENNA_RELEASE_REGISTRY: required with --release", out.stderr)
-        self.assertEqual(stubs.calls(), [])
+    def test_a_candidate_or_a_release_needs_its_registry(self):
+        for name in (CANDIDATE, RELEASE):
+            with self.subTest(name):
+                out, stubs = self.install(f"--release {name}")
+                self.assertEqual(out.returncode, 2)
+                self.assertIn(f"COLVENNA_RELEASE_REGISTRY: required with --release: the release registry that holds {name}",
+                              out.stderr)
+                self.assertEqual(stubs.calls(), [])
 
     def test_a_registry_that_is_not_one(self):
         out, stubs = self.install(f"--release {CANDIDATE}", CONFIG + "COLVENNA_RELEASE_REGISTRY=ghcr.io\n")

@@ -201,7 +201,7 @@ jq -n --arg candidate "$candidate" --arg sha "$sha" --arg at "$(date -u +%FT%TZ)
     objects: $objects, uat_cases: $cases, performance: $performance, regions: ($regions | split(",")),
     forms: ($forms | split(","))}' >"$work/params.json"
 python3 "$tool" assemble "$work" >"$work/manifest.json"
-python3 "$tool" validate "$work/manifest.json" --candidate "$candidate"
+python3 "$tool" validate "$work/manifest.json" --name "$candidate"
 python3 "$tool" check-tree "$work/manifest.json" "$REPO" "$sha"
 # What install.sh --release and verify-artifacts.sh check, on what was pushed: the image's label and
 # platform, and the chart pulled back by its digest (its annotation, and its files against B's).

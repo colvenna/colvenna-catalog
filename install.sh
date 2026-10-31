@@ -4,9 +4,9 @@
 # deploy/lib/serverless.sh). Run it again with the same configuration at any time, and after a failure
 # or an interruption, to carry on. Every step checks before it changes anything. Exit status: 0 installed; 1 a step failed (it says
 # which); 2 the arguments or the configuration are wrong, or the install was not confirmed; 3 preflight
-# refused (a tool missing or too old, the tree not clean for --from-source, not the candidate's tag for
-# --release, the release registry lacking it, wrong account, cluster not ready, NetworkPolicy not
-# enforced, ...).
+# refused (a tool missing or too old, the tree not clean for --from-source, not the tag of the candidate or
+# the release for --release, the release registry lacking it, wrong account, cluster not ready,
+# NetworkPolicy not enforced, ...).
 set -Eeuo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,17 +29,17 @@ source "$REPO/deploy/lib/serverless.sh"
 
 usage() {
   cat <<'USAGE'
-Usage: install.sh --config <file> (--from-source | --release <candidate>) [--yes]
+Usage: install.sh --config <file> (--from-source | --release <name>) [--yes]
                   [--allow-unenforced-network-policy]
 
   --config <file>     the install's configuration (deploy/config/example.env lists every key)
   --from-source       build the catalog's image from this commit (a clean, committed tree) and install it
-  --release <candidate>
-                      install release candidate <candidate> (v1.0.0-rc.1, say) from a clean checkout of
-                      its tag: its image, copied by digest from the release registry
-                      COLVENNA_RELEASE_REGISTRY (a configuration key) into the environment's own
-                      repository, and its Helm chart, pulled from there by digest; nothing is built.
-                      The candidate's manifest must list the configuration's form (COLVENNA_FORM)
+  --release <name>    install release candidate <name> (v1.0.0-rc.1, say), or the release promoted from
+                      a GO candidate (v1.0.0), from a clean checkout of its tag: its image, copied by
+                      digest from the release registry COLVENNA_RELEASE_REGISTRY (a configuration key)
+                      into the environment's own repository, and its Helm chart, pulled from there by
+                      digest; nothing is built. Its manifest must list the configuration's form
+                      (COLVENNA_FORM)
   --yes               do not ask before changing anything
   --allow-unenforced-network-policy
                       install even though nothing in the cluster enforces NetworkPolicy; only the
@@ -48,6 +48,7 @@ Usage: install.sh --config <file> (--from-source | --release <candidate>) [--yes
 USAGE
 }
 
+# parse_args: the arguments. RELEASE_CANDIDATE is the name --release gives: a candidate's or a release's.
 parse_args() {
   CONFIG_FILE="" SOURCE="" RELEASE_CANDIDATE="" RELEASE_CHART="" ASSUME_YES="" ALLOW_UNENFORCED_NETWORK_POLICY=""
   while (($#)); do
@@ -66,9 +67,9 @@ parse_args() {
     esac
   done
   [[ -n "$CONFIG_FILE" ]] || { echo "--config is required" >&2; usage >&2; exit 2; }
-  [[ -n "$SOURCE" ]] || { echo "Give --from-source or --release <candidate>" >&2; exit 2; }
+  [[ -n "$SOURCE" ]] || { echo "Give --from-source or --release <name>" >&2; exit 2; }
   if [[ "$SOURCE" == release ]]; then
-    release_tool names "$RELEASE_CANDIDATE" >/dev/null || exit 2
+    release_tool kind "$RELEASE_CANDIDATE" >/dev/null || exit 2
   fi
   export ALLOW_UNENFORCED_NETWORK_POLICY RELEASE_CANDIDATE
 }

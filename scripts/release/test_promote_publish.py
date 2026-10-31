@@ -257,6 +257,22 @@ class Promote(unittest.TestCase):
         self.assertEqual(notes, promotion.notes(self.release, git(
             self.world.repo, "show", f"{self.world.record}:release/{CANDIDATE}/notes.md") + "\n").rstrip("\n"))
 
+    def test_the_release_s_tag_passes_install_sh_release_s_checks(self):
+        """install.sh --release v1.0.0 from a checkout of the tag (deploy/lib/release.sh): the checkout is the
+        release's, promoted from the candidate as its manifest says, and the chart in the release registry is
+        B's chart directory as a release of version 1.0.0 packages it."""
+        repo = self.world.repo
+        self.assertEqual(git(repo, "rev-parse", "HEAD"), git(repo, "rev-parse", f"{RELEASE}^{{commit}}"))
+        script = (f'set -euo pipefail; source "{REPO}/deploy/lib/preflight.sh"; REPO="{repo}"; '
+                  f'source "{repo}/deploy/lib/release.sh"; release_checkout {RELEASE}; echo "$SOURCE_SHA"; '
+                  f'release_chart_source "{repo / CHART_DIR}" "$1/colvenna-catalog" "$(release_value chart.version)" '
+                  '"$(release_value chart.appVersion)" "$SOURCE_SHA"; release_chart_differences "$2" "$1/colvenna-catalog"')
+        held = held_package(self.world.registry, CHART_REPOSITORY, "1.0.0")
+        out = subprocess.run(["bash", "-c", script, "-", str(scratch()), str(held)], capture_output=True, text=True,
+                             env={**environment(no_aws_no_gh()), "EVIDENCE": str(scratch())})
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertEqual(out.stdout, f"{self.world.built_from}\n")
+
     def test_a_rehearsal_s_commit_and_tag_say_so(self):
         """The stub is a loopback registry: a rehearsal, never to be pushed."""
         message = git(self.world.repo, "for-each-ref", "--format=%(contents)", f"refs/tags/{RELEASE}")

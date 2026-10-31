@@ -1,11 +1,12 @@
 # shellcheck shell=bash
-# install.sh --release <candidate>: a release candidate installed from a checkout of its tag, never
-# built (docs/development.md, "Releasing"). Its manifest, release/<candidate>/manifest.json
-# (scripts/release/manifest.py), pins the server's image and the Helm chart by digest; the release
+# install.sh --release <name>: a release candidate, or a release promoted from a GO candidate, installed
+# from a checkout of its tag, never built (docs/development.md, "Releasing"). Its manifest,
+# release/<name>/manifest.json (a candidate's: scripts/release/manifest.py; a release's:
+# scripts/release/promotion.py), pins the server's image and the Helm chart by digest; the release
 # registry that holds them is the configuration's COLVENNA_RELEASE_REGISTRY
 # (<account>.dkr.ecr.<region>.amazonaws.com), never the manifest's. Reads REPO and the configuration;
 # release_auth needs WORK (install.sh's scratch directory), whose removal takes the credentials with it.
-# install.sh --release and scripts/release/verify-artifacts.sh check a candidate with the same functions,
+# install.sh --release and scripts/release/verify-artifacts.sh check one with the same functions,
 # and scripts/release/make-manifest.sh packages its chart with release_chart_source.
 
 # The image's label and the packaged chart's annotation that name the commit a candidate was built from.
@@ -17,9 +18,14 @@ release_tool() {
   python3 "$REPO/scripts/release/manifest.py" "$@"
 }
 
-# release_value <field.field...>: one value of the candidate's manifest (RELEASE_MANIFEST).
+# release_value <field.field...>: one value of the candidate's or the release's manifest (RELEASE_MANIFEST).
 release_value() {
   release_tool get "$RELEASE_MANIFEST" "$1"
+}
+
+# release_name: the candidate's or the release's name, as its manifest (RELEASE_MANIFEST) says.
+release_name() {
+  release_tool name "$RELEASE_MANIFEST"
 }
 
 # release_note <text>: a line of the install's evidence (EVIDENCE/release.txt), when there is one.
@@ -27,53 +33,57 @@ release_note() {
   [[ -z "${EVIDENCE:-}" ]] || printf '%s\n' "$*" >>"$EVIDENCE/release.txt"
 }
 
-# release_checkout <candidate>: this checkout installs the candidate, or the install is refused (status
-# 3): its manifest is here and valid; the tree is clean and differs from the commit the candidate was
-# built from (source.built_from) under release/<candidate>/ alone, as the candidate's tag does; and the
-# git objects the manifest pins (the chart, install.sh, uninstall.sh, deploy/lib, the CDK app, the UAT
-# cases) are this checkout's. Exports RELEASE_MANIFEST and SOURCE_SHA, the commit the candidate was
-# built from (the stacks' SourceSha, the pods' source-sha).
+# release_checkout <name>: this checkout installs the candidate or the release of that name, or the install
+# is refused (status 3): its manifest is here and valid; the tree is clean and differs from the commit it
+# was built from (source.built_from) under the directories its tag adds alone (release/<candidate>/, and
+# for a release release/<release>/ as well); and the git objects the manifest pins (the chart, install.sh,
+# uninstall.sh, deploy/lib, the CDK app, the UAT cases) are this checkout's. A release's checkout is also
+# where its manifest says it was promoted from (scripts/release/promotion.py). Exports RELEASE_MANIFEST
+# and SOURCE_SHA, the commit it was built from (the stacks' SourceSha, the pods' source-sha).
 release_checkout() {
-  local candidate="$1" manifest="$REPO/release/$1/manifest.json" err built_from changed
-  [[ -f "$manifest" ]] || refuse "No release/$candidate/manifest.json in this checkout: check out the candidate's tag" \
-    "(git checkout $candidate)"
+  local name="$1" manifest="$REPO/release/$1/manifest.json" err built_from changed listed added
+  [[ -f "$manifest" ]] || refuse "No release/$name/manifest.json in this checkout: check out its tag" \
+    "(git checkout $name)"
   [[ -z "$(git -C "$REPO" status --porcelain)" ]] \
-    || refuse "--release installs from a clean checkout of the tag $candidate: commit or remove the local changes"
+    || refuse "--release installs from a clean checkout of the tag $name: commit or remove the local changes"
   err="$(mktemp)"
-  if ! release_tool validate "$manifest" --candidate "$candidate" 2>"$err"; then
-    refuse "release/$candidate/manifest.json is not a manifest this checkout can install: $(tr '\n' ' ' <"$err"; rm -f "$err")"
+  if ! release_tool validate "$manifest" --name "$name" 2>"$err"; then
+    refuse "release/$name/manifest.json is not a manifest this checkout can install: $(tr '\n' ' ' <"$err"; rm -f "$err")"
   fi
   RELEASE_MANIFEST="$manifest"
   built_from="$(release_value source.built_from)"
   if ! git -C "$REPO" cat-file -e "$built_from^{commit}" 2>/dev/null; then
     rm -f "$err"
-    refuse "This clone lacks $built_from, the commit $candidate was built from: git fetch origin --tags"
+    refuse "This clone lacks $built_from, the commit $name was built from: git fetch origin --tags"
   fi
-  changed="$(git -C "$REPO" diff --name-only "$built_from" HEAD -- . ":(exclude)release/$candidate")"
+  listed="$(release_tool added "$manifest")"
+  mapfile -t added <<<"$listed"
+  changed="$(git -C "$REPO" diff --name-only "$built_from" HEAD -- . "${added[@]/#/:(exclude)}")"
   if [[ -n "$changed" ]]; then
     rm -f "$err"
-    refuse "This checkout differs from $built_from, the commit $candidate was built from, outside" \
-      "release/$candidate/: check out the tag $candidate. Differing: $(head -20 <<<"$changed" | tr '\n' ' ')"
+    refuse "This checkout differs from $built_from, the commit $name was built from, outside" \
+      "$(printf '%s/ ' "${added[@]}")(what its tag adds): check out the tag $name. Differing: $(head -20 <<<"$changed" | tr '\n' ' ')"
   fi
   if ! release_tool check-tree "$manifest" "$REPO" HEAD 2>"$err"; then
-    refuse "The manifest of $candidate does not describe this checkout: $(tr '\n' ' ' <"$err"; rm -f "$err")"
+    refuse "The manifest of $name does not describe this checkout: $(tr '\n' ' ' <"$err"; rm -f "$err")"
   fi
   rm -f "$err"
   release_note "checkout: $(git -C "$REPO" rev-parse HEAD), clean, differs from $built_from (built_from) under" \
-    "release/$candidate/ alone; the manifest is valid and pins this checkout's git objects"
+    "$(printf '%s/ ' "${added[@]}")alone; the manifest is valid and pins this checkout's git objects"
   SOURCE_SHA="$built_from"
   export RELEASE_MANIFEST SOURCE_SHA
 }
 
-# release_form_check <form>: the candidate is accepted in this deployment form (its manifest's
-# configurations.forms), or the install is refused (status 3). A candidate made before the serverless
-# form (#13), or without RELEASE_FORMS naming it, is the EKS form's alone.
+# release_form_check <form>: the candidate or the release is accepted in this deployment form (its
+# manifest's configurations.forms, a release's its candidate's), or the install is refused (status 3). A
+# candidate made before the serverless form (#13), or without RELEASE_FORMS naming it, is the EKS form's
+# alone.
 release_form_check() {
   local forms
   forms="$(release_value configurations.forms)"
   jq -e --arg f "$1" 'index($f) != null' <<<"$forms" >/dev/null \
-    || refuse "$(release_value candidate) is accepted in the form(s) $(jq -r 'join(", ")' <<<"$forms"), not $1"
-  release_note "form: $1 is among the candidate's forms ($(jq -r 'join(", ")' <<<"$forms"))"
+    || refuse "$(release_name) is accepted in the form(s) $(jq -r 'join(", ")' <<<"$forms"), not $1"
+  release_note "form: $1 is among the forms of $(release_name) ($(jq -r 'join(", ")' <<<"$forms"))"
 }
 
 # release_registry_parts <registry>: its account and Region, tab-separated (manifest.py registry).
@@ -110,7 +120,7 @@ release_registry_check() {
     fi
   done
   rm -f "$err"
-  ((${#missing[@]} == 0)) || refuse "The release registry lacks what $(release_value candidate) pins:" \
+  ((${#missing[@]} == 0)) || refuse "The release registry lacks what $(release_name) pins:" \
     "$(printf '%s; ' "${missing[@]}")ask its maintainer to add this account to its pull accounts, or give the registry that holds it"
 }
 
@@ -169,8 +179,9 @@ release_chart_differences() {
   rm -rf "$files"
 }
 
-# copy_release_image <repository URI>: the candidate's image, copied by its digest from the release
-# registry into the environment's own repository, tagged <candidate> there; a tag that repository
+# copy_release_image <repository URI>: the candidate's or the release's image, copied by its digest from
+# the release registry into the environment's own repository, tagged with its name there (image.tag:
+# v1.0.0-rc.1, or v1.0.0, a release's tag on its candidate's image); a tag that repository
 # already holds must be that digest (tags never move). After release_auth. Sets IMAGE_REPOSITORY and
 # IMAGE_DIGEST.
 copy_release_image() {
@@ -196,9 +207,9 @@ copy_release_image() {
   export IMAGE_REPOSITORY IMAGE_DIGEST
 }
 
-# fetch_release_chart <dir>: the candidate's chart, pulled by its digest from the release registry into
-# the directory, made empty first (after release_auth). Sets RELEASE_CHART, the package helm upgrades the
-# release with; release_verify_artifacts checks it.
+# fetch_release_chart <dir>: the candidate's or the release's chart, pulled by its digest from the release
+# registry into the directory, made empty first (after release_auth). Sets RELEASE_CHART, the package helm
+# upgrades the release with; release_verify_artifacts checks it.
 fetch_release_chart() {
   local dir="$1" reference packages
   reference="oci://$COLVENNA_RELEASE_REGISTRY/$(release_value chart.repository)@$(release_value chart.digest)"
@@ -215,12 +226,13 @@ fetch_release_chart() {
 }
 
 # release_verify_artifacts <dir>: the release registry's image and chart are those of the commit the
-# candidate was built from, B (source.built_from), or the install is refused (status 3), naming each
+# candidate was built from, B (source.built_from; a release's is its candidate's), or the install is refused (status 3), naming each
 # mismatch. After release_auth; <dir> is scratch space. The image (read by its digest) carries the label
 # RELEASE_REVISION_LABEL=B and is for the manifest's platform. The chart, pulled by its digest
 # (fetch_release_chart), is the manifest's name and version, names B in its RELEASE_SOURCE_ANNOTATION
 # annotation, and holds exactly B's chart directory (chart.path, whose tree is chart.tree) as a release
-# packages it: so chart.digest is chart.tree's.
+# packages it: so chart.digest is chart.tree's. A release's chart is its candidate's with only its version
+# and appVersion changed (promote.sh), and is held to its own (chart.version, chart.appVersion).
 release_verify_artifacts() {
   local dir="$1" built_from image config revision platform name version path differences annotation problems=()
   built_from="$(release_value source.built_from)"
@@ -251,7 +263,7 @@ release_verify_artifacts() {
   differences="$(release_chart_differences "$RELEASE_CHART" "$dir/expected/$name")"
   [[ -z "$differences" ]] || problems+=("chart: its files are not $built_from's $path as a release packages it:" \
     "$(head -10 <<<"$differences" | tr '\n' ' ')")
-  ((${#problems[@]} == 0)) || refuse "$(release_value candidate) is not what the registry holds: $(printf '%s; ' "${problems[@]}")"
+  ((${#problems[@]} == 0)) || refuse "$(release_name) is not what the registry holds: $(printf '%s; ' "${problems[@]}")"
   release_note "image: $image is labelled $RELEASE_REVISION_LABEL=$built_from, for $platform"
   release_note "chart: $RELEASE_CHART is $name $version, annotated $RELEASE_SOURCE_ANNOTATION=$built_from, and holds" \
     "exactly $built_from's $path ($(release_value chart.tree)) as a release packages it"

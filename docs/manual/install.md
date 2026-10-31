@@ -33,6 +33,7 @@ What has run live, in this repository's own test environments, and what only off
 | Serverless form from source, `COLVENNA_NETWORK=create`, `COLVENNA_DB=create`; run again and upgraded; uninstalled keeping the data, then with `--delete-data` | us-west-2 | |
 | Serverless form with `COLVENNA_NETWORK=create`, pointed at a database restored from a snapshot (`COLVENNA_DB=existing`, [user manual](user.md#62-restoring) 6.2); the refusals of `COLVENNA_DB=existing` without `COLVENNA_BUCKET`, of `COLVENNA_DB=create` after the move, and of `--delete-data` while the restored instance is there | us-west-2 | |
 | Serverless form from a release candidate (`--release`) | | yes |
+| Either form from a release promoted from a GO candidate (`--release v1.0.0`) | | yes |
 | EKS form pointed at a database restored from a snapshot | | yes |
 | Serverless form with `COLVENNA_NETWORK=existing`, with or without `COLVENNA_DB=existing` | | yes |
 | An Aurora PostgreSQL database, or an existing RDS instance an earlier install did not make | | yes (preflight) |
@@ -80,7 +81,7 @@ Run every command with an explicit profile (`AWS_PROFILE=<profile> ./install.sh 
 - **Who can invoke the serverless form's maintenance and ops functions** can issue an admin token and send requests through the private API with a token. Keep `lambda:InvokeFunction` on them to the account's administrators, as you would `pods/exec` in the catalog's namespace in the EKS form. Who can invoke the purge function can only make it delete, sooner, the files of tables already dropped: it takes nothing from its payload but the command.
 - **Kubernetes** (EKS form). The identity needs access to the cluster (an EKS access entry, or the `aws-auth` ConfigMap) with rights to: list nodes and DaemonSets in every namespace; create and label namespaces; manage Secrets, ConfigMaps, Pods (with `exec`, `logs` and `port-forward`) and Services in the catalog's namespace and in the two namespaces the smoke check creates and deletes (`<namespace>-smoke-client` and `<namespace>-smoke-outsider`); and everything the chart installs.
 - **The database admin secret** (`COLVENNA_DB_ADMIN_SECRET_ARN`, with `COLVENNA_DB=existing`) must be readable, and hold `{"username": ..., "password": ...}` of a user that may create roles and databases.
-- **A release candidate** (`--release`): the maintainer of the release registry lists your account among its pull accounts, and your identity needs `ecr:GetAuthorizationToken`, and `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer` and `ecr:BatchCheckLayerAvailability` on the release's repositories.
+- **A release candidate or a release** (`--release`): the maintainer of the release registry lists your account among its pull accounts, and your identity needs `ecr:GetAuthorizationToken`, and `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer` and `ecr:BatchCheckLayerAvailability` on the release's repositories.
 
 ### 2.4 For the EKS form
 
@@ -143,7 +144,7 @@ The names (`COLVENNA_NAMESPACE`, `COLVENNA_RELEASE_NAME`, `COLVENNA_SERVICE_ACCO
 `install.sh` shows what it is about to change and asks you to type the environment's name; `--yes` skips the question, and without a terminal to ask on, the install is refused unless `--yes` is given. Run it again at any time with the same configuration: every step checks before it changes anything, so a rerun after a failure or an interruption carries on, and a rerun of a complete install changes nothing but what is due for renewal (section 6.1).
 
 ```text
-Usage: install.sh --config <file> (--from-source | --release <candidate>) [--yes]
+Usage: install.sh --config <file> (--from-source | --release <name>) [--yes]
                   [--allow-unenforced-network-policy]
 ```
 
@@ -155,7 +156,7 @@ AWS_PROFILE=<profile> ./install.sh --config deploy/config/<env>.env --from-sourc
 
 It prints each step as it starts (`== <step>`):
 
-1. **tools**: the tools of section 2.1; the pinned kubectl, Helm and crane into `.tools/`; a clean tree (with `--release`, the candidate's checkout, section 4.3).
+1. **tools**: the tools of section 2.1; the pinned kubectl, Helm and crane into `.tools/`; a clean tree (with `--release`, the checkout of the candidate's or the release's tag, section 4.3).
 2. **preflight**: the account, the CDK bootstrap, the cluster and its private subnets, the OIDC provider, NetworkPolicy, the Load Balancer Controller and the NLB's CIDRs (with the NLB), the eligible nodes, the bucket, the database and its admin secret. Then the summary and the question.
 3. **stacks**: `Storage` (if it makes the bucket or the database), then `Eks`.
 4. **image**: built with Maven and Docker Buildx for `linux/amd64` and pushed, tagged with the commit, unless the tag is there already (tags never move).
@@ -187,9 +188,9 @@ The `Serverless` stack also holds the **purge function**, which `install.sh` run
 
 `install.sh` never connects to the database or the private API itself: it invokes the maintenance and ops functions with IAM-authenticated Lambda Invoke calls, with passwords and tokens in payload files only you can read. It ends with the API's URL, `https://<api-id>.execute-api.<region>.amazonaws.com/catalog`, the endpoints clients reach it through, and the admin token's secret. The live install with a new network and database took about 20 minutes, most of it the RDS instance.
 
-### 4.3 From a release candidate
+### 4.3 From a release candidate or a release
 
-A release candidate is installed from a clean checkout of its tag, with `COLVENNA_RELEASE_REGISTRY` in the configuration (the maintainer gives you the registry's address):
+A release candidate (`v1.0.0-rc.<n>`) is installed from a clean checkout of its tag, with `COLVENNA_RELEASE_REGISTRY` in the configuration (the maintainer gives you the registry's address):
 
 ```bash
 git fetch origin --tags
@@ -198,6 +199,22 @@ AWS_PROFILE=<profile> ./install.sh --config deploy/config/<env>.env --release <c
 ```
 
 Before it changes anything, it checks that the tree is clean and is the candidate's (it differs from the commit the candidate was built from under `release/<candidate>/` alone), that the manifest is valid and pins this checkout's files, that the registry holds the image and the chart by the manifest's digests and that they were built from that commit, and that the candidate is accepted in the configuration's form. Any of these failing refuses the install (exit 3). It then installs as from source, but builds nothing: the CDK app's packages come afresh from the tag's lockfile (`npm ci`), the image is copied by digest into the environment's own repository, and the chart is pulled by digest. `scripts/release/verify-artifacts.sh <candidate>`, with `COLVENNA_RELEASE_REGISTRY` set, makes the same checks and installs nothing. [Releasing](../development.md#releasing) describes candidates. The serverless form's `--release` path has run only in offline tests, and no candidate names the serverless form yet.
+
+A release (`v1.0.0`) is a candidate judged GO and promoted from it, never rebuilt ([Promoting a GO candidate](../development.md#promoting-a-go-candidate)). It installs the same way, from a clean checkout of its own tag, with the same registry:
+
+```bash
+git fetch origin --tags         # the tags, and main, which holds the candidate's verdict
+git checkout v1.0.0
+AWS_PROFILE=<profile> ./install.sh --config deploy/config/<env>.env --release v1.0.0
+```
+
+Its manifest, `release/v1.0.0/manifest.json`, is the candidate's under the release's names, and records under `promotion` which candidate it was promoted from. The tree may differ from the commit the candidate was built from under `release/<candidate>/` and `release/v1.0.0/` alone. Before it changes anything, the install also checks where the release came from (exit 3 when it is not so):
+
+- the checkout is the candidate's tag commit (`promotion.tag_commit`) with `release/v1.0.0/` added, nothing else;
+- the candidate's manifest there is the one recorded (`promotion.manifest`), and the release's manifest is that one under the release's names: the same image digest, commit, pinned files, UAT cases, performance terms, forms and Regions;
+- the commit that records the candidate's verdict (`promotion.acceptance`, on `main`) is in the clone and has the candidate's tag commit, and its `release/<candidate>/notes.md` is the recorded file and gives the release verdict `GO`, beside the same manifest. A clone that lacks it is refused: `git fetch origin`.
+
+The image is the candidate's, by the same digest, tagged `v1.0.0` in the environment's repository. The chart, pulled by its own digest, must be version `1.0.0` (appVersion `1.0.0`) and otherwise the candidate's: the chart directory of the commit the candidate was built from, annotated with that commit. The pods carry `colvenna-catalog/release: v1.0.0`. `scripts/release/verify-artifacts.sh v1.0.0` makes the same checks. A release's install has run only in offline tests: no release has been promoted yet.
 
 ### 4.4 Example configurations
 
@@ -302,7 +319,7 @@ To replace the server certificate now, for a key that may have leaked, delete it
 
 ```bash
 kubectl -n colvenna-catalog delete secret colvenna-catalog-tls
-AWS_PROFILE=<profile> ./install.sh --config deploy/config/<env>.env --from-source   # or --release <candidate>
+AWS_PROFILE=<profile> ./install.sh --config deploy/config/<env>.env --from-source   # or --release <name>
 ```
 
 The CA is made only when the Secret `colvenna-catalog-ca-key` is missing. Deleting it as well, before the rerun, gives a new CA and a new certificate; every client must then trust the new CA before it can connect again. This has not been run.
@@ -316,7 +333,7 @@ Clients that trust the earlier copy of `ca.crt` keep connecting: the new server 
 
 ### 6.3 Upgrading
 
-First take a manual snapshot of the metadata database ([user manual](user.md#61-what-is-backed-up), section 6.1): it is the way back if the newer version moves the schema forward. Then run `install.sh` with the same configuration from the newer code: a checkout of a newer commit with `--from-source`, or a checkout of a newer candidate's tag with `--release <candidate>`. Keys the newer version added take their defaults.
+First take a manual snapshot of the metadata database ([user manual](user.md#61-what-is-backed-up), section 6.1): it is the way back if the newer version moves the schema forward. Then run `install.sh` with the same configuration from the newer code: a checkout of a newer commit with `--from-source`, or a checkout of a newer candidate's or release's tag with `--release <name>`. Keys the newer version added take their defaults.
 
 - **EKS.** The chart rolls the Deployment one pod at a time, never below two ready replicas (`maxUnavailable: 0`). A replaced pod stops so as not to refuse its clients (#64). Kubernetes runs the pod's `preStop` hook before it sends the server SIGTERM, and meanwhile takes the pod out of the Service's endpoints ([pod termination flow](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination-flow)); the hook waits 15 seconds (`shutdown.preStopSeconds`), so that every node's Service rules drop the pod while it still serves. On SIGTERM the server fails its readiness, closes each connection after its answer (the client's next request goes to another replica), takes new connections for 5 more seconds (`COLVENNA_SHUTDOWN_DRAIN`), and then stops taking them and gives the requests in flight up to 20 seconds (`COLVENNA_SHUTDOWN_TIMEOUT`); the pod's grace period is the three plus 10 seconds. The pods being replaced stop as their own version does: an upgrade from a version before #64 still stops its old pods the old way, at once, and a client may then see one request fail. The wait is reckoned for the Service's rules; the internal NLB's deregistration of a target was not measured against it (`shutdown.preStopSeconds` is the chart's value to raise). This ran live on an EKS install in `us-west-2` from one commit with it to a later one (#64): with UAT-DEP-06's loops running, the rolling upgrade, a `helm rollback` and the upgrade again failed none of 719 commits, 2,894 reads and 583 credential requests, and a pod deleted by hand was out of the endpoints at once, got SIGTERM 16 seconds later and stopped taking connections 5 seconds after that. Each new pod migrates the database schema as it starts, under a PostgreSQL advisory lock, so replicas migrate one at a time; old replicas keep serving the migrated schema until they are replaced.
 - **Serverless.** The maintenance function takes the new image first and runs `migrate`; only then does the server function take it, and the API moves to the new version at once (the alias `live`). Upgrading a live serverless install from source this way has run live; from one candidate to another has not, as no candidate names the serverless form yet.
@@ -329,7 +346,7 @@ First take a manual snapshot of the metadata database ([user manual](user.md#61-
     helm rollback colvenna-catalog <revision> --namespace colvenna-catalog --wait --timeout 10m
     ```
 
-    A release candidate's chart is named with its version in the `CHART` column (`colvenna-catalog-1.0.0-rc.1`); from source every chart is `colvenna-catalog-0.1.0`, and `helm get values colvenna-catalog --namespace colvenna-catalog --revision <revision>` shows the commit in the pod annotation `colvenna-catalog/source-sha`. In the serverless form, run the previous version's `install.sh` from a clean checkout of it, with the configuration as it takes it (keys it does not know left out): it moves the API back to the previous image, and its `migrate` finds nothing to do.
+    A release candidate's chart is named with its version in the `CHART` column (`colvenna-catalog-1.0.0-rc.1`), and a release's with its own (`colvenna-catalog-1.0.0`); from source every chart is `colvenna-catalog-0.1.0`, and `helm get values colvenna-catalog --namespace colvenna-catalog --revision <revision>` shows the commit in the pod annotation `colvenna-catalog/source-sha`. In the serverless form, run the previous version's `install.sh` from a clean checkout of it, with the configuration as it takes it (keys it does not know left out): it moves the API back to the previous image, and its `migrate` finds nothing to do.
   - **The schema moved forward.** A server refuses to start on, or to serve, a schema newer than its own, and writes nothing: in the EKS form the older pods never become ready, and the newer ones go on serving; in the serverless form the older `migrate` refuses, before the server function changes. The way back is the snapshot taken before the upgrade: restore it as the [user manual](user.md#62-restoring) (section 6.2) says, onto a new instance, with the writing jobs stopped, and install the previous version onto that. Expect an interruption while the install moves to the restored instance; what was written since the snapshot is then reconciled as that section says.
 
 ### 6.4 Installing again onto kept data
@@ -350,7 +367,7 @@ and set them in the configuration, with `COLVENNA_BUCKET=<BucketName>`, `COLVENN
 | 0 | Done |
 | 1 | A step failed; the message names it: `install.sh: failed at step "<step>" (status <n>); fix the cause and run it again` |
 | 2 | The arguments or the configuration are wrong (each error as `config: <KEY>: why`), or the install was not confirmed |
-| 3 | Preflight refused, with the reason, before anything changed: a tool missing or too old, a tree not clean, not the candidate's tag, the release registry lacking it, the wrong account, the cluster, NetworkPolicy, the database, the network |
+| 3 | Preflight refused, with the reason, before anything changed: a tool missing or too old, a tree not clean, not the tag of the candidate or the release, the release registry lacking it, the wrong account, the cluster, NetworkPolicy, the database, the network |
 
 - **Fix the cause and run the same command again.** Every step checks what is there first, so a run that failed, or was interrupted (a lost session, Ctrl-C), carries on. A run killed while Helm was changing the release leaves it `pending-*`; the next run of the same checkout rolls it back to the last deployed revision (or uninstalls a first install that never deployed) and goes on. A pending revision this checkout did not start is left alone, and the run says how to recover it by hand (`helm rollback` or `helm uninstall`).
 - **Evidence.** Each run writes `.state/<env>/evidence/install-<time>/`: `RESULT`, the smoke check's `smoke.txt`, and the logs of the CDK (`cdk.log`), Helm (`helm.log`), the build (`mvn.log`) and the image (`image.log`); the serverless form adds the maintenance function's output. `.state/<env>/install.json` records what is installed. On a failure, the output ends with the last lines of the failing step's log, where it has one.
