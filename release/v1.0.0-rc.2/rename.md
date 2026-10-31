@@ -1,6 +1,6 @@
 ---
 title: "Colvenna Catalog v1.0.0-rc.2 release check: the rename gate"
-date: 2026-10-30
+date: 2026-10-31
 status: final
 issue: 2
 ---
@@ -95,9 +95,9 @@ This candidate's records (this file, the release notes, the UAT report, the perf
 
 **Repository metadata.** `gh repo view colvenna/colvenna-catalog` (2026-10-30): the name `colvenna-catalog`, the description "REST catalog server for Apache Paimon. Open source (Apache-2.0), backed by PostgreSQL; runs on Amazon EKS or serverless on AWS Lambda.", no homepage and no topics: no hit. The issues' titles carry the new names (#8).
 
-**Migration: not needed.** No install under the former name exists (`docs/rename.md`, "已有环境与升级"), and before 1.0 no upgrade compatibility is kept. Every install of this candidate's UAT and performance acceptance was made from nothing, in the new names, from the candidate's tag (`install.sh --release v1.0.0-rc.2`); the upgrade cases start from releases made after the rename (`v1.0.0-rc.1`, and the merge of #59 of the early private repository), so both ends of each upgrade carry the new names.
+**Migration: not needed.** No install under the former name exists (`docs/rename.md`, "已有环境与升级"), and before 1.0 no upgrade compatibility is kept. Every install of this candidate's UAT and performance acceptance was made in the new names: from nothing, or into the test environments' existing resources, from the candidate's tag (`install.sh --release v1.0.0-rc.2`), except the upgraded installs E2 and S2, which were made from their previous releases' own refs (`v1.0.0-rc.1` with `--release`, `70f9be79` with `--from-source`) and then upgraded to the candidate; those previous releases were made after the rename (`v1.0.0-rc.1`, and the merge of #59 of the early private repository), so both ends of each upgrade carry the new names.
 
-**Retests.** The candidate's whole acceptance ran under the new names: the UAT in both Regions and both forms (install from nothing, into existing resources, run again, resume, refusals, upgrade and going back, uninstall keeping and deleting the data, the restore of the metadata database), the performance acceptance and the security scans. Their results are the candidate's [UAT report](../../docs/uat/reports/v1.0.0-rc.2/report.md), [performance document](../../docs/performance/v1.0.0-rc.2.md) and [security record](../../docs/security/v1.0.0-rc.2.md). None of their failures is the rename's.
+**Retests.** The candidate's acceptance ran under the new names: the UAT in both Regions and both forms (install from nothing, into existing resources, run again, resume, refusals, uninstall keeping and deleting the data, the restore of the metadata database; the upgrade and going back on the EKS form in both Regions and on the serverless form in `us-west-2`, S2 `us-east-2` not having been made: the UAT report, section 1), the performance acceptance and the security scans. Their results are the candidate's [UAT report](../../docs/uat/reports/v1.0.0-rc.2/report.md), [performance document](../../docs/performance/v1.0.0-rc.2.md) and [security record](../../docs/security/v1.0.0-rc.2.md). None of their failures is the rename's.
 
 ## 7. Evidence
 

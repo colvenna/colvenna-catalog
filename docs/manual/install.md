@@ -29,15 +29,18 @@ What has run live, in this repository's own test environments, and what only off
 | Path | Run live | Offline only |
 | --- | --- | --- |
 | EKS form from source, with a new bucket, a new database and the internal NLB; run again; interrupted and run again; refused configurations; uninstalled keeping the data and installed again onto it (`COLVENNA_DB=existing`); uninstalled with `--delete-data` | us-west-2 | |
-| EKS form from a release candidate (`--release`), run again, uninstalled | us-west-2 | |
+| EKS form from a release candidate (`--release`), run again, uninstalled | us-west-2, us-east-2 (`v1.0.0-rc.2`'s UAT) | |
 | Serverless form from source, `COLVENNA_NETWORK=create`, `COLVENNA_DB=create`; run again and upgraded; uninstalled keeping the data, then with `--delete-data` | us-west-2 | |
 | Serverless form with `COLVENNA_NETWORK=create`, pointed at a database restored from a snapshot (`COLVENNA_DB=existing`, [user manual](user.md#62-restoring) 6.2); the refusals of `COLVENNA_DB=existing` without `COLVENNA_BUCKET`, of `COLVENNA_DB=create` after the move, and of `--delete-data` while the restored instance is there | us-west-2 | |
-| Serverless form from a release candidate (`--release`) | | yes |
+| Serverless form from a release candidate (`--release`) | us-west-2, us-east-2 (`v1.0.0-rc.2`'s UAT) | |
 | Either form from a release promoted from a GO candidate (`--release v1.0.0`) | | yes |
-| EKS form pointed at a database restored from a snapshot | | yes |
-| Serverless form with `COLVENNA_NETWORK=existing`, with or without `COLVENNA_DB=existing` | | yes |
-| An Aurora PostgreSQL database, or an existing RDS instance an earlier install did not make | | yes (preflight) |
-| Any Region but us-west-2 | | yes (configuration and preflight) |
+| EKS form pointed at a database restored from a snapshot | us-west-2, us-east-2 (`v1.0.0-rc.2`'s UAT-DEP-10) | |
+| Serverless form with `COLVENNA_NETWORK=existing` and `COLVENNA_DB=existing` | us-west-2, us-east-2 (`v1.0.0-rc.2`'s UAT-DEP-02) | |
+| Serverless form with `COLVENNA_NETWORK=existing` and `COLVENNA_DB=create` | | yes |
+| An existing RDS instance an earlier install did not make (`COLVENNA_DB=existing`), both forms | us-west-2, us-east-2 (`v1.0.0-rc.2`'s UAT-DEP-02) | |
+| An Aurora PostgreSQL database | | yes (preflight; UAT-DEP-05 runs its refusals live) |
+| us-east-2 | `v1.0.0-rc.2`'s UAT: every case but S2's upgrade cases (UAT-DEP-06 to 09, not run) | |
+| Any other standard Region | | yes (configuration and preflight) |
 
 ## 2. Before you start
 
@@ -256,7 +259,7 @@ COLVENNA_FORM=serverless
 COLVENNA_API_ENDPOINT_IDS=vpce-<id>
 ```
 
-A serverless install in your VPC, onto your database, in us-east-2 (offline-tested only):
+A serverless install in your VPC, onto your database, in us-east-2 (as `v1.0.0-rc.2`'s UAT-DEP-02 ran it):
 
 ```bash
 COLVENNA_ENV=se2
@@ -336,9 +339,9 @@ Clients that trust the earlier copy of `ca.crt` keep connecting: the new server 
 First take a manual snapshot of the metadata database ([user manual](user.md#61-what-is-backed-up), section 6.1): it is the way back if the newer version moves the schema forward. Then run `install.sh` with the same configuration from the newer code: a checkout of a newer commit with `--from-source`, or a checkout of a newer candidate's or release's tag with `--release <name>`. Keys the newer version added take their defaults.
 
 - **EKS.** The chart rolls the Deployment one pod at a time, never below two ready replicas (`maxUnavailable: 0`). A replaced pod stops so as not to refuse its clients (#64). Kubernetes runs the pod's `preStop` hook before it sends the server SIGTERM, and meanwhile takes the pod out of the Service's endpoints ([pod termination flow](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination-flow)); the hook waits 15 seconds (`shutdown.preStopSeconds`), so that every node's Service rules drop the pod while it still serves. On SIGTERM the server fails its readiness, closes each connection after its answer (the client's next request goes to another replica), takes new connections for 5 more seconds (`COLVENNA_SHUTDOWN_DRAIN`), and then stops taking them and gives the requests in flight up to 20 seconds (`COLVENNA_SHUTDOWN_TIMEOUT`); the pod's grace period is the three plus 10 seconds. The pods being replaced stop as their own version does: an upgrade from a version before #64 still stops its old pods the old way, at once, and a client may then see one request fail. The wait is reckoned for the Service's rules; the internal NLB's deregistration of a target was not measured against it (`shutdown.preStopSeconds` is the chart's value to raise). This ran live on an EKS install in `us-west-2` from one commit with it to a later one (#64): with UAT-DEP-06's loops running, the rolling upgrade, a `helm rollback` and the upgrade again failed none of 719 commits, 2,894 reads and 583 credential requests, and a pod deleted by hand was out of the endpoints at once, got SIGTERM 16 seconds later and stopped taking connections 5 seconds after that. Each new pod migrates the database schema as it starts, under a PostgreSQL advisory lock, so replicas migrate one at a time; old replicas keep serving the migrated schema until they are replaced.
-- **Serverless.** The maintenance function alone takes the new version first and runs `migrate`: `install.sh` updates the deployed `Serverless` stack with only that function (and its role's policy) changed, not with the newer version's whole stack, which would publish a new version of the server function and move the alias `live` (#63). Only once `migrate` has succeeded does the whole stack take the newer version, and the API moves to the server's new version at once (the alias `live`). Upgrading a live serverless install from source has run live the way before #63, which deployed the whole stack first; this way has run offline only so far.
+- **Serverless.** The maintenance function alone takes the new version first and runs `migrate`: `install.sh` updates the deployed `Serverless` stack with only that function (and its role's policy) changed, not with the newer version's whole stack, which would publish a new version of the server function and move the alias `live` (#63). Only once `migrate` has succeeded does the whole stack take the newer version, and the API moves to the server's new version at once (the alias `live`). Upgrading a live serverless install has run live the way before #63, which deployed the whole stack first: from source, and in `v1.0.0-rc.2`'s UAT (UAT-DEP-06, `us-west-2`) from a commit of the early private repository to that candidate; this way has run offline only so far.
 - **Compatibility.** Before 1.0, versions do not promise compatibility with each other, and an upgrade may need steps of its own: the release notes of each candidate say. The upgrade from the previous release is a UAT case of every candidate.
-- **Going back** to the previous version depends on whether the newer one added migrations: whether its list of released migrations (`Migrations.VERSIONS` in `src/main/java/com/colvenna/catalog/db/Migrations.java`) is longer than the previous version's. Neither way has been run yet; the release's UAT runs whichever applies (UAT-DEP-07).
+- **Going back** to the previous version depends on whether the newer one added migrations: whether its list of released migrations (`Migrations.VERSIONS` in `src/main/java/com/colvenna/catalog/db/Migrations.java`) is longer than the previous version's. The release's UAT runs whichever applies (UAT-DEP-07); `v1.0.0-rc.2`'s ran the newer-schema way, the refusal and the restore, in both forms (the EKS form passed in `us-west-2`; the serverless form met [#54](https://github.com/colvenna/colvenna-catalog/issues/54) and [#63](https://github.com/colvenna/colvenna-catalog/issues/63)).
   - **The same schema.** In the EKS form, roll the Helm release back to the previous version's last revision, with kubectl and Helm access to the cluster (the install's own are `.state/<env>/kubeconfig` and `.tools/helm`):
 
     ```bash
@@ -358,7 +361,7 @@ aws cloudformation describe-stacks --region <region> --stack-name ColvennaCatalo
   --query 'Stacks[0].Outputs[?OutputKey==`BucketName` || OutputKey==`DbEndpoint` || OutputKey==`DbAdminSecretArn`]' --output table
 ```
 
-and set them in the configuration, with `COLVENNA_BUCKET=<BucketName>`, `COLVENNA_DB=existing`, `COLVENNA_DB_ENDPOINT=<DbEndpoint>` and `COLVENNA_DB_ADMIN_SECRET_ARN=<DbAdminSecretArn>`. `install.sh` then leaves the `Storage` stack as it is, and finds every table, principal and grant again; it issues a new admin token if the kept one is gone. In the EKS form this has run live. A serverless install that made its own network (`COLVENNA_NETWORK=create`) keeps that key: its kept `Network` stack holds the database, and the rerun finds it unchanged (not yet run live). Without `COLVENNA_BUCKET`, preflight refuses `COLVENNA_DB=existing` while the `Storage` stack holds a database: deploying the stack again without it would delete it. Once an install runs on another database than the stack's, a restored one, preflight refuses `COLVENNA_DB=create` too, which would move it back.
+and set them in the configuration, with `COLVENNA_BUCKET=<BucketName>`, `COLVENNA_DB=existing`, `COLVENNA_DB_ENDPOINT=<DbEndpoint>` and `COLVENNA_DB_ADMIN_SECRET_ARN=<DbAdminSecretArn>`. `install.sh` then leaves the `Storage` stack as it is, and finds every table, principal and grant again; it issues a new admin token if the kept one is gone. In the EKS form this has run live. A serverless install that made its own network (`COLVENNA_NETWORK=create`) keeps that key: its kept `Network` stack holds the database, and the rerun finds it unchanged (`v1.0.0-rc.2`'s UAT-DEP-08, S1, both Regions). Without `COLVENNA_BUCKET`, preflight refuses `COLVENNA_DB=existing` while the `Storage` stack holds a database: deploying the stack again without it would delete it. Once an install runs on another database than the stack's, a restored one, preflight refuses `COLVENNA_DB=create` too, which would move it back.
 
 ## 7. When something fails
 

@@ -109,7 +109,7 @@ The [compatibility matrix](docs/compat/matrix.md) is generated from runs of [`te
 | Doris 4.1.5 | 1.4.2, bundled | Read-only in 1.0. Reads and per-table credentials pass, but on a deletion-vector table it does not read the rows still in uncompacted level-0 files, a limitation of Paimon 1.4.2 |
 | StarRocks 4.1.6 | 1.3.1, bundled | Read-only in 1.0, with read-only S3 credentials of its own instead of per-table ones. Reads pass, with the same deletion-vector limitation. With short-lived credentials, as `v1.0.0-rc.2`'s UAT gave it, its first read of a primary-key table after its BE starts failed, a defect of the Hadoop it bundles, now declared a limitation ([user manual](docs/manual/user.md#92-engines), section 9.2) |
 
-The serverless form has not been run in the matrix yet.
+The serverless form ran the same cells on `v1.0.0-rc.2`, with the same outcomes ([the matrix](docs/compat/matrix.md)).
 
 ## Documentation
 
