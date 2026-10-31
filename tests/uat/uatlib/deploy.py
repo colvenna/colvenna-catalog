@@ -639,7 +639,7 @@ def kept(before, after, key):
 
 def account_inventory(aws, elsewhere=True):
     """What UAT-DEP-08 records of the account in the region, by name: every ColvennaCatalog stack
-    (status, last change), and the buckets, database instances, secrets, roles, functions,
+    (status, last change, its id), and the buckets, database instances, secrets, roles, functions,
     repositories, log groups and VPC endpoints of the catalog's installs, test environments and
     release registry. elsewhere: also every ColvennaCatalog stack of the other regions
     (stacksElsewhere): the account lists its roles and buckets whatever the region, so an install of
@@ -810,7 +810,8 @@ def others_untouched(before, after, env, test_stack, said=""):
     stacks_after = dict(after.get("stacksElsewhere") or {}, **after["stacks"])
     deleting = {env_of(s) for s, v in stacks_after.items() if str(v[0]).startswith("DELETE_")}
     # Deleted and made again meanwhile (#62): uninstalled by its own run, then installed again.
-    remade = {env_of(s) for s, v in stacks_after.items() if s in stacks_before
+    # Its test driver's stack does not count, as for an update (#52).
+    remade = {env_of(s) for s, v in stacks_after.items() if s in stacks_before and not DRIVER_STACK.match(s)
               and None not in (stack_uuid(v), stack_uuid(stacks_before[s])) and stack_uuid(v) != stack_uuid(stacks_before[s])}
     removed = ({env_of(s) for s in stacks_before if s not in stacks_after} | deleting | remade) - {None, env}
     updated = {env_of(s) for s, v in stacks_after.items()

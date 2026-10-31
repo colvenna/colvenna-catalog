@@ -202,6 +202,14 @@ class Judges(unittest.TestCase):
                                               for k, v in remade.items()}, "sx1", "ColvennaCatalogTestU1")
         self.assertFalse(ok)
         self.assertIsNone(deploy.stack_uuid(["CREATE_COMPLETE", "t2", "us-east-2"]))
+        # Its test driver made again, and nothing else: its data still may not go.
+        driver = dict(before, stacks=dict(before["stacks"], ColvennaCatalogTestEu2Driver=["CREATE_COMPLETE", "t2",
+                                                                                         "88888888-8888-4888-8888-888888888888"]))
+        redriven = dict(updated, stacks=dict(updated["stacks"], ColvennaCatalogTestEu2Driver=["CREATE_COMPLETE", "t6",
+                                                                                            "99999999-9999-4999-8999-999999999999"]))
+        ok, detail = deploy.others_untouched(driver, redriven, "sx1", "ColvennaCatalogTestU1")
+        self.assertFalse(ok, detail)
+        self.assertIn("colvennacatalogeu2storage-warehouse-a", detail)
         # The case's own scripts naming that install's stacks are no excuse.
         ok, detail = deploy.others_untouched(before, remade, "sx1", "ColvennaCatalogTestU1", said="ColvennaCatalogEu2Storage")
         self.assertFalse(ok)
