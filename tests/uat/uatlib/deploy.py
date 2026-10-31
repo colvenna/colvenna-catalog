@@ -368,16 +368,24 @@ def stacks_of(aws, env):
 
 
 def account_stacks(aws):
-    """{stack: [status, last change]} of every ColvennaCatalog stack in the region: the installs', the
-    test environments' and the release registry's."""
+    """{stack: [status, last change, its id]} of every ColvennaCatalog stack in the region: the installs',
+    the test environments' and the release registry's. The id is the last part of the stack's StackId (a
+    UUID, no account in it), which a stack deleted and made again under the same name does not keep (#62)."""
     summaries = aws("cloudformation", "list-stacks", "--query",
                     "StackSummaries[?starts_with(StackName, 'ColvennaCatalog') && StackStatus!='DELETE_COMPLETE']")
-    return {s["StackName"]: [s["StackStatus"], s.get("LastUpdatedTime") or s.get("CreationTime")]
+    return {s["StackName"]: [s["StackStatus"], s.get("LastUpdatedTime") or s.get("CreationTime"),
+                             (s.get("StackId") or "").rsplit("/", 1)[-1]]
             for s in summaries or []}
 
 
+def stack_uuid(value):
+    """The stack's id as account_stacks records it, or None in a record made before it did (#62)."""
+    return value[2] if len(value) > 2 and re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+                                                       str(value[2])) else None
+
+
 def stacks_elsewhere(aws):
-    """{stack: [status, last change, region]} of every ColvennaCatalog stack in the account's other enabled
+    """{stack: [status, last change, its id, region]} of every ColvennaCatalog stack in the account's other enabled
     regions, read in parallel (#46). A region that refuses the call is left out: an install there is then
     judged by its roles and buckets alone, which can only make others-untouched stricter."""
     def read(region):
@@ -631,7 +639,7 @@ def kept(before, after, key):
 
 def account_inventory(aws, elsewhere=True):
     """What UAT-DEP-08 records of the account in the region, by name: every ColvennaCatalog stack
-    (status, last change), and the buckets, database instances, secrets, roles, functions,
+    (status, last change, its id), and the buckets, database instances, secrets, roles, functions,
     repositories, log groups and VPC endpoints of the catalog's installs, test environments and
     release registry. elsewhere: also every ColvennaCatalog stack of the other regions
     (stacksElsewhere): the account lists its roles and buckets whatever the region, so an install of
@@ -788,7 +796,8 @@ def others_untouched(before, after, env, test_stack, said=""):
     release registry as they were, and nothing of another install gone. The account is shared while
     a case runs: what others add or change meanwhile is not judged, and an install another run
     removes (one of its stacks, or its test driver's, deleted or being deleted meanwhile, in this
-    region or another, #46) takes its own resources with it; one another run updates (one of its
+    region or another, #46; or deleted and made again under the same name, its stack's id another, #62)
+    takes its own resources with it; one another run updates (one of its
     stacks changed meanwhile: UAT-DEP-06's upgrade, UAT-DEP-07's way back, which may remove what one
     version has and the other not, #52; its test driver's stack does not count) may lose its functions,
     roles and the like, never its data (DATA_KEYS: its buckets and database instances). Either, unless the output of the case's own
@@ -800,7 +809,11 @@ def others_untouched(before, after, env, test_stack, said=""):
     stacks_before = dict(before.get("stacksElsewhere") or {}, **before["stacks"])
     stacks_after = dict(after.get("stacksElsewhere") or {}, **after["stacks"])
     deleting = {env_of(s) for s, v in stacks_after.items() if str(v[0]).startswith("DELETE_")}
-    removed = ({env_of(s) for s in stacks_before if s not in stacks_after} | deleting) - {None, env}
+    # Deleted and made again meanwhile (#62): uninstalled by its own run, then installed again.
+    # Its test driver's stack does not count, as for an update (#52).
+    remade = {env_of(s) for s, v in stacks_after.items() if s in stacks_before and not DRIVER_STACK.match(s)
+              and None not in (stack_uuid(v), stack_uuid(stacks_before[s])) and stack_uuid(v) != stack_uuid(stacks_before[s])}
+    removed = ({env_of(s) for s in stacks_before if s not in stacks_after} | deleting | remade) - {None, env}
     updated = {env_of(s) for s, v in stacks_after.items()
                if s in stacks_before and v[:2] != stacks_before[s][:2] and not DRIVER_STACK.match(s)} - {None, env} - removed
     named = sorted(e for e in removed | updated if names_of(e)[0] in said)
@@ -819,6 +832,8 @@ def others_untouched(before, after, env, test_stack, said=""):
     detail = "; ".join(problems) or "the test environment and the release registry as recorded; nothing of the others gone"
     if removed:
         detail += f" (uninstalled meanwhile by their own runs: {sorted(removed)})"
+    if removed & remade:
+        detail += f" (of them installed again under the same names: {sorted(removed & remade)})"
     if updated:
         detail += f" (updated meanwhile by their own runs: {sorted(updated)})"
     return not problems, detail
