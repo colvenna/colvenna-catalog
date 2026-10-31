@@ -751,6 +751,90 @@ class MaintenanceFirst(unittest.TestCase):
         self.assertEqual(out.stdout.strip(), "UPDATE_ROLLBACK_COMPLETE")
 
 
+class OrphanLogGroups(unittest.TestCase):
+    """sl_orphan_log_groups (#54): before the serverless stack is deployed, a log group it makes for a function of this
+    install that is gone, which no stack owns (Lambda made it anew after the stack had deleted it), is deleted."""
+
+    TEMPLATE = {"Resources": {
+        "ServerLogs": {"Type": "AWS::Logs::LogGroup", "Properties": {"LogGroupName": "/aws/lambda/colvenna-catalog-sl1-server"}},
+        "PurgeLogs": {"Type": "AWS::Logs::LogGroup", "Properties": {"LogGroupName": "/aws/lambda/colvenna-catalog-sl1-purge"}},
+        "OpsLogs": {"Type": "AWS::Logs::LogGroup", "Properties": {"LogGroupName": "/aws/lambda/colvenna-catalog-sl1-ops"}},
+        "ApiAccessLogs": {"Type": "AWS::Logs::LogGroup", "Properties": {"LogGroupName": "/aws/apigateway/colvenna-catalog-sl1-api"}},
+        "Server": {"Type": "AWS::Lambda::Function", "Properties": {"FunctionName": "colvenna-catalog-sl1-server"}},
+    }}
+
+    def run_step(self, owned, existing, functions, stack_status="UPDATE_COMPLETE"):
+        work = tempfile.mkdtemp()
+        template = write(Path(work) / "t.json", json.dumps(self.TEMPLATE))
+        aws = {
+            f"cloudformation describe-stacks --region us-west-2 --stack-name {SERVERLESS_STACK} --query Stacks[0].StackStatus":
+                {"stdout": f"{stack_status}\n"} if stack_status != "NONE" else {"code": 254, "stderr": "Stack with id x does not exist\n"},
+            "cloudformation describe-stack-resources": {"stdout": "\t".join(owned) + "\n" if owned else "\n"},
+            "logs delete-log-group": {"stdout": ""},
+        }
+        for group in [g["Properties"]["LogGroupName"] for g in self.TEMPLATE["Resources"].values() if g["Type"] == "AWS::Logs::LogGroup"]:
+            aws[f"logs describe-log-groups --region us-west-2 --log-group-name-prefix {group} "] = {"stdout": "1\n" if group in existing else "0\n"}
+        for function in ("colvenna-catalog-sl1-server", "colvenna-catalog-sl1-purge", "colvenna-catalog-sl1-ops"):
+            aws[f"lambda get-function --region us-west-2 --function-name {function}"] = (
+                {"stdout": "{}"} if function in functions else
+                {"code": 254, "stderr": "An error occurred (ResourceNotFoundException) when calling the GetFunction operation\n"})
+        out, stubs = stubbed(f'sl_orphan_log_groups {SERVERLESS_STACK} "{template}"', aws=aws, env={"WORK": work})
+        deleted = [c.split("--log-group-name ")[1] for c in stubs.calls() if " delete-log-group " in c]
+        return out, stubs, deleted
+
+    def test_a_gone_function_s_group_that_no_stack_owns_is_deleted(self):
+        # Going back to a version without the purge function, then upgrading again (UAT-DEP-07's forward-again).
+        out, _, deleted = self.run_step(owned=["/aws/lambda/colvenna-catalog-sl1-server", "/aws/lambda/colvenna-catalog-sl1-ops"],
+                                        existing={"/aws/lambda/colvenna-catalog-sl1-server", "/aws/lambda/colvenna-catalog-sl1-ops",
+                                                  "/aws/lambda/colvenna-catalog-sl1-purge"},
+                                        functions={"colvenna-catalog-sl1-server", "colvenna-catalog-sl1-ops"})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(deleted, ["/aws/lambda/colvenna-catalog-sl1-purge"])
+        self.assertIn("deleted /aws/lambda/colvenna-catalog-sl1-purge", out.stdout)
+
+    def test_what_the_stack_owns_what_is_not_there_and_another_function_s_group_are_left(self):
+        out, stubs, deleted = self.run_step(owned=["/aws/lambda/colvenna-catalog-sl1-server"],
+                                            existing={"/aws/lambda/colvenna-catalog-sl1-server", "/aws/lambda/colvenna-catalog-sl1-ops",
+                                                      "/aws/apigateway/colvenna-catalog-sl1-api"},
+                                            functions={"colvenna-catalog-sl1-server", "colvenna-catalog-sl1-ops"})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(deleted, [])
+        # A function still there keeps its group, for CloudFormation to refuse; not a function's group: never looked at.
+        self.assertIn("/aws/lambda/colvenna-catalog-sl1-ops is the function colvenna-catalog-sl1-ops's", out.stderr)
+        self.assertEqual([c for c in stubs.calls() if "apigateway" in c], [])
+
+    def test_a_first_install_owns_nothing_and_finds_nothing(self):
+        out, stubs, deleted = self.run_step(owned=[], existing=set(), functions=set(), stack_status="NONE")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(deleted, [])
+        self.assertEqual([c for c in stubs.calls() if "describe-stack-resources" in c], [])
+
+    def test_a_function_that_cannot_be_read_is_no_reason_to_delete(self):
+        work = tempfile.mkdtemp()
+        template = write(Path(work) / "t.json", json.dumps(self.TEMPLATE))
+        out, stubs = stubbed(f'sl_orphan_log_groups {SERVERLESS_STACK} "{template}"', env={"WORK": work}, aws={
+            f"cloudformation describe-stacks --region us-west-2 --stack-name {SERVERLESS_STACK} --query Stacks[0].StackStatus":
+                {"stdout": "UPDATE_COMPLETE\n"},
+            "cloudformation describe-stack-resources": {"stdout": "\n"},
+            "logs describe-log-groups": {"stdout": "1\n"},
+            "lambda get-function": {"code": 254, "stderr": "An error occurred (AccessDeniedException)\n"},
+        })
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("AccessDeniedException", out.stderr)
+        self.assertEqual([c for c in stubs.calls() if " delete-log-group " in c], [])
+
+    def test_the_orphans_go_before_the_synthesized_stack_is_deployed(self):
+        script = ('sl_orphan_log_groups() { echo "orphans $1 $2" >>"$WORK/steps"; };'
+                  ' deploy_assembly() { echo "deploy $1" >>"$WORK/steps"; }; stack_output() { echo "$2"; };'
+                  ' sl_deploy_serverless')
+        work = tempfile.mkdtemp()
+        out, _ = stubbed(script, env={"WORK": work})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        steps = (Path(work) / "steps").read_text().splitlines()
+        self.assertEqual([s.split()[0] for s in steps], ["orphans", "deploy"])
+        self.assertTrue(steps[0].endswith(f"/cdk.out/{SERVERLESS_STACK}.template.json"), steps[0])
+
+
 class Flow(unittest.TestCase):
     """install_serverless and uninstall_serverless, each step replaced by a recorder of its name."""
 
