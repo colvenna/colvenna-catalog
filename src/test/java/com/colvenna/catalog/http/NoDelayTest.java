@@ -1,7 +1,6 @@
 package com.colvenna.catalog.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -20,10 +19,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -35,29 +36,38 @@ import org.junit.jupiter.api.io.TempDir;
  * is made, and left on, Nagle's algorithm holds each response's body until the client acknowledges
  * its headers (about 40 ms on Linux). Each check runs in a JVM of its own, since the JDK reads the
  * setting once a JVM; the same server code serves HTTPS ({@code HttpsServer}), the API port's.
+ *
+ * <p>The check reads {@code TCP_NODELAY} on the connections the server accepted, as it answers on
+ * them, which is what turns Nagle's algorithm off ({@link StandardSocketOptions#TCP_NODELAY}). It
+ * does not time the answers: how long an answer takes depends on the host's delayed ACKs and its
+ * load, and a comparison of times failed on a busy host (#66).
  */
 @Timeout(value = 3, unit = TimeUnit.MINUTES)
 class NoDelayTest {
 
     @TempDir Path dir;
 
+    /**
+     * Once RestServer is loaded, every answer goes out on a connection with TCP_NODELAY: each on a
+     * kept-alive connection, where #37 found every answer about 40 ms slower, and each on a new
+     * one. In the control, without RestServer, none does: the JDK's default.
+     */
     @Test
-    void theServersConnectionsHaveNagleOffOnceRestServerIsLoaded() throws Exception {
+    void everyAnswerGoesOutWithNagleOffOnceRestServerIsLoaded() throws Exception {
+        String answers = String.valueOf(Probe.KEPT_ALIVE + Probe.NEW_CONNECTIONS);
         Map<String, String> on = probe(true);
-        assertThat(on).containsEntry("nodelay", "true").containsEntry("tcpNoDelay", "true");
-        Map<String, String> off = probe(false);
-        assertThat(off).containsEntry("tcpNoDelay", "false"); // the control: the JDK's default
-    }
-
-    @Test
-    void soAnAnswerOnAKeptAliveConnectionNoLongerWaitsForTheDelayedAck() throws Exception {
-        long on = Long.parseLong(probe(true).get("median"));
-        long off = Long.parseLong(probe(false).get("median"));
-        // Only where the host's TCP delays its ACKs, which makes Nagle's cost visible.
-        assumeTrue(off >= 20_000, "no delayed-ACK stall without TCP_NODELAY here: " + off + " us");
         assertThat(on)
-                .as("median %d us with Nagle off, %d us with it on", on, off)
-                .isLessThan(off / 4);
+                .containsEntry("nodelay", "true")
+                .containsEntry("answers", answers)
+                .containsEntry("tcpNoDelayOfEveryAnswer", "true");
+        // That the client kept a connection alive, and opened new ones; how many answers it sent
+        // on each is its own pool's affair, not the server's.
+        assertThat(Integer.parseInt(on.get("mostOnOneConnection"))).isGreaterThan(1);
+        assertThat(Integer.parseInt(on.get("connections")))
+                .isGreaterThanOrEqualTo(1 + Probe.NEW_CONNECTIONS);
+        assertThat(probe(false))
+                .containsEntry("answers", answers)
+                .containsEntry("tcpNoDelayOfEveryAnswer", "false");
     }
 
     private Map<String, String> probe(boolean loadRestServer) throws Exception {
@@ -88,15 +98,20 @@ class NoDelayTest {
     }
 
     /**
-     * In a fresh JVM: loads RestServer (or not), serves a 2 KiB answer, and prints the property,
-     * whether the accepted connection has TCP_NODELAY, and the median of 40 answers on it.
+     * In a fresh JVM: loads RestServer (or not), serves a 2 KiB answer {@link #KEPT_ALIVE} times on
+     * one kept-alive connection and once on each of {@link #NEW_CONNECTIONS} new ones, and prints
+     * the property; over every answer, how many there were, on how many connections, and the most
+     * on one connection; and the TCP_NODELAY values their connections had as each was answered.
      */
     static final class Probe {
+        static final int KEPT_ALIVE = 45;
+        static final int NEW_CONNECTIONS = 3;
+
         public static void main(String[] args) throws Exception {
             if (Boolean.parseBoolean(args[0])) {
                 Class.forName(RestServer.class.getName());
             }
-            AtomicReference<Boolean> noDelay = new AtomicReference<>();
+            List<Answer> answers = new CopyOnWriteArrayList<>();
             HttpServer server =
                     HttpServer.create(
                             new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
@@ -105,15 +120,14 @@ class NoDelayTest {
             server.createContext(
                     "/",
                     exchange -> {
-                        noDelay.compareAndSet(null, tcpNoDelay(exchange));
+                        answers.add(answer(exchange));
                         exchange.sendResponseHeaders(200, body.length);
                         try (OutputStream o = exchange.getResponseBody()) {
                             o.write(body);
                         }
                     });
             server.start();
-            try (HttpClient client =
-                    HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build()) {
+            try {
                 HttpRequest request =
                         HttpRequest.newBuilder(
                                         URI.create(
@@ -121,26 +135,52 @@ class NoDelayTest {
                                                         + server.getAddress().getPort()
                                                         + "/"))
                                 .build();
-                for (int i = 0; i < 5; i++) {
-                    client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+                // One client reuses its connection; each new client opens one of its own.
+                try (HttpClient client = client()) {
+                    for (int i = 0; i < KEPT_ALIVE; i++) {
+                        client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+                    }
                 }
-                long[] micros = new long[40];
-                for (int i = 0; i < micros.length; i++) {
-                    long start = System.nanoTime();
-                    client.send(request, HttpResponse.BodyHandlers.ofByteArray());
-                    micros[i] = (System.nanoTime() - start) / 1000;
+                for (int i = 0; i < NEW_CONNECTIONS; i++) {
+                    try (HttpClient client = client()) {
+                        client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+                    }
                 }
-                Arrays.sort(micros);
+                // The server's own channel of each connection, compared by identity: one per
+                // connection it accepted (the answers hold them, so none is reclaimed).
+                IdentityHashMap<SocketChannel, Integer> perConnection = new IdentityHashMap<>();
+                answers.forEach(a -> perConnection.merge(a.channel(), 1, Integer::sum));
                 System.out.println("nodelay=" + System.getProperty(RestServer.NODELAY));
-                System.out.println("tcpNoDelay=" + noDelay.get());
-                System.out.println("median=" + micros[micros.length / 2]);
+                System.out.println("answers=" + answers.size());
+                System.out.println("connections=" + perConnection.size());
+                System.out.println(
+                        "mostOnOneConnection=" + Collections.max(perConnection.values()));
+                System.out.println(
+                        "tcpNoDelayOfEveryAnswer="
+                                + answers.stream()
+                                        .map(a -> String.valueOf(a.noDelay()))
+                                        .distinct()
+                                        .sorted()
+                                        .collect(Collectors.joining(",")));
             } finally {
                 server.stop(0);
             }
         }
 
-        /** The exchange's socket's TCP_NODELAY, read through the JDK's own classes (opened). */
-        private static Boolean tcpNoDelay(HttpExchange exchange) {
+        private static HttpClient client() {
+            return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
+        }
+
+        /**
+         * An answer: the server's channel of the connection it went out on, and its TCP_NODELAY.
+         */
+        record Answer(SocketChannel channel, boolean noDelay) {}
+
+        /**
+         * The exchange's connection and its TCP_NODELAY, read through the JDK's own classes
+         * (opened).
+         */
+        private static Answer answer(HttpExchange exchange) {
             try {
                 Field impl = exchange.getClass().getDeclaredField("impl");
                 impl.setAccessible(true);
@@ -148,10 +188,10 @@ class NoDelayTest {
                 Method connection = exchangeImpl.getClass().getDeclaredMethod("getConnection");
                 connection.setAccessible(true);
                 Object conn = connection.invoke(exchangeImpl);
-                Method channel = conn.getClass().getDeclaredMethod("getChannel");
-                channel.setAccessible(true);
-                return ((SocketChannel) channel.invoke(conn))
-                        .getOption(StandardSocketOptions.TCP_NODELAY);
+                Method getChannel = conn.getClass().getDeclaredMethod("getChannel");
+                getChannel.setAccessible(true);
+                SocketChannel channel = (SocketChannel) getChannel.invoke(conn);
+                return new Answer(channel, channel.getOption(StandardSocketOptions.TCP_NODELAY));
             } catch (ReflectiveOperationException | java.io.IOException e) {
                 throw new IllegalStateException(e);
             }
