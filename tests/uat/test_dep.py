@@ -448,6 +448,14 @@ class Runner(unittest.TestCase):
         self.assertIn("SIGHUP", r.signalled)
         self.assertIn(r.exit_code, (-signal.SIGHUP, 128 + signal.SIGHUP))
 
+    def test_signalled_in_its_step_when_the_harness_inherited_sighup_ignored(self):
+        # As under nohup (#76): the harness ignores SIGHUP; the script it starts still gets it.
+        previous = signal.signal(signal.SIGHUP, signal.SIG_IGN)
+        try:
+            self.test_signalled_in_its_step()
+        finally:
+            signal.signal(signal.SIGHUP, previous)
+
 
 class Dep01And02(unittest.TestCase):
     from cases import dep01 as d1, dep02 as d2

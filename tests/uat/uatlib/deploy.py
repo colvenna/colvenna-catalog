@@ -101,6 +101,19 @@ class Run:
                 "failedStep": self.failed_step()}
 
 
+# The signals a lost session or a stopped operator sends (#76). A process started under nohup, or as a
+# background job of a non-interactive shell, inherits some of them ignored, and bash can neither trap nor
+# reset a signal ignored on entry: the scripts the harness starts get them back at their default, as on
+# an operator's host, whatever the harness itself inherited.
+SESSION_SIGNALS = (signal.SIGHUP, signal.SIGINT, signal.SIGQUIT, signal.SIGTERM)
+
+
+def default_session_signals():
+    """In a child about to exec: the session's signals at their default disposition (preexec_fn)."""
+    for s in SESSION_SIGNALS:
+        signal.signal(s, signal.SIG_DFL)
+
+
 class Installer:
     """install.sh and uninstall.sh of a checkout, run by the case."""
 
@@ -121,7 +134,8 @@ class Installer:
         terminal when the script asks for it (no --yes); stdin_text: what its stdin holds instead (a
         pipe, so no terminal); otherwise stdin is empty (/dev/null). signal_when: a function of the
         output so far, polled; when it is true, sig goes to the script's whole process group, as a lost
-        session or host would end it."""
+        session or host would end it. The script starts with the session's signals at their default
+        (SESSION_SIGNALS), whatever the harness inherited."""
         self.n += 1
         command = [str(self.checkout / script), "--config", str(config or self.config), *args]
         started = now()
@@ -134,7 +148,8 @@ class Installer:
         else:
             stdin = subprocess.DEVNULL
         p = subprocess.Popen(command, cwd=str(self.checkout), stdin=stdin, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT, env=self.env(), start_new_session=True)
+                             stderr=subprocess.STDOUT, env=self.env(), start_new_session=True,
+                             preexec_fn=default_session_signals)
         session = _Session(p, master)
         try:
             if slave is not None:
