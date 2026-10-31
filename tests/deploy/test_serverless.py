@@ -724,6 +724,125 @@ class VerifyClean(unittest.TestCase):
         self.assertEqual(lines, ["ok    log groups: none"])
 
 
+class VerifyCleanWaitsForRds(unittest.TestCase):
+    """verify-clean.sh waits while all that is left is what RDS is still deleting (#59): the automated
+    snapshots and backups of instances that no longer exist, and the tagging index's entries for those
+    snapshots; anything else is reported at once."""
+
+    INSTANCE = "colvennacatalogux1estorage-database"
+    SNAPSHOT = f"rds:{INSTANCE}-2026-10-30-22-29"
+    TAGGED = f"arn:aws:rds:us-west-2:111122223333:snapshot:{SNAPSHOT}"
+    TAGGED_LINE = "tagged resources (Project=colvenna-catalog, Environment=ux1e or test-ux1e)"
+    TAGGING = "resourcegroupstaggingapi get-resources"
+    LISTED = "rds describe-db-snapshots --query"
+    DESCRIBED = "rds describe-db-snapshots --db-snapshot-identifier"
+    ONE_INSTANCE = "rds describe-db-instances --db-instance-identifier"
+    INSTANCES = "rds describe-db-instances --query"
+    BACKUPS = "rds describe-db-instance-automated-backups"
+    AUTOMATED = {"stdout": f"automated\t{INSTANCE}\n"}
+    NO_SNAPSHOT = {"stderr": "An error occurred (DBSnapshotNotFound) when calling the DescribeDBSnapshots operation\n", "code": 254}
+    NO_INSTANCE = {"stderr": "An error occurred (DBInstanceNotFound) when calling the DescribeDBInstances operation\n", "code": 254}
+
+    def clean(self, responses, wait="0", seconds="60"):
+        stubs = Stubs({"aws": {"": {"stdout": ""}, **responses}})
+        out = run_bash(f'"{REPO}/tests/serverless/verify-clean.sh" ux1e us-west-2', path_prepend=stubs.bin,
+                       env={**stubs.env, "AWS_PROFILE": "stub", "RDS_DELETING_WAIT": wait, "RDS_DELETING_SECONDS": seconds})
+        listed = len([c for c in stubs.calls() if c.startswith(f"aws {self.LISTED}")])
+        return out, out.stdout.splitlines(), listed
+
+    def deleting(self, **overrides):
+        """The deleted instance's automated snapshot, listed and tagged, until the overrides say otherwise."""
+        return {self.TAGGING: {"stdout": self.TAGGED + "\n"}, self.LISTED: {"stdout": self.SNAPSHOT + "\n"},
+                self.DESCRIBED: self.AUTOMATED, self.ONE_INSTANCE: self.NO_INSTANCE, **overrides}
+
+    def assert_at_once(self, out, lines, listed):
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertEqual(listed, 1)
+        self.assertFalse([line for line in lines if line.startswith("wait") or "waited" in line], lines)
+
+    def test_a_deleted_instance_s_automated_snapshot_is_waited_for_until_it_is_gone(self):
+        out, lines, listed = self.clean(self.deleting(**{
+            self.TAGGING: [{"stdout": self.TAGGED + "\n"}] * 2 + [{"stdout": ""}],
+            self.LISTED: [{"stdout": self.SNAPSHOT + "\n"}] * 2 + [{"stdout": ""}]}))
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertEqual(listed, 3)
+        self.assertFalse([line for line in lines if line.startswith("LEFT")], lines)
+        self.assertIn("ok    RDS snapshots: none", lines)
+        self.assertIn(f"ok    {self.TAGGED_LINE}: none", lines)
+        self.assertTrue(lines[0].startswith("wait  left: only what RDS is still deleting"), lines[0])
+        self.assertIn(f"({self.TAGGED_LINE}; RDS snapshots); reading again every 0 s, 60 s at most", lines[0])
+        self.assertRegex(lines[-1], r"^note  waited [0-9]+ s \(2 more read\(s\)\) for what RDS was still deleting$")
+
+    def test_the_tagging_index_s_entry_of_a_snapshot_gone_does_not_count(self):
+        # The index lags: it still lists the snapshot once RDS has deleted it. Each read describes the
+        # tagged snapshot, then the listed one: the third time, the snapshot is gone.
+        out, lines, listed = self.clean(self.deleting(**{
+            self.LISTED: [{"stdout": self.SNAPSHOT + "\n"}, {"stdout": ""}],
+            self.DESCRIBED: [self.AUTOMATED, self.AUTOMATED, self.NO_SNAPSHOT]}))
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertEqual(listed, 2)
+        self.assertIn(f"ok    {self.TAGGED_LINE}: none", lines)
+        self.assertIn("note  the tagging index still lists 1 VPC endpoint(s), flow log(s) or RDS snapshot(s) that no "
+                      "longer exist", lines)
+        self.assertRegex(lines[-1], r"^note  waited [0-9]+ s \(1 more read\(s\)\) for what RDS was still deleting$")
+
+    def test_what_rds_has_not_deleted_in_time_is_left(self):
+        out, lines, listed = self.clean(self.deleting(), wait="1", seconds="2")
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertGreaterEqual(listed, 2)
+        self.assertIn(f"LEFT  RDS snapshots: {self.SNAPSHOT} ", lines)
+        self.assertIn(f"LEFT  {self.TAGGED_LINE}: rds snapshot:{self.SNAPSHOT} ", lines)
+        self.assertRegex(lines[-1], r"^note  waited [0-9]+ s \([0-9]+ more read\(s\)\) for what RDS is still deleting: "
+                                    r"it is still there$")
+
+    def test_a_deleted_instance_s_automated_backup_is_waited_for_until_it_is_gone(self):
+        out, lines, listed = self.clean({self.BACKUPS: [{"stdout": self.INSTANCE + "\n"}, {"stdout": ""}],
+                                         self.ONE_INSTANCE: self.NO_INSTANCE})
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("ok    RDS automated backups: none", lines)
+        self.assertIn("(RDS automated backups)", lines[0])
+        self.assertRegex(lines[-1], r"^note  waited [0-9]+ s \(1 more read\(s\)\)")
+
+    def test_a_manual_snapshot_is_never_waited_for(self):
+        out, lines, listed = self.clean(self.deleting(**{self.TAGGING: {"stdout": ""},
+                                                         self.DESCRIBED: {"stdout": f"manual\t{self.INSTANCE}\n"}}))
+        self.assert_at_once(out, lines, listed)
+        self.assertIn(f"LEFT  RDS snapshots: {self.SNAPSHOT} ", lines)
+
+    def test_an_automated_snapshot_of_an_instance_still_there_is_never_waited_for(self):
+        there = {"stdout": self.INSTANCE + "\n"}
+        out, lines, listed = self.clean(self.deleting(**{self.ONE_INSTANCE: there, self.INSTANCES: there}))
+        self.assert_at_once(out, lines, listed)
+        self.assertIn(f"LEFT  RDS snapshots: {self.SNAPSHOT} ", lines)
+        # Tagged only, of an instance not named as the install's (the one UAT-DEP-10 restored, say).
+        restored = "colvenna-ux1e-restored-abc123"
+        snapshot = f"rds:{restored}-2026-10-30-22-29"
+        out, lines, listed = self.clean({self.TAGGING: {"stdout": f"arn:aws:rds:us-west-2:111122223333:snapshot:{snapshot}\n"},
+                                         self.DESCRIBED: {"stdout": f"automated\t{restored}\n"},
+                                         self.ONE_INSTANCE: {"stdout": restored + "\n"}})
+        self.assert_at_once(out, lines, listed)
+        self.assertIn(f"LEFT  {self.TAGGED_LINE}: rds snapshot:{snapshot} ", lines)
+
+    def test_a_snapshot_or_an_instance_that_cannot_be_read_is_never_waited_for(self):
+        denied = {"stderr": "An error occurred (AccessDenied) when calling the operation\n", "code": 254}
+        for overrides in ({self.DESCRIBED: denied}, {self.ONE_INSTANCE: denied}):
+            out, lines, listed = self.clean(self.deleting(**overrides))
+            self.assert_at_once(out, lines, listed)
+            self.assertIn(f"LEFT  {self.TAGGED_LINE}: rds snapshot:{self.SNAPSHOT} ", lines)
+
+    def test_anything_else_left_is_reported_at_once(self):
+        out, lines, listed = self.clean(self.deleting(**{"s3api list-buckets": {"stdout": "colvennacatalogux1e-warehouse\n"}}))
+        self.assert_at_once(out, lines, listed)
+        self.assertIn("LEFT  S3 buckets: colvennacatalogux1e-warehouse ", lines)
+        self.assertIn(f"LEFT  RDS snapshots: {self.SNAPSHOT} ", lines)
+
+    def test_the_bounds_are_whole_seconds(self):
+        out, _, listed = self.clean({}, wait="soon")
+        self.assertEqual(out.returncode, 2)
+        self.assertEqual(listed, 0)
+        self.assertIn("RDS_DELETING_WAIT and RDS_DELETING_SECONDS: whole seconds", out.stderr)
+
+
 class ReleaseForm(unittest.TestCase):
     def check(self, forms, form):
         directory = Path(tempfile.mkdtemp())
