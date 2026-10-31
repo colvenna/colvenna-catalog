@@ -1,0 +1,197 @@
+{
+  "cell": "flink-1.20-paimon-2.1.0",
+  "form": "serverless",
+  "engine": "Flink",
+  "engineVersion": "1.20.5",
+  "paimon": "2.1.0",
+  "images": [
+    "docker.io/library/flink:1.20.5-scala_2.12-java17@sha256:43dd7275e12a8e7fb1c02524e4ce4bd18213171ac0e12c432aaccc5c4af0ba11"
+  ],
+  "jars": [
+    "paimon-flink-1.20-2.1.0.jar",
+    "paimon-s3-2.1.0.jar",
+    "paimon-hadoop-uber-2.1.0.jar"
+  ],
+  "database": "compat_20261030153944_1e65_flink120_p210",
+  "started": "2026-10-30T15:51:58.821859+00:00",
+  "finished": "2026-10-30T15:53:58.226517+00:00",
+  "exitCode": 0,
+  "problem": "",
+  "observed": {
+    "engine": "flink",
+    "engineVersion": "1.20.5",
+    "paimonVersion": "2.1.0",
+    "paimonJar": "paimon-flink-1.20-2.1.0.jar",
+    "dataTokens": true
+  },
+  "outcome": "pass",
+  "failedSupported": [],
+  "results": {
+    "pk": {
+      "ddl": {
+        "status": "PASS",
+        "detail": "create and drop of the database and the table",
+        "declared": "supported"
+      },
+      "write": {
+        "status": "PASS",
+        "detail": "3 writes committed (insert ids 1..100, upsert ids 91..110, delete ids 1..5); 3 snapshots; 3 commits through the catalog",
+        "evidence": {
+          "commits": 3
+        },
+        "declared": "supported"
+      },
+      "read": {
+        "status": "PASS",
+        "detail": "rows=105, sum=26090, upserted=1100, deleted=0",
+        "declared": "supported"
+      },
+      "credentials": {
+        "status": "PASS",
+        "detail": "the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own; the catalog issued the table's credentials 5 times",
+        "evidence": {
+          "tokens": 5
+        },
+        "declared": "supported"
+      },
+      "endpoints": {
+        "status": "PASS",
+        "detail": "164 requests, every one to an endpoint the catalog serves",
+        "evidence": {
+          "requests": {
+            "DELETE DROP_DATABASE 200": 1,
+            "DELETE DROP_TABLE 200": 1,
+            "GET GET_CONFIG 200": 4,
+            "GET GET_DATABASE 200": 2,
+            "GET GET_DATABASE 404": 42,
+            "GET GET_FUNCTION 404": 14,
+            "GET GET_TABLE 200": 2,
+            "GET GET_TABLE 404": 21,
+            "GET GET_VIEW 404": 24,
+            "GET ISSUE_DATA_TOKEN 200": 5,
+            "GET LIST_DATABASES 200": 2,
+            "GET LIST_TABLES 200": 7,
+            "GET LIST_VIEWS 200": 6,
+            "GET LOAD_SNAPSHOT 200": 24,
+            "GET LOAD_SNAPSHOT 404": 2,
+            "POST COMMIT 200": 3,
+            "POST CREATE_DATABASE 200": 1,
+            "POST CREATE_TABLE 200": 3
+          }
+        },
+        "declared": "supported"
+      }
+    },
+    "pk-dv": {
+      "ddl": {
+        "status": "PASS",
+        "detail": "create and drop of the database and the table",
+        "declared": "supported"
+      },
+      "write": {
+        "status": "PASS",
+        "detail": "4 writes committed (insert ids 1..100, upsert ids 91..110, delete ids 1..5, insert ids 111..120, left uncompacted); 7 snapshots; 2 deletion vector index files, 2 level-0 files; 7 commits through the catalog",
+        "evidence": {
+          "commits": 7
+        },
+        "declared": "supported"
+      },
+      "read": {
+        "status": "PASS",
+        "detail": "rows=115, sum=27245, upserted=1100, deleted=0, uncompacted=10",
+        "declared": "supported"
+      },
+      "credentials": {
+        "status": "PASS",
+        "detail": "the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own; the catalog issued the table's credentials 12 times",
+        "evidence": {
+          "tokens": 12
+        },
+        "declared": "supported"
+      },
+      "endpoints": {
+        "status": "PASS",
+        "detail": "188 requests, every one to an endpoint the catalog serves",
+        "evidence": {
+          "requests": {
+            "DELETE DROP_DATABASE 200": 1,
+            "DELETE DROP_TABLE 200": 1,
+            "GET GET_CONFIG 200": 4,
+            "GET GET_DATABASE 200": 2,
+            "GET GET_DATABASE 404": 42,
+            "GET GET_FUNCTION 404": 14,
+            "GET GET_TABLE 200": 3,
+            "GET GET_TABLE 404": 21,
+            "GET GET_VIEW 404": 24,
+            "GET ISSUE_DATA_TOKEN 200": 12,
+            "GET LIST_DATABASES 200": 2,
+            "GET LIST_TABLES 200": 7,
+            "GET LIST_VIEWS 200": 6,
+            "GET LOAD_SNAPSHOT 200": 35,
+            "GET LOAD_SNAPSHOT 404": 2,
+            "POST ALTER_TABLE 200": 1,
+            "POST COMMIT 200": 7,
+            "POST CREATE_DATABASE 200": 1,
+            "POST CREATE_TABLE 200": 3
+          }
+        },
+        "declared": "supported"
+      }
+    },
+    "append": {
+      "ddl": {
+        "status": "PASS",
+        "detail": "create and drop of the database and the table",
+        "declared": "supported"
+      },
+      "write": {
+        "status": "PASS",
+        "detail": "2 writes committed (insert ids 1..100, insert ids 91..110); 2 snapshots; 2 commits through the catalog",
+        "evidence": {
+          "commits": 2
+        },
+        "declared": "supported"
+      },
+      "read": {
+        "status": "PASS",
+        "detail": "rows=120, sum=27060, duplicates=2",
+        "declared": "supported"
+      },
+      "credentials": {
+        "status": "PASS",
+        "detail": "the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own; the catalog issued the table's credentials 6 times",
+        "evidence": {
+          "tokens": 6
+        },
+        "declared": "supported"
+      },
+      "endpoints": {
+        "status": "PASS",
+        "detail": "154 requests, every one to an endpoint the catalog serves",
+        "evidence": {
+          "requests": {
+            "DELETE DROP_DATABASE 200": 1,
+            "DELETE DROP_TABLE 200": 1,
+            "GET GET_CONFIG 200": 4,
+            "GET GET_DATABASE 200": 2,
+            "GET GET_DATABASE 404": 42,
+            "GET GET_FUNCTION 404": 14,
+            "GET GET_TABLE 200": 2,
+            "GET GET_TABLE 404": 21,
+            "GET GET_VIEW 404": 24,
+            "GET ISSUE_DATA_TOKEN 200": 6,
+            "GET LIST_DATABASES 200": 2,
+            "GET LIST_TABLES 200": 7,
+            "GET LIST_VIEWS 200": 6,
+            "GET LOAD_SNAPSHOT 200": 14,
+            "GET LOAD_SNAPSHOT 404": 2,
+            "POST COMMIT 200": 2,
+            "POST CREATE_DATABASE 200": 1,
+            "POST CREATE_TABLE 200": 3
+          }
+        },
+        "declared": "supported"
+      }
+    }
+  }
+}

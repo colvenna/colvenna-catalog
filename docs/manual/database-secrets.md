@@ -11,7 +11,7 @@ Two Secrets Manager secrets hold the passwords of the catalog's metadata databas
 
 The catalog's bearer tokens are its own, not Secrets Manager's: [the admin API](admin-api.md#rotating-a-token) rotates an engine's, and `install.sh` issues the first admin a new token when less than 30 days are left ([the user manual](user.md), section 5).
 
-These procedures follow what `install.sh` does; they have not been run on a live install yet (NOT_RUN).
+These procedures follow what `install.sh` does. They ran as written on `v1.0.0-rc.2`'s installs, in both forms, each followed by `install.sh` and its smoke check ([the candidate's UAT report](../uat/reports/v1.0.0-rc.2/report.md), section 8).
 
 ## Before you start
 

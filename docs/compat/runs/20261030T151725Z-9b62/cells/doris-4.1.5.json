@@ -1,0 +1,165 @@
+{
+  "cell": "doris-4.1.5",
+  "form": "eks",
+  "engine": "Doris",
+  "engineVersion": "4.1.5",
+  "paimon": "1.4.2 (bundled)",
+  "images": [
+    "docker.io/apache/doris:fe-4.1.5@sha256:bd0149d76fd02429ee4ab751f34c16948fbf761a886070489fdebf7b2069305c",
+    "docker.io/apache/doris:be-4.1.5@sha256:10d282e1bd685f8c0d71b3b42bbd0841bbb20909de2cd847923f00378b6b9a11"
+  ],
+  "jars": [],
+  "database": "compat_20261030151725_9b62_fixture",
+  "started": "2026-10-30T15:20:49.306313+00:00",
+  "finished": "2026-10-30T15:24:53.364312+00:00",
+  "exitCode": 0,
+  "problem": "",
+  "observed": {
+    "engineVersion": "doris version doris-4.1.5-release-917b20be838",
+    "error": "",
+    "bundledPaimonJars": [
+      "paimon-api-1.4.2.jar",
+      "paimon-codegen-loader-1.4.2.jar",
+      "paimon-common-1.4.2.jar",
+      "paimon-core-1.4.2.jar",
+      "paimon-format-1.4.2.jar",
+      "paimon-jindo-1.4.2.jar",
+      "paimon-s3-1.4.2.jar",
+      "paimon-shade-caffeine-2-2.9.3-0.8.0.jar",
+      "paimon-shade-guava-30-30.1.1-jre-0.8.0.jar",
+      "paimon-shade-jackson-2-2.14.2-0.8.0.jar"
+    ]
+  },
+  "outcome": "pass",
+  "failedSupported": [],
+  "results": {
+    "pk": {
+      "ddl": {
+        "status": "NOT_RUN",
+        "detail": "read-only engine: the matrix does not run its writes",
+        "declared": "limitation",
+        "reason": "Doris is read-only in 1.0 (design section 7): it reads the tables a Flink or Spark cell wrote, and the matrix does not run its writes"
+      },
+      "write": {
+        "status": "NOT_RUN",
+        "detail": "read-only engine: the matrix does not run its writes",
+        "declared": "limitation",
+        "reason": "Doris is read-only in 1.0 (design section 7): it reads the tables a Flink or Spark cell wrote, and the matrix does not run its writes"
+      },
+      "read": {
+        "status": "PASS",
+        "detail": "rows=105, sum=26090, upserted=1100, deleted=0; Doris's native reader took 0 of 2 splits, the Paimon SDK (JNI) 2; with force_jni_scanner (the Paimon SDK alone): the same values",
+        "declared": "supported"
+      },
+      "credentials": {
+        "status": "PASS",
+        "detail": "read with the table's credentials, which the catalog issued it 1 times; its pod's own identity is refused the table's files",
+        "evidence": {
+          "tokens": 1
+        },
+        "declared": "supported"
+      },
+      "endpoints": {
+        "status": "PASS",
+        "detail": "11 requests, every one to an endpoint the catalog serves",
+        "evidence": {
+          "requests": {
+            "GET GET_CONFIG 200": 4,
+            "GET GET_TABLE 200": 2,
+            "GET ISSUE_DATA_TOKEN 200": 1,
+            "GET LIST_DATABASES 200": 1,
+            "GET LIST_TABLES 200": 1,
+            "GET LOAD_SNAPSHOT 200": 2
+          }
+        },
+        "declared": "supported"
+      }
+    },
+    "pk-dv": {
+      "ddl": {
+        "status": "NOT_RUN",
+        "detail": "read-only engine: the matrix does not run its writes",
+        "declared": "limitation",
+        "reason": "Doris is read-only in 1.0 (design section 7): it reads the tables a Flink or Spark cell wrote, and the matrix does not run its writes"
+      },
+      "write": {
+        "status": "NOT_RUN",
+        "detail": "read-only engine: the matrix does not run its writes",
+        "declared": "limitation",
+        "reason": "Doris is read-only in 1.0 (design section 7): it reads the tables a Flink or Spark cell wrote, and the matrix does not run its writes"
+      },
+      "read": {
+        "status": "FAIL",
+        "detail": "rows: expected 115, got 105; sum: expected 27245, got 26090; uncompacted: expected 10, got 0; Doris's native reader took 4 of 4 splits; with force_jni_scanner (the Paimon SDK alone): rows: got 105; sum: got 26090; uncompacted: got 0 (the table holds 2 deletion vector index files, and ids 111..120 uncompacted in 2 level-0 files)",
+        "declared": "limitation",
+        "reason": "Doris 4.1.5 bundles Paimon 1.4.2, whose batch scans of a deletion-vector table skip level 0: it does not read the rows still in uncompacted level-0 files (reading them, deletion-vectors.merge-on-read, takes Paimon 2.0); fully compacted tables read correctly. Measured: the level-0 rows by runs 20261028T120119Z-c93a, 20261028T122104Z-9305 and 20261028T122711Z-4166, the compacted tables by run 20261028T100928Z-e326, whose dataset compacted everything; first declared as 'cannot read primary-key tables with deletion vectors' (design section 7)"
+      },
+      "credentials": {
+        "status": "PASS",
+        "detail": "read with the table's credentials, which the catalog issued it 1 times; its pod's own identity is refused the table's files (its queries answered, with the values the read entry shows)",
+        "evidence": {
+          "tokens": 1
+        },
+        "declared": "limitation",
+        "reason": "declared a limitation before the runs, together with the read; the runs show the catalog issued Doris the table's credentials and Doris reading its compacted rows with them"
+      },
+      "endpoints": {
+        "status": "PASS",
+        "detail": "10 requests, every one to an endpoint the catalog serves",
+        "evidence": {
+          "requests": {
+            "GET GET_CONFIG 200": 4,
+            "GET GET_TABLE 200": 2,
+            "GET ISSUE_DATA_TOKEN 200": 1,
+            "GET LIST_DATABASES 200": 1,
+            "GET LIST_TABLES 200": 1,
+            "GET LOAD_SNAPSHOT 200": 1
+          }
+        },
+        "declared": "supported"
+      }
+    },
+    "append": {
+      "ddl": {
+        "status": "NOT_RUN",
+        "detail": "read-only engine: the matrix does not run its writes",
+        "declared": "limitation",
+        "reason": "Doris is read-only in 1.0 (design section 7): it reads the tables a Flink or Spark cell wrote, and the matrix does not run its writes"
+      },
+      "write": {
+        "status": "NOT_RUN",
+        "detail": "read-only engine: the matrix does not run its writes",
+        "declared": "limitation",
+        "reason": "Doris is read-only in 1.0 (design section 7): it reads the tables a Flink or Spark cell wrote, and the matrix does not run its writes"
+      },
+      "read": {
+        "status": "PASS",
+        "detail": "rows=120, sum=27060, duplicates=2; Doris's native reader took 2 of 2 splits; with force_jni_scanner (the Paimon SDK alone): the same values",
+        "declared": "supported"
+      },
+      "credentials": {
+        "status": "PASS",
+        "detail": "read with the table's credentials, which the catalog issued it 1 times; its pod's own identity is refused the table's files",
+        "evidence": {
+          "tokens": 1
+        },
+        "declared": "supported"
+      },
+      "endpoints": {
+        "status": "PASS",
+        "detail": "11 requests, every one to an endpoint the catalog serves",
+        "evidence": {
+          "requests": {
+            "GET GET_CONFIG 200": 4,
+            "GET GET_TABLE 200": 2,
+            "GET ISSUE_DATA_TOKEN 200": 1,
+            "GET LIST_DATABASES 200": 1,
+            "GET LIST_TABLES 200": 1,
+            "GET LOAD_SNAPSHOT 200": 2
+          }
+        },
+        "declared": "supported"
+      }
+    }
+  }
+}

@@ -1,0 +1,493 @@
+COMPAT-READER-INFO bundled paimon-bundle-1.3.1.jar
+COMPAT-READER-INFO bundled paimon-oss-1.3.1.jar
+COMPAT-READER-INFO bundled paimon-s3-1.3.1.jar
+****************************************************************************************************
+*   ________  _________  ________  ________  ________  ________  ________  ___  __    ________      
+*  |\   ____\|\___   ___\\   __  \|\   __  \|\   __  \|\   __  \|\   ____\|\  \|\  \ |\   ____\     
+*  \ \  \___|\|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \|\  \ \  \___|\ \  \/  /|\ \  \___|_    
+*   \ \_____  \   \ \  \ \ \   __  \ \   _  _\ \   _  _\ \  \\\  \ \  \    \ \   ___  \ \_____  \   
+*    \|____|\  \   \ \  \ \ \  \ \  \ \  \\  \\ \  \\  \\ \  \\\  \ \  \____\ \  \\ \  \|____|\  \  
+*      ____\_\  \   \ \__\ \ \__\ \__\ \__\\ _\\ \__\\ _\\ \_______\ \_______\ \__\\ \__\____\_\  \ 
+*     |\_________\   \|__|  \|__|\|__|\|__|\|__|\|__|\|__|\|_______|\|_______|\|__| \|__|\_________\
+*     \|_________|                                                                      \|_________|
+*
+*                      ________  ___       ___       ___  ________     _____
+*                     |\   __  \|\  \     |\  \     |\  \|\   ___  \  / __  \
+*                     \ \  \|\  \ \  \    \ \  \    \ \  \ \  \\ \  \|\/_|\  \
+*                      \ \   __  \ \  \    \ \  \    \ \  \ \  \\ \  \|/ \ \  \
+*                       \ \  \ \  \ \  \____\ \  \____\ \  \ \  \\ \  \   \ \  \
+*                        \ \__\ \__\ \_______\ \_______\ \__\ \__\\ \__\   \ \__\
+*                         \|__|\|__|\|_______|\|_______|\|__|\|__| \|__|    \|__|
+*
+****************************************************************************************************
+
+StarRocks [(Blazing Fast)]> _
+
+
+2026-10-30 15:46:51+00:00 INFO running in shared_nothing mode ...
+2026-10-30 15:46:51,544 INFO Set uid to user 0 succeeded
+2026-10-30 15:46:51,551 INFO RPC interface 'supervisor' initialized
+2026-10-30 15:46:51,551 CRIT Server 'unix_http_server' running without any HTTP authentication checking
+2026-10-30 15:46:51,552 INFO supervisord started with pid 9
+2026-10-30 15:46:52,555 INFO spawned: 'beservice' with pid 528
+2026-10-30 15:46:52,558 INFO spawned: 'director' with pid 529
+2026-10-30 15:46:52,561 INFO spawned: 'feproxy' with pid 530
+2026-10-30 15:46:52,563 INFO spawned: 'feservice' with pid 531
+2026-10-30 15:46:52+00:00 INFO checking if need to perform auto registring Backend ...
+2026-10-30 15:46:53+00:00 INFO checking if FE service query port:9030 is alive or not ...
+2026-10-30 15:46:53+00:00 WARN FE service query port:9030 is NOT alive yet!
+2026-10-30 15:46:55+00:00 WARN FE service query port:9030 is NOT alive yet!
+2026-10-30 15:46:57,607 INFO success: beservice entered RUNNING state, process has stayed up for > than 5 seconds (startsecs)
+2026-10-30 15:46:57,608 INFO success: director entered RUNNING state, process has stayed up for > than 5 seconds (startsecs)
+2026-10-30 15:46:57,616 INFO success: feproxy entered RUNNING state, process has stayed up for > than 5 seconds (startsecs)
+2026-10-30 15:46:57,616 INFO success: feservice entered RUNNING state, process has stayed up for > than 5 seconds (startsecs)
+2026-10-30 15:46:57+00:00 WARN FE service query port:9030 is NOT alive yet!
+2026-10-30 15:46:59+00:00 WARN FE service query port:9030 is NOT alive yet!
+2026-10-30 15:47:01+00:00 WARN FE service query port:9030 is NOT alive yet!
+2026-10-30 15:47:03+00:00 WARN FE service query port:9030 is NOT alive yet!
+2026-10-30 15:47:05+00:00 WARN FE service query port:9030 is NOT alive yet!
+2026-10-30 15:47:07+00:00 INFO FE service query port:9030 is alive!
+2026-10-30 15:47:07+00:00 INFO generate my.cnf file ...
+2026-10-30 15:47:08+00:00 INFO check if need to add BE into FE service ...
+COMPAT-READ-STEP {"ok": true, "step": "frontend"}
+2026-10-30 15:47:10+00:00 INFO Add BE(127.0.0.1:9050) into FE service ...
+
+2026-10-30 15:47:11+00:00 INFO BE service already added into FE service ... 
+2026-10-30 15:47:11+00:00 INFO cluster initialization DONE!
+2026-10-30 15:47:11+00:00 INFO wait a few seconds for BE's heartbeat ...
+COMPAT-READ-STEP {"ok": true, "step": "backend registered"}
+COMPAT-READ-STEP {"ok": true, "step": "backend alive"}
+COMPAT-READ-STEP {"error": "", "ok": true, "step": "root password"}
+COMPAT-READ-STEP {"error": "", "ok": true, "step": "planner timeout 60 s"}
+COMPAT-READ-INFO {"engineVersion": "4.1.6-6862092", "error": ""}
+COMPAT-READ {"check": "create-catalog", "error": "", "output": "", "properties": ["aws.s3.access_key", "aws.s3.endpoint", "aws.s3.region", "aws.s3.secret_key", "aws.s3.session_token", "aws.s3.use_instance_profile", "paimon.catalog.type", "paimon.catalog.warehouse", "paimon.option.fs.s3a.access.key", "paimon.option.fs.s3a.aws.credentials.provider", "paimon.option.fs.s3a.endpoint.region", "paimon.option.fs.s3a.secret.key", "paimon.option.fs.s3a.session.token", "paimon.option.token", "paimon.option.token.provider", "paimon.option.uri", "type"], "rc": 0, "table": "-"}
+COMPAT-READ {"check": "list-tables", "error": "", "output": "t_append\nt_pk\nt_pk_dv", "rc": 0, "table": "-"}
+2026-10-30 15:47:21+00:00 INFO StarRocks Cluster information details:
+ERROR 1045 (28000): Access denied for user 'root' (using password: NO)
+ERROR 1045 (28000): Access denied for user 'root' (using password: NO)
+2026-10-30 15:47:21+00:00 INFO 
+2026-10-30 15:47:21+00:00 INFO 
+2026-10-30 15:47:21+00:00 INFO  * IMPORTANT NOTICE!
+
+If FE/BE state needs to be persisted, please be sure the following directories are mounted:
+* FE service meta: /data/deploy/starrocks/fe/meta
+* BE service storage: /data/deploy/starrocks/be/storage
+
+2026-10-30 15:47:21+00:00 INFO 
+2026-10-30 15:47:22+00:00 INFO FE mysql query port: 9030
+2026-10-30 15:47:22+00:00 INFO FE http service port: 8080
+2026-10-30 15:47:22+00:00 INFO 
+2026-10-30 15:47:22+00:00 INFO Enjoy the journey to StarRocks blazing-fast lake-house engine!
+COMPAT-READ {"check": "rows", "error": "ERROR 1064 (HY000) at line 1: Failed to open the off-heap table scanner. java exception details: java.io.IOException: Failed to open the paimon reader for table t_pk\n\tat com.starrocks.paimon.reader.PaimonSplitScanner.open(PaimonSplitScanner.java:121)\nCaused by: java.nio.file.AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261030153944_1e65_fixture.db/t_pk/bucket-0/data-7ecd45f2-ab2f-439e-9792-955c9efd5a71-0.parquet: org.apache.hadoop.fs.s3a.CredentialInitializationException: Prov", "expected": 105, "output": "", "rc": 1, "sql": "SELECT count(*) FROM compat.`compat_20261030153944_1e65_fixture`.`t_pk`", "table": "pk"}
+COMPAT-READ {"check": "sum", "error": "", "expected": 26090, "output": "26090", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261030153944_1e65_fixture`.`t_pk`", "table": "pk"}
+COMPAT-READ {"check": "upserted", "error": "", "expected": 1100, "output": "1100", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261030153944_1e65_fixture`.`t_pk` WHERE id = 100", "table": "pk"}
+COMPAT-READ {"check": "deleted", "error": "", "expected": 0, "output": "0", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261030153944_1e65_fixture`.`t_pk` WHERE id <= 5", "table": "pk"}
+COMPAT-READ {"check": "rows", "error": "", "expected": 115, "output": "105", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261030153944_1e65_fixture`.`t_pk_dv`", "table": "pk-dv"}
+COMPAT-READ {"check": "sum", "error": "", "expected": 27245, "output": "26090", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261030153944_1e65_fixture`.`t_pk_dv`", "table": "pk-dv"}
+COMPAT-READ {"check": "upserted", "error": "", "expected": 1100, "output": "1100", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261030153944_1e65_fixture`.`t_pk_dv` WHERE id = 100", "table": "pk-dv"}
+COMPAT-READ {"check": "deleted", "error": "", "expected": 0, "output": "0", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261030153944_1e65_fixture`.`t_pk_dv` WHERE id <= 5", "table": "pk-dv"}
+COMPAT-READ {"check": "uncompacted", "error": "", "expected": 10, "output": "0", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261030153944_1e65_fixture`.`t_pk_dv` WHERE id > 110", "table": "pk-dv"}
+COMPAT-READ {"check": "rows", "error": "", "expected": 120, "output": "120", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261030153944_1e65_fixture`.`t_append`", "table": "append"}
+COMPAT-READ {"check": "sum", "error": "", "expected": 27060, "output": "27060", "rc": 0, "sql": "SELECT sum(amount) FROM compat.`compat_20261030153944_1e65_fixture`.`t_append`", "table": "append"}
+COMPAT-READ {"check": "duplicates", "error": "", "expected": 2, "output": "2", "rc": 0, "sql": "SELECT count(*) FROM compat.`compat_20261030153944_1e65_fixture`.`t_append` WHERE id = 100", "table": "append"}
+COMPAT-READ-DONE {}
+COMPAT-ENGINE-LOG /data/deploy/starrocks/fe/log/fe.warn.log
+	at com.starrocks.paimon.reader.PaimonSplitScanner.open(PaimonSplitScanner.java:116)
+Caused by: org.apache.hadoop.fs.s3a.CredentialInitializationException: Provider TemporaryAWSCredentialsProvider has no credentials
+	at org.apache.hadoop.fs.s3a.auth.AbstractSessionCredentialsProvider.getCredentials(AbstractSessionCredentialsProvider.java:130)
+	at org.apache.hadoop.fs.s3a.AWSCredentialProviderList.getCredentials(AWSCredentialProviderList.java:177)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.getCredentialsFromContext(AmazonHttpClient.java:1269)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.runBeforeRequestHandlers(AmazonHttpClient.java:845)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.doExecute(AmazonHttpClient.java:794)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeWithTimer(AmazonHttpClient.java:781)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.execute(AmazonHttpClient.java:755)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.access$500(AmazonHttpClient.java:715)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutionBuilderImpl.execute(AmazonHttpClient.java:697)
+	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:561)
+	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:541)
+	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5456)
+	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5403)
+	at com.amazonaws.services.s3.AmazonS3Client.getObjectMetadata(AmazonS3Client.java:1372)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$getObjectMetadata$10(S3AFileSystem.java:2545)
+	at org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:414)
+	at org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:377)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.getObjectMetadata(S3AFileSystem.java:2533)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.getObjectMetadata(S3AFileSystem.java:2513)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3776)
+	... 33 more
+: BE:10001, query_id=01a18d7e-774e-7e12-9c4d-efe5b0f7bc7b, instance_id=01a18d7e-774e-7e12-9c4d-efe5b0f7bc7d, backend_id=10001
+ 2026-10-30 15:47:27.560Z WARN (starrocks-mysql-nio-pool-2|161) [StmtExecutor.execute():1143] Query 01a18d7e-774e-7e12-9c4d-efe5b0f7bc7b failed. Planner profile : Planner:
+   - -- Parser[1] 16ms
+   - -- Total[1] 3s729ms
+   -     -- Analyzer[1] 178ms
+   -         -- Lock[1] 0
+   -         -- AnalyzeDatabase[1] 0
+   -         -- AnalyzeTemporaryTable[1] 0
+   -         -- AnalyzeTable[1] 162ms
+   -     -- Transformer[1] 74ms
+   -     -- Optimizer[1] 3s336ms
+   -         -- MVPreprocess[1] 1ms
+   -         -- MVTextRewrite[1] 0
+   -         -- RuleBaseOptimize[1] 3s255ms
+   -             -- GetPaimonTableStatistics[2] 215ms
+   -         -- CostBaseOptimize[1] 63ms
+   -             -- GetPaimonTableStatistics[1] 48ms
+   -         -- PhysicalRewrite[1] 7ms
+   -         -- DynamicRewrite[1] 4ms
+   -         -- PlanValidate[1] 3ms
+   -             -- TypeChecker[1] 1ms
+   -             -- ConditionalTypeChecker[1] 0
+   -             -- CTEUniqueChecker[1] 0
+   -             -- InputDependenciesChecker[1] 1ms
+   -             -- ColumnReuseChecker[1] 0
+   -     -- ExecPlanBuild[1] 137ms
+   -         -- t_pk.getPaimonRemoteFileInfos[1] 77ms
+   - -- Pending[1] 0
+   - -- Prepare[1] 46ms
+   -     -- computeScanRangeAssignment[1] 20ms
+   - -- Deploy[1] 130ms
+   -     -- DeployLockInternalTime[1] 130ms
+   -         -- DeploySerializeConcurrencyTime[2] 31ms
+   -         -- DeployStageByStageTime[6] 1ms
+   -         -- DeployWaitTime[6] 49ms
+   -             -- DeployAsyncSendTime[2] 0
+   - -- DeployScanRanges[1] 0
+   - DeployDataSize: 133722
+  Paimon:
+    plan:
+      total:
+         - cachedDatabaseNumInCatalog: 1
+         - cachedManifestNumInCatalog: 5
+         - cachedTableNumInCatalog: 1
+         - cachedManifestBytesInCatalog: 11912 B
+         - cachedPartitionNumInCatalog: 0
+         - resultSplitsNum: 2
+      t_pk:
+         - scannedManifestFileNum: 3
+         - resultedDataFilesNum: 6
+         - skippedDataFilesNum: 0
+         - manifestNumReadFromCache: 0
+         - manifestFileReadTime: 794ms
+         - manifestNumReadFromRemote: 3
+         - resultedDataFilesSize: 9362 B
+    metadata:
+      reader:
+        t_pk:
+           - jniReaderReadNum: 2
+           - nativeReaderReadNum: 0
+           - nativeReaderReadBytes: 0 B
+           - jniReaderReadBytes: 9362 B
+      deletionVector:
+        t_pk:
+           - count: 0
+           - readBytes: 0
+  Placement:
+    t_pk:
+      balance:
+         - 127_0_0_1: 0
+      split:
+         - 127_0_0_1: 2
+      assign:
+         - 127_0_0_1: 9362
+  Reason:
+
+ 2026-10-30 15:47:27.598Z WARN (starrocks-mysql-nio-pool-1|155) [MySQLReadListener.handleRequest():168] Exception happened in one session(com.starrocks.qe.ConnectContext@12c29d27).
+ java.nio.channels.ClosedChannelException
+	at java.base/sun.nio.ch.SocketChannelImpl.ensureOpenAndConnected(SocketChannelImpl.java:215)
+	at java.base/sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:527)
+	at org.xnio.nio.NioSocketConduit.write(NioSocketConduit.java:153)
+	at org.xnio.conduits.ConduitStreamSinkChannel.write(ConduitStreamSinkChannel.java:150)
+	at org.xnio.channels.Channels.writeBlocking(Channels.java:175)
+	at com.starrocks.mysql.MysqlChannel.realNetSend(MysqlChannel.java:254)
+	at com.starrocks.mysql.MysqlChannel.send(MysqlChannel.java:242)
+	at com.starrocks.mysql.MysqlChannel.flush(MysqlChannel.java:278)
+	at com.starrocks.mysql.MysqlChannel.sendAndFlush(MysqlChannel.java:346)
+	at com.starrocks.qe.ConnectProcessor.finalizeCommand(ConnectProcessor.java:1011)
+	at com.starrocks.qe.ConnectProcessor.processOnce(ConnectProcessor.java:1321)
+	at com.starrocks.mysql.nio.MySQLReadListener.handleRequest(MySQLReadListener.java:158)
+	at com.starrocks.mysql.nio.MySQLReadListener.lambda$handleEvent$0(MySQLReadListener.java:98)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-30 15:47:27.829Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:27.892Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:27.967Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:30.069Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:30.078Z ERROR (stats-cache-refresher-4|223) [ConnectorHistogramColumnStatsCacheLoader.lambda$asyncLoadAll$1():105] com.starrocks.sql.analyzer.SemanticException: Getting analyzing error. Detail message: Unknown database '_statistics_'.
+ 2026-10-30 15:47:30.263Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:30.430Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:31.479Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:31.559Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:31.625Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:32.657Z WARN (starrocks-mysql-nio-pool-1|155) [HadoopUtils.getHadoopConfiguration():154] Could not find Hadoop configuration via any of the supported methods
+ 2026-10-30 15:47:33.275Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:33.283Z ERROR (stats-cache-refresher-2|210) [ConnectorHistogramColumnStatsCacheLoader.lambda$asyncLoadAll$1():105] com.starrocks.sql.analyzer.SemanticException: Getting analyzing error. Detail message: Unknown database '_statistics_'.
+ 2026-10-30 15:47:33.329Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:33.387Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:35.114Z WARN (table-keeper|114) [TableKeeper.run():65] database not exists: _statistics_
+ 2026-10-30 15:47:35.114Z WARN (table-keeper|114) [TableKeeper.run():65] database not exists: _statistics_
+ 2026-10-30 15:47:35.115Z WARN (table-keeper|114) [TableKeeper.run():65] database not exists: _statistics_
+ 2026-10-30 15:47:35.115Z WARN (table-keeper|114) [TableKeeper.run():65] database not exists: _statistics_
+ 2026-10-30 15:47:35.115Z WARN (table-keeper|114) [TableKeeper.run():65] database not exists: _statistics_
+ 2026-10-30 15:47:35.915Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:35.960Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:36.002Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:36.366Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:36.373Z ERROR (stats-cache-refresher-4|223) [ConnectorHistogramColumnStatsCacheLoader.lambda$asyncLoadAll$1():105] com.starrocks.sql.analyzer.SemanticException: Getting analyzing error. Detail message: Unknown database '_statistics_'.
+ 2026-10-30 15:47:36.413Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:36.460Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:36.822Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:36.862Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:36.919Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:37.231Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:37.277Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:37.316Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:37.406Z WARN (starrocks-mysql-nio-pool-2|161) [PaimonScanNode.setupScanRangeLocations():147] There is no paimon splits on compat_20261030153944_1e65_fixture.t_pk_dv and predicate: [1: id > 110]
+ 2026-10-30 15:47:37.576Z WARN (starrocks-mysql-nio-pool-1|155) [HadoopUtils.getHadoopConfiguration():154] Could not find Hadoop configuration via any of the supported methods
+ 2026-10-30 15:47:37.848Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:37.852Z ERROR (stats-cache-refresher-3|222) [ConnectorHistogramColumnStatsCacheLoader.lambda$asyncLoadAll$1():105] com.starrocks.sql.analyzer.SemanticException: Getting analyzing error. Detail message: Unknown database '_statistics_'.
+ 2026-10-30 15:47:37.891Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:37.934Z WARN (starrocks-mysql-nio-pool-1|155) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:38.104Z WARN (starrocks-mysql-nio-pool-2|161) [MySQLReadListener.handleRequest():168] Exception happened in one session(com.starrocks.qe.ConnectContext@209214db).
+ java.nio.channels.ClosedChannelException
+	at java.base/sun.nio.ch.SocketChannelImpl.ensureOpenAndConnected(SocketChannelImpl.java:215)
+	at java.base/sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:527)
+	at org.xnio.nio.NioSocketConduit.write(NioSocketConduit.java:153)
+	at org.xnio.conduits.ConduitStreamSinkChannel.write(ConduitStreamSinkChannel.java:150)
+	at org.xnio.channels.Channels.writeBlocking(Channels.java:175)
+	at com.starrocks.mysql.MysqlChannel.realNetSend(MysqlChannel.java:254)
+	at com.starrocks.mysql.MysqlChannel.send(MysqlChannel.java:242)
+	at com.starrocks.mysql.MysqlChannel.flush(MysqlChannel.java:278)
+	at com.starrocks.mysql.MysqlChannel.sendAndFlush(MysqlChannel.java:346)
+	at com.starrocks.qe.ConnectProcessor.finalizeCommand(ConnectProcessor.java:1011)
+	at com.starrocks.qe.ConnectProcessor.processOnce(ConnectProcessor.java:1321)
+	at com.starrocks.mysql.nio.MySQLReadListener.handleRequest(MySQLReadListener.java:158)
+	at com.starrocks.mysql.nio.MySQLReadListener.lambda$handleEvent$0(MySQLReadListener.java:98)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-30 15:47:38.231Z WARN (starrocks-mysql-nio-pool-0|150) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:38.276Z WARN (starrocks-mysql-nio-pool-0|150) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:38.319Z WARN (starrocks-mysql-nio-pool-0|150) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:38.450Z WARN (starrocks-mysql-nio-pool-2|161) [MySQLReadListener.handleRequest():168] Exception happened in one session(com.starrocks.qe.ConnectContext@293bce0).
+ java.nio.channels.ClosedChannelException
+	at java.base/sun.nio.ch.SocketChannelImpl.ensureOpenAndConnected(SocketChannelImpl.java:215)
+	at java.base/sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:527)
+	at org.xnio.nio.NioSocketConduit.write(NioSocketConduit.java:153)
+	at org.xnio.conduits.ConduitStreamSinkChannel.write(ConduitStreamSinkChannel.java:150)
+	at org.xnio.channels.Channels.writeBlocking(Channels.java:175)
+	at com.starrocks.mysql.MysqlChannel.realNetSend(MysqlChannel.java:254)
+	at com.starrocks.mysql.MysqlChannel.send(MysqlChannel.java:242)
+	at com.starrocks.mysql.MysqlChannel.flush(MysqlChannel.java:278)
+	at com.starrocks.mysql.MysqlChannel.sendAndFlush(MysqlChannel.java:346)
+	at com.starrocks.qe.ConnectProcessor.finalizeCommand(ConnectProcessor.java:1011)
+	at com.starrocks.qe.ConnectProcessor.processOnce(ConnectProcessor.java:1321)
+	at com.starrocks.mysql.nio.MySQLReadListener.handleRequest(MySQLReadListener.java:158)
+	at com.starrocks.mysql.nio.MySQLReadListener.lambda$handleEvent$0(MySQLReadListener.java:98)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-10-30 15:47:38.573Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:38.578Z ERROR (stats-cache-refresher-4|223) [ConnectorHistogramColumnStatsCacheLoader.lambda$asyncLoadAll$1():105] com.starrocks.sql.analyzer.SemanticException: Getting analyzing error. Detail message: Unknown database '_statistics_'.
+ 2026-10-30 15:47:38.616Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ 2026-10-30 15:47:38.667Z WARN (starrocks-mysql-nio-pool-2|161) [StatisticUtils.checkStatisticTables():225] Statistics database _statistics_ not found
+ COMPAT-ENGINE-LOG /data/deploy/starrocks/be/log/be.WARNING
+W20261030 15:46:56.437330 140384591684544 jit_engine.cpp:481] System or Process memory limit is less than 16GB, disable JIT. You can set jit_lru_cache_size or jit_lru_object_cache_size a properly positive value in BE's config to force enabling JIT
+W20261030 15:47:27.529268 140382125151936 scan_operator.cpp:492] scan fragment 01a18d7e-774e-7e12-9c4d-efe5b0f7bc7d driver 0 Scan tasks error: Internal error: Failed to open the off-heap table scanner. java exception details: java.io.IOException: Failed to open the paimon reader for table t_pk
+	at com.starrocks.paimon.reader.PaimonSplitScanner.open(PaimonSplitScanner.java:121)
+Caused by: java.nio.file.AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261030153944_1e65_fixture.db/t_pk/bucket-0/data-7ecd45f2-ab2f-439e-9792-955c9efd5a71-0.parquet: org.apache.hadoop.fs.s3a.CredentialInitializationException: Provider TemporaryAWSCredentialsProvider has no credentials
+	at org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:212)
+	at org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:175)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3799)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.innerGetFileStatus(S3AFileSystem.java:3688)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$exists$34(S3AFileSystem.java:4703)
+	at org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.lambda$trackDurationOfOperation$5(IOStatisticsBinding.java:499)
+	at org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.trackDuration(IOStatisticsBinding.java:444)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.trackDurationAndSpan(S3AFileSystem.java:2337)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.trackDurationAndSpan(S3AFileSystem.java:2356)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.exists(S3AFileSystem.java:4701)
+	at org.apache.paimon.s3.HadoopCompliantFileIO.exists(HadoopCompliantFileIO.java:104)
+	at org.apache.paimon.fs.PluginFileIO.lambda$exists$4(PluginFileIO.java:71)
+	at org.apache.paimon.fs.PluginFileIO.wrap(PluginFileIO.java:108)
+	at org.apache.paimon.fs.PluginFileIO.exists(PluginFileIO.java:71)
+	at org.apache.paimon.utils.FileUtils.checkExists(FileUtils.java:111)
+	at org.apache.paimon.io.DataFileRecordReader.<init>(DataFileRecordReader.java:72)
+	at org.apache.paimon.io.KeyValueFileReaderFactory.createRecordReader(KeyValueFileReaderFactory.java:142)
+	at org.apache.paimon.io.KeyValueFileReaderFactory.createRecordReader(KeyValueFileReaderFactory.java:103)
+	at org.apache.paimon.mergetree.MergeTreeReaders.lambda$readerForRun$1(MergeTreeReaders.java:98)
+	at org.apache.paimon.mergetree.compact.ConcatRecordReader.create(ConcatRecordReader.java:53)
+	at org.apache.paimon.mergetree.MergeTreeReaders.readerForRun(MergeTreeReaders.java:100)
+	at org.apache.paimon.mergetree.MergeTreeReaders.access$000(MergeTreeReaders.java:40)
+	at org.apache.paimon.mergetree.MergeTreeReaders$1.get(MergeTreeReaders.java:86)
+	at org.apache.paimon.mergetree.MergeSorter.mergeSortNoSpill(MergeSorter.java:128)
+	at org.apache.paimon.mergetree.MergeSorter.mergeSort(MergeSorter.java:115)
+	at org.apache.paimon.mergetree.MergeTreeReaders.readerForSection(MergeTreeReaders.java:90)
+	at org.apache.paimon.operation.MergeFileSplitRead.lambda$createMergeReader$6(MergeFileSplitRead.java:291)
+	at org.apache.paimon.mergetree.compact.ConcatRecordReader.create(ConcatRecordReader.java:53)
+	at org.apache.paimon.operation.MergeFileSplitRead.createMergeReader(MergeFileSplitRead.java:301)
+	at org.apache.paimon.operation.MergeFileSplitRead.createReader(MergeFileSplitRead.java:261)
+	at org.apache.paimon.table.source.splitread.MergeFileSplitReadProvider.lambda$create$1(MergeFileSplitReadProvider.java:50)
+	at org.apache.paimon.operation.SplitRead$1.createReader(SplitRead.java:88)
+	at org.apache.paimon.table.source.KeyValueTableRead.reader(KeyValueTableRead.java:147)
+	at org.apache.paimon.table.source.AbstractDataTableRead.createReader(AbstractDataTableRead.java:84)
+	at com.starrocks.paimon.reader.PaimonSplitScanner.initReader(PaimonSplitScanner.java:106)
+	at com.starrocks.paimon.reader.PaimonSplitScanner.open(PaimonSplitScanner.java:116)
+Caused by: org.apache.hadoop.fs.s3a.CredentialInitializationException: Provider TemporaryAWSCredentialsProvider has no credentials
+	at org.apache.hadoop.fs.s3a.auth.AbstractSessionCredentialsProvider.getCredentials(AbstractSessionCredentialsProvider.java:130)
+	at org.apache.hadoop.fs.s3a.AWSCredentialProviderList.getCredentials(AWSCredentialProviderList.java:177)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.getCredentialsFromContext(AmazonHttpClient.java:1269)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.runBeforeRequestHandlers(AmazonHttpClient.java:845)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.doExecute(AmazonHttpClient.java:794)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeWithTimer(AmazonHttpClient.java:781)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.execute(AmazonHttpClient.java:755)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.access$500(AmazonHttpClient.java:715)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutionBuilderImpl.execute(AmazonHttpClient.java:697)
+	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:561)
+	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:541)
+	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5456)
+	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5403)
+	at com.amazonaws.services.s3.AmazonS3Client.getObjectMetadata(AmazonS3Client.java:1372)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$getObjectMetadata$10(S3AFileSystem.java:2545)
+	at org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:414)
+	at org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:377)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.getObjectMetadata(S3AFileSystem.java:2533)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.getObjectMetadata(S3AFileSystem.java:2513)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3776)
+	... 33 more
+
+be/src/exec/hdfs_scanner/jni_scanner.cpp:55 _check_jni_exception(env, "Failed to open the off-heap table scanner.")
+be/src/exec/hdfs_scanner/hdfs_scanner.cpp:312 do_open(runtime_state)
+be/src/connector/hive_connector.cpp:227 _init_scanner(state)
+be/src/exec/pipeline/scan/connector_scan_operator.cpp:807 _data_source->open(state)
+be/src/exec/pipeline/scan/connector_scan_operator.cpp:838 _open_data_source(state, &mem_alloc_failed)
+W20261030 15:47:27.529537 140382198580928 pipeline_driver.cpp:361] pull_chunk returns not ok status Internal error: Failed to open the off-heap table scanner. java exception details: java.io.IOException: Failed to open the paimon reader for table t_pk
+	at com.starrocks.paimon.reader.PaimonSplitScanner.open(PaimonSplitScanner.java:121)
+Caused by: java.nio.file.AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261030153944_1e65_fixture.db/t_pk/bucket-0/data-7ecd45f2-ab2f-439e-9792-955c9efd5a71-0.parquet: org.apache.hadoop.fs.s3a.CredentialInitializationException: Provider TemporaryAWSCredentialsProvider has no credentials
+	at org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:212)
+	at org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:175)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3799)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.innerGetFileStatus(S3AFileSystem.java:3688)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$exists$34(S3AFileSystem.java:4703)
+	at org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.lambda$trackDurationOfOperation$5(IOStatisticsBinding.java:499)
+	at org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.trackDuration(IOStatisticsBinding.java:444)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.trackDurationAndSpan(S3AFileSystem.java:2337)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.trackDurationAndSpan(S3AFileSystem.java:2356)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.exists(S3AFileSystem.java:4701)
+	at org.apache.paimon.s3.HadoopCompliantFileIO.exists(HadoopCompliantFileIO.java:104)
+	at org.apache.paimon.fs.PluginFileIO.lambda$exists$4(PluginFileIO.java:71)
+	at org.apache.paimon.fs.PluginFileIO.wrap(PluginFileIO.java:108)
+	at org.apache.paimon.fs.PluginFileIO.exists(PluginFileIO.java:71)
+	at org.apache.paimon.utils.FileUtils.checkExists(FileUtils.java:111)
+	at org.apache.paimon.io.DataFileRecordReader.<init>(DataFileRecordReader.java:72)
+	at org.apache.paimon.io.KeyValueFileReaderFactory.createRecordReader(KeyValueFileReaderFactory.java:142)
+	at org.apache.paimon.io.KeyValueFileReaderFactory.createRecordReader(KeyValueFileReaderFactory.java:103)
+	at org.apache.paimon.mergetree.MergeTreeReaders.lambda$readerForRun$1(MergeTreeReaders.java:98)
+	at org.apache.paimon.mergetree.compact.ConcatRecordReader.create(ConcatRecordReader.java:53)
+	at org.apache.paimon.mergetree.MergeTreeReaders.readerForRun(MergeTreeReaders.java:100)
+	at org.apache.paimon.mergetree.MergeTreeReaders.access$000(MergeTreeReaders.java:40)
+	at org.apache.paimon.mergetree.MergeTreeReaders$1.get(MergeTreeReaders.java:86)
+	at org.apache.paimon.mergetree.MergeSorter.mergeSortNoSpill(MergeSorter.java:128)
+	at org.apache.paimon.mergetree.MergeSorter.mergeSort(MergeSorter.java:115)
+	at org.apache.paimon.mergetree.MergeTreeReaders.readerForSection(MergeTreeReaders.java:90)
+	at org.apache.paimon.operation.MergeFileSplitRead.lambda$createMergeReader$6(MergeFileSplitRead.java:291)
+	at org.apache.paimon.mergetree.compact.ConcatRecordReader.create(ConcatRecordReader.java:53)
+	at org.apache.paimon.operation.MergeFileSplitRead.createMergeReader(MergeFileSplitRead.java:301)
+	at org.apache.paimon.operation.MergeFileSplitRead.createReader(MergeFileSplitRead.java:261)
+	at org.apache.paimon.table.source.splitread.MergeFileSplitReadProvider.lambda$create$1(MergeFileSplitReadProvider.java:50)
+	at org.apache.paimon.operation.SplitRead$1.createReader(SplitRead.java:88)
+	at org.apache.paimon.table.source.KeyValueTableRead.reader(KeyValueTableRead.java:147)
+	at org.apache.paimon.table.source.AbstractDataTableRead.createReader(AbstractDataTableRead.java:84)
+	at com.starrocks.paimon.reader.PaimonSplitScanner.initReader(PaimonSplitScanner.java:106)
+	at com.starrocks.paimon.reader.PaimonSplitScanner.open(PaimonSplitScanner.java:116)
+Caused by: org.apache.hadoop.fs.s3a.CredentialInitializationException: Provider TemporaryAWSCredentialsProvider has no credentials
+	at org.apache.hadoop.fs.s3a.auth.AbstractSessionCredentialsProvider.getCredentials(AbstractSessionCredentialsProvider.java:130)
+	at org.apache.hadoop.fs.s3a.AWSCredentialProviderList.getCredentials(AWSCredentialProviderList.java:177)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.getCredentialsFromContext(AmazonHttpClient.java:1269)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.runBeforeRequestHandlers(AmazonHttpClient.java:845)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.doExecute(AmazonHttpClient.java:794)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeWithTimer(AmazonHttpClient.java:781)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.execute(AmazonHttpClient.java:755)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.access$500(AmazonHttpClient.java:715)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutionBuilderImpl.execute(AmazonHttpClient.java:697)
+	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:561)
+	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:541)
+	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5456)
+	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5403)
+	at com.amazonaws.services.s3.AmazonS3Client.getObjectMetadata(AmazonS3Client.java:1372)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$getObjectMetadata$10(S3AFileSystem.java:2545)
+	at org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:414)
+	at org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:377)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.getObjectMetadata(S3AFileSystem.java:2533)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.getObjectMetadata(S3AFileSystem.java:2513)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3776)
+	... 33 more
+
+be/src/exec/hdfs_scanner/jni_scanner.cpp:55 _check_jni_exception(env, "Failed to open the off-heap table scanner.")
+be/src/exec/hdfs_scanner/hdfs_scanner.cpp:312 do_open(runtime_state)
+be/src/connector/hive_connector.cpp:227 _init_scanner(state)
+be/src/exec/pipeline/scan/connector_scan_operator.cpp:807 _data_source->open(state)
+be/src/exec/pipeline/scan/connector_scan_operator.cpp:838 _open_data_source(state, &mem_alloc_failed)
+be/src/exec/pipeline/scan/scan_operator.cpp:287 _get_scan_status()
+W20261030 15:47:27.529622 140382198580928 pipeline_driver_executor.cpp:195] [Driver] Process error, query_id=01a18d7e-774e-7e12-9c4d-efe5b0f7bc7b, instance_id=01a18d7e-774e-7e12-9c4d-efe5b0f7bc7d, status=Internal error: Failed to open the off-heap table scanner. java exception details: java.io.IOException: Failed to open the paimon reader for table t_pk
+	at com.starrocks.paimon.reader.PaimonSplitScanner.open(PaimonSplitScanner.java:121)
+Caused by: java.nio.file.AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261030153944_1e65_fixture.db/t_pk/bucket-0/data-7ecd45f2-ab2f-439e-9792-955c9efd5a71-0.parquet: org.apache.hadoop.fs.s3a.CredentialInitializationException: Provider TemporaryAWSCredentialsProvider has no credentials
+	at org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:212)
+	at org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:175)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3799)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.innerGetFileStatus(S3AFileSystem.java:3688)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$exists$34(S3AFileSystem.java:4703)
+	at org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.lambda$trackDurationOfOperation$5(IOStatisticsBinding.java:499)
+	at org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.trackDuration(IOStatisticsBinding.java:444)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.trackDurationAndSpan(S3AFileSystem.java:2337)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.trackDurationAndSpan(S3AFileSystem.java:2356)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.exists(S3AFileSystem.java:4701)
+	at org.apache.paimon.s3.HadoopCompliantFileIO.exists(HadoopCompliantFileIO.java:104)
+	at org.apache.paimon.fs.PluginFileIO.lambda$exists$4(PluginFileIO.java:71)
+	at org.apache.paimon.fs.PluginFileIO.wrap(PluginFileIO.java:108)
+	at org.apache.paimon.fs.PluginFileIO.exists(PluginFileIO.java:71)
+	at org.apache.paimon.utils.FileUtils.checkExists(FileUtils.java:111)
+	at org.apache.paimon.io.DataFileRecordReader.<init>(DataFileRecordReader.java:72)
+	at org.apache.paimon.io.KeyValueFileReaderFactory.createRecordReader(KeyValueFileReaderFactory.java:142)
+	at org.apache.paimon.io.KeyValueFileReaderFactory.createRecordReader(KeyValueFileReaderFactory.java:103)
+	at org.apache.paimon.mergetree.MergeTreeReaders.lambda$readerForRun$1(MergeTreeReaders.java:98)
+	at org.apache.paimon.mergetree.compact.ConcatRecordReader.create(ConcatRecordReader.java:53)
+	at org.apache.paimon.mergetree.MergeTreeReaders.readerForRun(MergeTreeReaders.java:100)
+	at org.apache.paimon.mergetree.MergeTreeReaders.access$000(MergeTreeReaders.java:40)
+	at org.apache.paimon.mergetree.MergeTreeReaders$1.get(MergeTreeReaders.java:86)
+	at org.apache.paimon.mergetree.MergeSorter.mergeSortNoSpill(MergeSorter.java:128)
+	at org.apache.paimon.mergetree.MergeSorter.mergeSort(MergeSorter.java:115)
+	at org.apache.paimon.mergetree.MergeTreeReaders.readerForSection(MergeTreeReaders.java:90)
+	at org.apache.paimon.operation.MergeFileSplitRead.lambda$createMergeReader$6(MergeFileSplitRead.java:291)
+	at org.apache.paimon.mergetree.compact.ConcatRecordReader.create(ConcatRecordReader.java:53)
+	at org.apache.paimon.operation.MergeFileSplitRead.createMergeReader(MergeFileSplitRead.java:301)
+	at org.apache.paimon.operation.MergeFileSplitRead.createReader(MergeFileSplitRead.java:261)
+	at org.apache.paimon.table.source.splitread.MergeFileSplitReadProvider.lambda$create$1(MergeFileSplitReadProvider.java:50)
+	at org.apache.paimon.operation.SplitRead$1.createReader(SplitRead.java:88)
+	at org.apache.paimon.table.source.KeyValueTableRead.reader(KeyValueTableRead.java:147)
+	at org.apache.paimon.table.source.AbstractDataTableRead.createReader(AbstractDataTableRead.java:84)
+	at com.starrocks.paimon.reader.PaimonSplitScanner.initReader(PaimonSplitScanner.java:106)
+	at com.starrocks.paimon.reader.PaimonSplitScanner.open(PaimonSplitScanner.java:116)
+Caused by: org.apache.hadoop.fs.s3a.CredentialInitializationException: Provider TemporaryAWSCredentialsProvider has no credentials
+	at org.apache.hadoop.fs.s3a.auth.AbstractSessionCredentialsProvider.getCredentials(AbstractSessionCredentialsProvider.java:130)
+	at org.apache.hadoop.fs.s3a.AWSCredentialProviderList.getCredentials(AWSCredentialProviderList.java:177)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.getCredentialsFromContext(AmazonHttpClient.java:1269)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.runBeforeRequestHandlers(AmazonHttpClient.java:845)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.doExecute(AmazonHttpClient.java:794)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeWithTimer(AmazonHttpClient.java:781)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.execute(AmazonHttpClient.java:755)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.access$500(AmazonHttpClient.java:715)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutionBuilderImpl.execute(AmazonHttpClient.java:697)
+	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:561)
+	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:541)
+	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5456)
+	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5403)
+	at com.amazonaws.services.s3.AmazonS3Client.getObjectMetadata(AmazonS3Client.java:1372)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$getObjectMetadata$10(S3AFileSystem.java:2545)
+	at org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:414)
+	at org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:377)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.getObjectMetadata(S3AFileSystem.java:2533)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.getObjectMetadata(S3AFileSystem.java:2513)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3776)
+	... 33 more
+: BE:10001
+W20261030 15:47:29.513624 140382135641792 scan_operator.cpp:492] scan fragment 01a18d7e-774e-7e12-9c4d-efe5b0f7bc7d driver 0 Scan tasks error: Cancelled: canceled state

@@ -30,8 +30,9 @@
 #          scripts/release/make-manifest.sh <candidate>
 #   RELEASE_REGIONS  the standard Regions the candidate is accepted in, two or more
 #                    (configurations.regions; default us-west-2,us-east-2)
-#   RELEASE_FORMS    the deployment forms it is accepted in, eks and serverless (configurations.forms;
-#                    default eks): say serverless only for a candidate whose serverless form passed
+#   RELEASE_FORMS    the deployment forms it is to be accepted in, eks and serverless, each of which its
+#                    UAT runs every required case of (configurations.forms; default eks); an install
+#                    refuses a form not named
 #   RELEASE_EVIDENCE where the evidence goes (default .state/release/<candidate>/, git-ignored)
 # Exit status: 0 made; 1 a step failed; 2 the arguments, a setting or the tree is wrong; 3 a tool is
 # missing or too old, or what was pushed is not B's.
