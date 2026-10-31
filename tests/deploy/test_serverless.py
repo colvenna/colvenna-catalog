@@ -752,7 +752,7 @@ class MaintenanceFirst(unittest.TestCase):
 
 
 class OrphanLogGroups(unittest.TestCase):
-    """sl_orphan_log_groups (#54): before the serverless stack is deployed, a log group it makes for a function of this
+    """sl_delete_orphan_log_groups (#54): before the serverless stack is deployed, a log group it makes for a function of this
     install that is gone, which no stack owns (Lambda made it anew after the stack had deleted it), is deleted."""
 
     TEMPLATE = {"Resources": {
@@ -778,7 +778,7 @@ class OrphanLogGroups(unittest.TestCase):
             aws[f"lambda get-function --region us-west-2 --function-name {function}"] = (
                 {"stdout": "{}"} if function in functions else
                 {"code": 254, "stderr": "An error occurred (ResourceNotFoundException) when calling the GetFunction operation\n"})
-        out, stubs = stubbed(f'sl_orphan_log_groups {SERVERLESS_STACK} "{template}"', aws=aws, env={"WORK": work})
+        out, stubs = stubbed(f'sl_delete_orphan_log_groups {SERVERLESS_STACK} "{template}"', aws=aws, env={"WORK": work})
         deleted = [c.split("--log-group-name ")[1] for c in stubs.calls() if " delete-log-group " in c]
         return out, stubs, deleted
 
@@ -808,11 +808,29 @@ class OrphanLogGroups(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(deleted, [])
         self.assertEqual([c for c in stubs.calls() if "describe-stack-resources" in c], [])
+        # One an earlier install of this name left, its function gone with it: deleted too.
+        out, _, deleted = self.run_step(owned=[], existing={"/aws/lambda/colvenna-catalog-sl1-server"}, functions=set(),
+                                        stack_status="NONE")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(deleted, ["/aws/lambda/colvenna-catalog-sl1-server"])
+
+    def test_a_listing_that_fails_stops_the_run(self):
+        work = tempfile.mkdtemp()
+        template = write(Path(work) / "t.json", json.dumps(self.TEMPLATE))
+        out, stubs = stubbed(f'sl_delete_orphan_log_groups {SERVERLESS_STACK} "{template}"', env={"WORK": work}, aws={
+            f"cloudformation describe-stacks --region us-west-2 --stack-name {SERVERLESS_STACK} --query Stacks[0].StackStatus":
+                {"stdout": "UPDATE_COMPLETE\n"},
+            "cloudformation describe-stack-resources": {"stdout": "\n"},
+            "logs describe-log-groups": {"code": 254, "stderr": "An error occurred (ThrottlingException)\n"},
+        })
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("ThrottlingException", out.stderr)
+        self.assertEqual([c for c in stubs.calls() if " delete-log-group " in c], [])
 
     def test_a_function_that_cannot_be_read_is_no_reason_to_delete(self):
         work = tempfile.mkdtemp()
         template = write(Path(work) / "t.json", json.dumps(self.TEMPLATE))
-        out, stubs = stubbed(f'sl_orphan_log_groups {SERVERLESS_STACK} "{template}"', env={"WORK": work}, aws={
+        out, stubs = stubbed(f'sl_delete_orphan_log_groups {SERVERLESS_STACK} "{template}"', env={"WORK": work}, aws={
             f"cloudformation describe-stacks --region us-west-2 --stack-name {SERVERLESS_STACK} --query Stacks[0].StackStatus":
                 {"stdout": "UPDATE_COMPLETE\n"},
             "cloudformation describe-stack-resources": {"stdout": "\n"},
@@ -824,7 +842,7 @@ class OrphanLogGroups(unittest.TestCase):
         self.assertEqual([c for c in stubs.calls() if " delete-log-group " in c], [])
 
     def test_the_orphans_go_before_the_synthesized_stack_is_deployed(self):
-        script = ('sl_orphan_log_groups() { echo "orphans $1 $2" >>"$WORK/steps"; };'
+        script = ('sl_delete_orphan_log_groups() { echo "orphans $1 $2" >>"$WORK/steps"; };'
                   ' deploy_assembly() { echo "deploy $1" >>"$WORK/steps"; }; stack_output() { echo "$2"; };'
                   ' sl_deploy_serverless')
         work = tempfile.mkdtemp()
@@ -838,7 +856,7 @@ class OrphanLogGroups(unittest.TestCase):
 class Flow(unittest.TestCase):
     """install_serverless and uninstall_serverless, each step replaced by a recorder of its name."""
 
-    STEPS = ("preflight_serverless confirm_install cdk_dependencies sl_stacks build_image copy_release_image sl_database "
+    STEPS = ("preflight_serverless confirm_install cdk_dependencies sl_stacks build_image copy_release_image sl_database sl_delete_orphan_log_groups "
              "sl_grants ensure_admin sl_smoke release_form_check release_registry_check release_auth release_verify_artifacts "
              "assert_account")
 
@@ -862,8 +880,8 @@ class Flow(unittest.TestCase):
         out, steps = self.run_flow("install_serverless")
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual([s.split()[0] for s in steps], ["preflight_serverless", "confirm_install", "cdk_dependencies", "sl_stacks",
-                                                         "build_image", "synth", "deploy", "sl_database", "maintenance",
-                                                         "sl_grants", "ensure_admin", "sl_smoke"])
+                                                         "build_image", "synth", "sl_delete_orphan_log_groups", "deploy",
+                                                         "sl_database", "maintenance", "sl_grants", "ensure_admin", "sl_smoke"])
         self.assertIn("synth repo@sha256:new", steps)
         self.assertIn("ensure_admin sl_", steps)
 
@@ -872,8 +890,9 @@ class Flow(unittest.TestCase):
         # alias live among it, only once migrate has succeeded; then the new ops function's database step and grants.
         out, steps = self.run_flow("install_serverless", running="repo@sha256:old")
         self.assertEqual(out.returncode, 0, out.stderr)
-        order = [s for s in steps if s.startswith(("synth", "deploy", "maintenance", "sl_database", "sl_grants"))]
-        self.assertEqual(order, ["synth repo@sha256:new", "maintenance_first", "maintenance migrate", "deploy", "sl_database", "sl_grants"])
+        order = [s for s in steps if s.startswith(("synth", "deploy", "maintenance", "sl_database", "sl_grants", "sl_delete"))]
+        self.assertEqual([s.split()[0] for s in order], ["synth", "sl_delete_orphan_log_groups", "maintenance_first", "maintenance",
+                                                         "deploy", "sl_database", "sl_grants"])
         # The steps announced in their usual order (the UAT harness's every-step-done), the server's after migrate.
         announced = [line[3:] for line in out.stdout.splitlines() if line.startswith("== ")]
         self.assertEqual(announced, ["preflight", "stacks", "image", "functions", "database", "migrate", "server", "admin", "smoke"])
