@@ -828,7 +828,7 @@ Some refusals need a change to the account (no CloudWatch Logs role for API Gate
 | `reads-uninterrupted` | Every read succeeded and saw a snapshot no older than the one before; no gap of more than 60 s |
 | `tokens-uninterrupted` | The tokens issued before the upgrade worked throughout and after; every `/token` request succeeded and its credentials read |
 | `migration-chain-forward` | The schema version rows before are all still there, unchanged; any added have higher versions; the version equals the candidate's number of migrations |
-| `data-unchanged` | Every table's snapshots from before have the same contents; the only new snapshots are the writer's. The writer's table may lose its earliest snapshots to Paimon's own expiry once they are older than `snapshot.time-retained` (1 hour by default), which always leaves `snapshot.num-retained.min` (10) at least: reported, not judged (#56) |
+| `data-unchanged` | Every table's snapshots from before have the same contents; the only new snapshots are the writer's. The writer's table may lose its earliest snapshots to Paimon's own expiry once they are older than `snapshot.time-retained` (1 hour by default), which leaves `snapshot.num-retained.min` (10 by default) at least (Paimon 2.0.0's `CoreOptions` and `ExpireSnapshotsImpl`): reported, not judged (#56) |
 | `grants-and-identities-unchanged` | Principals, tokens and grants as recorded, plus the new token |
 | `audit-continuous` | The audit events from before are still there; events of the window recorded |
 | `new-token-works` | The token issued after the upgrade works |

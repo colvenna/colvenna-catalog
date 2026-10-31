@@ -99,25 +99,24 @@ def same_snapshots(a, b, table):
     return bool(sa) and sa.keys() == sb.keys() and all(same_snapshot(sa[k], sb[k]) for k in sa)
 
 
-# Paimon 2.0.0's snapshot.num-retained.min (CoreOptions): its expiry always leaves at least this many.
-PAIMON_RETAINED_MIN = 10
+# Paimon 2.0.0's snapshot.num-retained.min, its default (CoreOptions): expiry leaves at least this many.
+PAIMON_NUM_RETAINED_MIN = 10
 
 
 def expired_snapshot_ids(before, now):
-    """Of one table's snapshots ({id: record}), the ids Paimon's own expiry took (#56): missing now, and all
-    before the earliest snapshot still there. In Paimon 2.0.0 every commit expires the table's snapshots
-    older than snapshot.time-retained (CoreOptions: 1 hour by default), earliest first, and never below
-    snapshot.num-retained.min (10): ExpireSnapshotsImpl stops at the latest less 10 (TableCommitImpl after
-    the commit). So a table the loops write to for longer than that loses its first snapshots, and keeps 10
-    at least; one missing after the earliest, or a prefix gone with fewer than 10 left, is no expiry. The
-    records hold no snapshot's time, so the hour itself is not checked."""
+    """Of one table's snapshots ({id: record}), the ids Paimon's own expiry took (#56): missing now, all
+    before the earliest snapshot still there, and PAIMON_NUM_RETAINED_MIN at least still there. In Paimon
+    2.0.0 every commit expires the table's snapshots older than snapshot.time-retained (1 hour by default),
+    earliest first, and stops short of the latest PAIMON_NUM_RETAINED_MIN (TableCommitImpl after the commit,
+    ExpireSnapshotsImpl). So a table the loops write to for longer than that loses its first snapshots; one
+    missing after the earliest, or a prefix gone with fewer left, is no expiry. The records hold no
+    snapshot's time, so the hour itself is not checked."""
     if not now:
         return []
     ids = [int(k) for k in now]
-    earliest, latest = min(ids), max(ids)
-    if latest - earliest + 1 < PAIMON_RETAINED_MIN:
+    if max(ids) - min(ids) + 1 < PAIMON_NUM_RETAINED_MIN:
         return []
-    return sorted((k for k in before if k not in now and int(k) < earliest), key=int)
+    return sorted((k for k in before if k not in now and int(k) < min(ids)), key=int)
 
 
 def data_unchanged(before, after, writer_table=None, writer_user="uat-loop-writer"):
