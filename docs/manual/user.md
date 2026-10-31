@@ -7,7 +7,7 @@ The examples assume an EKS install with the defaults of `install.sh`: namespace,
 ## 1. What 1.0 supports
 
 - **The Apache Paimon REST catalog contract** of Paimon 2.0.0: every path of the REST catalog OpenAPI 1.0 that Paimon 2.0.0 publishes, except those the [LLD](../design/colvenna-catalog-lld.md#端点范围) lists (and section 9.4 below). Paimon's own contract tests (`RESTCatalogTest` and `CatalogTestBase` of the 2.0.0 test jars) run against the server and PostgreSQL in every build.
-- **Engines**, through Paimon's `RESTCatalog` client, as the [compatibility matrix](../compat/matrix.md) measured them against the EKS form on 2026-10-28:
+- **Engines**, through Paimon's `RESTCatalog` client, as the [compatibility matrix](../compat/matrix.md) measured them against both forms on 2026-10-30 (`v1.0.0-rc.2`):
 
   | Engine | Paimon client | What passes |
   | --- | --- | --- |
@@ -18,7 +18,7 @@ The examples assume an EKS install with the defaults of `install.sh`: namespace,
   | Doris 4.1.5 | 1.4.2, bundled | Read, with per-table credentials; not the rows of uncompacted level-0 files of a deletion-vector table (section 9.2) |
   | StarRocks 4.1.6 | 1.3.1, bundled | Read, with S3 credentials of its own; with short-lived ones, its first read of a primary-key table can fail; the same deletion-vector limitation (section 9.2) |
 
-  The matrix's engines ran against the serverless form in `v1.0.0-rc.2`'s UAT (section 9.2). The Paimon 2.0.0 Java client has too: it created, wrote, committed and read tables through the private API with per-table credentials (`tests/serverless`).
+  The matrix's engines ran against the serverless form in `v1.0.0-rc.2`'s UAT (section 9.2). So did the Paimon 2.0.0 Java client: it created, wrote, committed and read tables through the private API with per-table credentials (`tests/serverless`).
 - **Two deployment forms**, in a standard AWS Region: on Amazon EKS, two replicas behind a Service; or serverless, on AWS Lambda behind a private REST API.
 - **Authentication** by bearer tokens the server issues; **authorization** by grants to principals; an **audit log** of writes, decisions and refusals; optional **per-table credentials**.
 
