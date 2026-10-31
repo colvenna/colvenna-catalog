@@ -7,7 +7,10 @@ environment's VPC, two of its private subnets, its execute-api endpoint). The ex
 recorded before and after: the VPC, its subnets, route tables and endpoints, the database instance
 (its parameters, security groups and settings), and the bucket's configuration and policy, and what
 is in them (the instance's databases and roles, the bucket's top-level prefixes): the install adds
-only its own, and the stacks its run deployed (its CDK log) are its own. In the
+only its own, and the stacks its run deployed (its CDK log) are its own. Another install that runs into
+the same existing resources at the same time (E3 and S3 in one step of section 3.2) is named by its
+configuration (--alongside, #43): what is added under its database, users and prefix is its, not this
+install's. In the
 EKS form, the time from the command's start to the client's first successful write and read is at
 most 15 minutes (the press release's claim)."""
 
@@ -17,6 +20,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from uatlib import deploy
+from uatlib.install import EXAMPLE, parse_env
 from cases import dep01
 
 ID = "UAT-DEP-02"
@@ -33,6 +37,9 @@ def checks(form, args=None):
 
 def add_arguments(parser):
     deploy.add_install_arguments(parser, release_required=True)
+    parser.add_argument("--alongside", action="append", default=[], metavar="CONFIG",
+                        help="the configuration of another install that runs into the same existing resources at the same "
+                             "time (E3's for S3's run, S3's for E3's): what it adds under its own names is not this install's (#43)")
 
 
 def record_existing(ctx):
@@ -86,12 +93,48 @@ def contents(ctx):
     return out
 
 
+def names_in(get):
+    """What an install of this configuration (get: its settings by key) adds to an existing instance and
+    bucket: its database, its users (the authorizer's too, serverless) and its prefix."""
+    user = get("COLVENNA_DB_USER")
+    return {"databases": {get("COLVENNA_DB_NAME")}, "roles": {user, f"{user}_authz"},
+            "prefixes": {get("COLVENNA_WAREHOUSE_PREFIX") + "/"}}
+
+
 def own_names(inst, stacks):
-    """What the install may add: its database, its users (the authorizer's too, serverless), its
-    prefix, its stacks."""
-    user = inst.get("COLVENNA_DB_USER")
-    return {"databases": {inst.get("COLVENNA_DB_NAME")}, "roles": {user, f"{user}_authz"},
-            "prefixes": {inst.prefix + "/"}, "stacks": set(stacks)}
+    """What the install may add: its names (names_in) and its stacks."""
+    return dict(names_in(inst.get), stacks=set(stacks))
+
+
+def alongside_names(inst, paths):
+    """What the installs alongside may add to the existing resources (#43): the database and users of each
+    one into this one's existing database instance, and the prefix of each one into its bucket, from its
+    configuration with the defaults this one's has (deploy/config/example.env). Refused (ValueError)
+    unless each is another install into this one's existing database or bucket, under names none of
+    which is this one's."""
+    out = {"databases": set(), "roles": set(), "prefixes": set()}
+    mine = own_names(inst, set())
+    for path in paths:
+        cfg = dict(parse_env(EXAMPLE.read_text(encoding="utf-8")), **parse_env(Path(path).read_text(encoding="utf-8")))
+        name = cfg.get("COLVENNA_ENV")
+        if name == inst.env:
+            raise ValueError(f"--alongside {path}: that is this install's configuration ({name})")
+        database = (cfg.get("COLVENNA_DB") == "existing" and inst.get("COLVENNA_DB") == "existing"
+                    and cfg.get("COLVENNA_DB_ENDPOINT") == inst.get("COLVENNA_DB_ENDPOINT"))
+        bucket = bool(cfg.get("COLVENNA_BUCKET")) and cfg.get("COLVENNA_BUCKET") == inst.get("COLVENNA_BUCKET")
+        if not (database or bucket):
+            raise ValueError(f"--alongside {path}: {name} installs into neither this install's existing database nor its bucket")
+        theirs = names_in(cfg.get)
+        if not database:
+            theirs["databases"], theirs["roles"] = set(), set()
+        if not bucket:
+            theirs["prefixes"] = set()
+        clash = sorted(n for k, v in theirs.items() for n in v & mine[k])
+        if clash:
+            raise ValueError(f"--alongside {path}: {name} has this install's names {clash}")
+        for k, v in theirs.items():
+            out[k] |= v
+    return out
 
 
 def deployed_stacks(texts):
@@ -105,14 +148,21 @@ def _tag(resource, key):
 
 # --- judges ------------------------------------------------------------------------------------------
 
-def judge_existing_untouched(before, after, made, own):
+def judge_existing_untouched(before, after, made, own, alongside=None):
     """The existing VPC, subnets, route tables, endpoints, database instance and bucket as recorded;
     what was added to them (made: databases, roles, prefixes) and the stacks the run deployed are the
-    install's own (own: the same keys)."""
+    install's own (own: the same keys), or the names of the installs alongside (alongside: the same
+    keys but stacks), which added theirs meanwhile (#43)."""
+    alongside = alongside or {}
     changed = sorted(k for k in before if before[k] != after.get(k))
-    foreign = {k: sorted(set(v) - own.get(k, set())) for k, v in made.items() if set(v) - own.get(k, set())}
+    theirs = {k: sorted(set(v) & alongside.get(k, set()) - own.get(k, set())) for k, v in made.items()}
+    theirs = {k: v for k, v in theirs.items() if v}
+    foreign = {k: sorted(set(v) - own.get(k, set()) - alongside.get(k, set())) for k, v in made.items()}
+    foreign = {k: v for k, v in foreign.items() if v}
+    hint = "" if not foreign or alongside else " (another install into them at the same time? name it with --alongside)"
     return not changed and not foreign, (f"{'as recorded' if not changed else f'changed: {changed}'}; added and deployed: "
-                                         f"{made}; not the install's: {foreign or 'none'}")
+                                         f"{made}; added by the installs alongside: {theirs or 'none'}; "
+                                         f"not the install's: {foreign or 'none'}{hint}")
 
 
 def judge_ready_within(started, ready, worked, limit=LIMIT):
@@ -127,6 +177,9 @@ def run(ctx):
     checkout = deploy.checkout_of(args)
     with ctx.preparing("nothing of the install in the account; existing resources given") as notes:
         release = deploy.manifest(checkout, args.release)
+        alongside = alongside_names(inst, args.alongside)
+        if args.alongside:
+            notes.append(f"alongside: {sorted(n for v in alongside.values() for n in v)}")
         before = deploy.stacks_of(ctx.aws, inst.env)
         given = inst.get("COLVENNA_DB") == "existing" and inst.get("COLVENNA_BUCKET") and (
             ctx.form == "eks" or inst.get("COLVENNA_NETWORK") == "existing")
@@ -171,7 +224,7 @@ def run(ctx):
     made = {k: sorted(set(v) - set(held.get(k, []))) for k, v in now_held.items()}
     made["stacks"] = deployed_stacks(deploy.evidence_texts(evidence) if evidence else {})
     ctx.keep("existing-contents.json", {"before": held, "after": now_held, "deployed": made["stacks"]})
-    ctx.check("existing-untouched", *judge_existing_untouched(recorded, after, made, own_names(inst, stacks)))
+    ctx.check("existing-untouched", *judge_existing_untouched(recorded, after, made, own_names(inst, stacks), alongside))
     if ctx.form == "eks":
         ctx.check("eks-ready-within-15-minutes", *judge_ready_within(run.started, ready, worked))
     else:
