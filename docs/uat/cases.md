@@ -117,7 +117,7 @@ For each required case, each Region and each form it applies to, the report give
 - `BLOCKED`: a preparation the case depends on (its preconditions) failed, so the case could not run or its result cannot be trusted; the report names the preparation;
 - `NOT_RUN`: it did not run.
 
-A required case is never dropped from the count, nor changed to "not applicable". A rerun after a fix is another run (`<case>-2`), on a new candidate when the fix changed the product; the report keeps the first run, its failure and the retest, and links each failure and block to its issue. A check marked "(negative)" expects a refusal: an explicit 401 or 403, an S3 `AccessDenied`, a refused or impossible connection, or the installer's refusal with its exit status; a timeout or an empty answer is never taken for a refusal unless the check says so.
+A required case is never dropped from the count, nor changed to "not applicable". One exception, in UAT-DEP-06 and 07 only: a failed check that their rule "When the previous release fails a check itself" gives to the previous release is not counted against the candidate. The run's result stays `FAIL` in the report, with the previous release's limitation beside it, and for the release verdict the case counts by its other checks. A rerun after a fix is another run (`<case>-2`), on a new candidate when the fix changed the product; the report keeps the first run, its failure and the retest, and links each failure and block to its issue. A check marked "(negative)" expects a refusal: an explicit 401 or 403, an S3 `AccessDenied`, a refused or impossible connection, or the installer's refusal with its exit status; a timeout or an empty answer is never taken for a refusal unless the check says so.
 
 ## 4. Coverage
 
@@ -835,12 +835,12 @@ Some refusals need a change to the account (no CloudWatch Logs role for API Gate
 
 **Cleanup**: the install stays at the candidate for UAT-DEP-07.
 
-**When the previous release fails a check itself** (the requester's decision of 2026-10-31, [#55](https://github.com/colvenna/colvenna-catalog/issues/55)). The pods replaced, the functions moved back and the server that answers after a restore are the previous release's, so a check of this case or UAT-DEP-07 can fail on a defect of the previous release alone. Such a failure counts as **the previous release's limitation, not against the candidate**, when both of these hold:
+**When the previous release fails a check itself** (the requester's decision of 2026-10-31, [#55](https://github.com/colvenna/colvenna-catalog/issues/55)). The pods replaced, the functions moved back and the server that answers after a restore are the previous release's, so a check of this case or of UAT-DEP-07 can fail on a defect of the previous release alone. Such a failed check is **the previous release's limitation, not counted against the candidate** (section 3.3), when both of these hold:
 
 1. **The defect is the previous release's own, and the candidate has its fix.** An issue names the defect and the change that fixed it, and the fix is in the candidate's commit, chart or image.
-2. **An extra run shows the candidate passes in the previous release's place.** The same case runs once more, on an install of its own, between two builds that both carry the fix: the upgrade (this case) or the going back (UAT-DEP-07), with the same loops, checks and judge. It goes from the candidate, installed with `install.sh --release <candidate>`, to a later build, which may be from source (`install.sh --from-source`) and differ only so that the upgrade replaces what the failing check depends on (the pods, a function version). Its evidence is kept beside the case's, under `<case>-prev/`, and the report names the run, the two builds and its result. Every check of the extra run must pass; the checks that do not depend on the previous release (`runs-the-candidate`, for one) are judged as the extra run's builds allow, and the report says which.
+2. **An extra run shows the candidate passes in the previous release's place.** The same case runs once more, in the same form, with the candidate as the previous release and a later build that also carries the fix as the release upgraded to. The later build is a trial candidate (`v0.0.0-rc.<n>`, [Trial candidates](../development.md#trial-candidates)) made from a later commit of `main`, so that the run is judged as any other, `runs-the-candidate` included: `uat.py run UAT-DEP-06 --previous <the candidate's checkout> --candidate <the trial's checkout>`, on an install of its own made from the candidate with `install.sh --release <candidate>`. That install takes E2's (or S2's) place after their UAT-DEP-09, so that the cluster holds no more installs than section 3.2 allows, and has names of its own. Its runs are the case's next runs (`<case>-<n>`), and the report names them as the extra runs. Every check must pass.
 
-The run's own result stays as it is (`FAIL`), and the report gives the case's result beside it as "the previous release's limitation", with the issue and the extra run. If either condition is missing (the candidate has the same defect, say), the `FAIL` counts against the candidate.
+The run whose check failed keeps its result (`FAIL`); the report gives beside it "the previous release's limitation", with the issue and the extra run. If either condition is missing (the candidate has the same defect, or no extra run was made), the `FAIL` counts against the candidate.
 
 **Harness**: `tests/uat/uat.py run UAT-DEP-06 ... --candidate <the candidate's checkout>` (#52): the loops are `tests/uat/paimon`'s; the pre-upgrade snapshot is kept, tagged, for UAT-DEP-07.
 
@@ -883,7 +883,7 @@ The run's own result stays as it is (`FAIL`), and the report gives the case's re
 
 **Cleanup**: the install is left at the candidate; the pre-upgrade snapshot is deleted.
 
-**When the previous release fails a check itself**: as UAT-DEP-06 says ([#55](https://github.com/colvenna/colvenna-catalog/issues/55)); the extra run goes back from a later build carrying the fix to the candidate, by the branch the two builds' migrations select.
+**When the previous release fails a check itself**: as UAT-DEP-06 says ([#55](https://github.com/colvenna/colvenna-catalog/issues/55)). The extra run is UAT-DEP-07 on the install of UAT-DEP-06's extra run, after it and with its pre-upgrade snapshot, going back from the trial candidate to the candidate in the same form and by the same branch as the run whose check failed: for the branch where the schema moved forward, the trial candidate must add a migration to the candidate's. If no later commit of `main` does, the extra run cannot be made, and the `FAIL` counts.
 
 **Harness**: `tests/uat/uat.py run UAT-DEP-07 ... --candidate <checkout> --previous <checkout>` (#52); which branch runs follows from the two checkouts' migrations. With the schema moved forward it leaves the install on the restored instance, its configuration so changed written beside the original as `<env>-restored.env`, as UAT-DEP-10 does; `newer-schema-restored` compares with UAT-DEP-06's record from just before its snapshot, found beside this run's evidence.
 
@@ -1136,7 +1136,7 @@ This set holds for every candidate from the first after `v1.0.0-rc.1`, until thi
 
 - Each case runs in `us-west-2` and in `us-east-2`, in each form the row names that the candidate's manifest lists in `configurations.forms`. A candidate that names only `eks` runs the EKS rows; one that names `serverless` runs its rows too.
 - The declarations in `tests/compat/declared.tsv` at the candidate's commit are part of the set: each entry declared `supported` for a form must pass in that form; an entry declared `limitation` does not count against the case. A form without declarations cannot run its UAT-CMP cases, which are then `NOT_RUN`; both forms are declared (#52).
-- The report gives each case, Region and form one result (section 3.3). Every one must be `PASS` for a `GO` (design 9.4).
+- The report gives each case, Region and form one result (section 3.3). Every one must be `PASS` for a `GO` (design 9.4). A failed check of UAT-DEP-06 or 07 that their rule gives to the previous release does not count against the candidate (section 3.3).
 
 <!-- required-cases:start -->
 
