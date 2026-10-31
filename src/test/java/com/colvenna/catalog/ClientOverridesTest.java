@@ -13,16 +13,17 @@ import org.junit.jupiter.api.Test;
  */
 class ClientOverridesTest extends ServerTestBase {
 
+    private static final String KEY = "fs.s3a.create.performance";
+
     @Override
     protected Map<String, String> settings() {
-        return Map.of("COLVENNA_CLIENT_OVERRIDES", ClientDefaultsTest.KEY + "=false");
+        return Map.of("COLVENNA_CLIENT_OVERRIDES", KEY + "=false");
     }
 
     @Test
     void theOverrideWinsOverTheDefaultAndTheClient() throws Exception {
-        try (RESTCatalog catalog =
-                catalog(adminToken, server.port(), Map.of(ClientDefaultsTest.KEY, "true"))) {
-            assertThat(catalog.options()).containsEntry(ClientDefaultsTest.KEY, "false");
+        try (RESTCatalog catalog = catalog(adminToken, server.port(), Map.of(KEY, "true"))) {
+            assertThat(catalog.options()).containsEntry(KEY, "false");
         }
     }
 }

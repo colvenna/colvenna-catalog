@@ -5,9 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.colvenna.catalog.testing.ServerTestBase;
 import java.net.http.HttpResponse;
 import java.util.Map;
+import org.apache.paimon.rest.RESTApi;
 import org.apache.paimon.rest.RESTCatalog;
 import org.apache.paimon.shade.jackson2.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.paimon.shade.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -16,14 +16,14 @@ import org.junit.jupiter.api.Test;
  */
 class ClientDefaultsTest extends ServerTestBase {
 
-    static final String KEY = "fs.s3a.create.performance";
+    private static final String KEY = "fs.s3a.create.performance";
 
     @Test
     void theConfigAnswersTheDefaults() throws Exception {
         HttpResponse<String> answer =
                 http("GET", "/v1/config?warehouse=colvenna", adminToken, null);
         assertThat(answer.statusCode()).isEqualTo(200);
-        JsonNode body = new ObjectMapper().readTree(answer.body());
+        JsonNode body = RESTApi.OBJECT_MAPPER.readTree(answer.body());
         assertThat(body.path("defaults").path(KEY).asText()).isEqualTo("true");
         assertThat(body.path("overrides").has(KEY)).isFalse();
     }
