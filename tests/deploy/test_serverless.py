@@ -675,6 +675,9 @@ class MaintenanceFirst(unittest.TestCase):
             "cloudformation get-template": {"stdout": deployed if deployed is not None else DEPLOYED},
             "cloudformation update-stack": update or {"stdout": "{}"},
             "cloudformation wait stack-update-complete": wait or {"stdout": ""},
+            **stack_outputs("CDKToolkit", BucketName="cdk-staging"),
+            "s3 cp": {"stdout": ""},
+            "s3 rm": {"stdout": ""},
         }
         work, state = tempfile.mkdtemp(), Path(tempfile.mkdtemp())
         (state / "cdk.out").mkdir()
@@ -715,13 +718,25 @@ class MaintenanceFirst(unittest.TestCase):
         self.assertEqual(out.returncode, 1)
         self.assertIn("did not complete: UPDATE_ROLLBACK_COMPLETE", out.stderr)
 
-    def test_a_template_too_large_for_the_request_is_refused_before_any_change(self):
+    def test_a_template_too_large_for_the_request_goes_by_the_staging_bucket(self):
+        # The stack's own template is (51,365 bytes measured, with CDK's metadata): as CDK sends its own.
         big = json.loads(json.dumps(DEPLOYED))
         big["Resources"]["server"]["Properties"]["Description"] = "x" * 52000
         out, stubs, _ = self.run_step(deployed=big)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        calls = stubs.calls()
+        put = next(c for c in calls if " s3 cp " in c)
+        self.assertRegex(put, r"s3://cdk-staging/colvenna-catalog/ColvennaCatalogSl1Serverless/maintenance-first-[0-9a-f]{64}\.json$")
+        key = put.split("s3://cdk-staging/")[1]
+        update = next(c for c in calls if " update-stack " in c)
+        self.assertIn(f"--template-url https://cdk-staging.s3.us-west-2.amazonaws.com/{key}", update)
+        self.assertNotIn("--template-body", update)
+        # Gone from the bucket once the update is over, whatever it came to.
+        self.assertTrue(any(f" s3 rm --region us-west-2 --only-show-errors s3://cdk-staging/{key}" in c for c in calls))
+        self.assertLess(calls.index(update), calls.index(next(c for c in calls if " s3 rm " in c)))
+        out, stubs, _ = self.run_step(deployed=big, update={"code": 254, "stderr": "An error occurred (ValidationError): bad\n"})
         self.assertEqual(out.returncode, 1)
-        self.assertIn("more than the 51200 CloudFormation takes", out.stderr)
-        self.assertEqual([c for c in stubs.calls() if " update-stack " in c], [])
+        self.assertTrue(any(" s3 rm " in c for c in stubs.calls()))
 
     def test_it_waits_for_an_operation_under_way(self):
         out, _ = stubbed(f'sleep() {{ :; }}; stack_settled {SERVERLESS_STACK}', aws={

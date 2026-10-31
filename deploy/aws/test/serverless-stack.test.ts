@@ -446,16 +446,6 @@ test('an upgrade migrates before anything that serves changes: the maintenance f
   }
 });
 
-test('the template fits in a CloudFormation request, which sl_maintenance_first sends it in (#63)', () => {
-  // SnapStart on, per-table credentials, two execute-api endpoints and two subnets (more make it larger), with the
-  // metadata the CDK CLI adds to what it deploys; sl_maintenance_first refuses a template over the limit, before
-  // any change.
-  const app = new App({ context: { 'aws:cdk:enable-path-metadata': true, 'aws:cdk:enable-asset-metadata': true } });
-  const stack = new CatalogServerlessStack(app, 'ColvennaCatalogUatServerless', { ...props, snapStart: true });
-  const bytes = Buffer.byteLength(JSON.stringify(Template.fromStack(stack).toJSON()));
-  assert.ok(bytes <= 51200, `${bytes} bytes`);
-});
-
 test('what the gateway answers itself is retryable: a database the authorizer cannot reach, a request over the concurrency', () => {
   const responses = resources(defaults, 'AWS::ApiGateway::GatewayResponse').map(([, r]) => [r.Properties.ResponseType, r.Properties.StatusCode]);
   assert.deepEqual(responses.sort(), [

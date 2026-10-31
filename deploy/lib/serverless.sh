@@ -17,7 +17,8 @@ SL_VPC_CHECK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/vpc_check.py"
 # The change of the deployed serverless stack's template before an upgrade's migrate (beside this file).
 SL_TEMPLATE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/serverless_template.py"
 # CloudFormation takes a template of at most this many bytes in the request itself (UpdateStack's
-# TemplateBody: https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_UpdateStack.html).
+# TemplateBody: https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_UpdateStack.html);
+# a larger one goes by an S3 URL (TemplateURL), from the CDK bootstrap's staging bucket.
 TEMPLATE_BODY_MAX=51200
 # How long uninstall.sh waits for Lambda to release a function's network interfaces before the network
 # stack can go (#12: about 20 minutes).
@@ -401,10 +402,13 @@ sl_deploy_serverless() {
 # keeps the stack's role (the CDK bootstrap's execution role) and tags (its API reference, read
 # 2026-10-31: https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_UpdateStack.html). It
 # rolls back if that fails; a template with nothing to change (a run again after a refused or failed
-# migrate) is no failure. Exports the name the migrate step uses, from the stack's outputs.
+# migrate) is no failure. A template over TEMPLATE_BODY_MAX (the stack's is, with the metadata CDK puts
+# in it: 51,365 bytes measured) goes by its URL in the CDK bootstrap's staging bucket, as CDK sends its
+# own, and is deleted from there once the update is over. Exports the name the migrate step uses, from
+# the stack's outputs.
 sl_maintenance_first() {
   local stack maintenance keys key parameters=() deployed="$WORK/serverless-deployed.json" template="$WORK/serverless-template.json"
-  local err="$WORK/update-stack.err"
+  local err="$WORK/update-stack.err" source=() bucket="" object="" updated=0
   stack="$(stack_id Serverless)"
   stack_settled "$stack" >/dev/null
   maintenance="$(cfn_output "$stack" MaintenanceFunctionName)"
@@ -415,8 +419,13 @@ sl_maintenance_first() {
     --query TemplateBody --output json >"$deployed"
   python3 "$SL_TEMPLATE" maintenance-first "$deployed" "$STATE_DIR/cdk.out/$stack.template.json" "$maintenance" >"$template"
   if (($(wc -c <"$template") > TEMPLATE_BODY_MAX)); then
-    echo "$stack's template is $(wc -c <"$template") bytes, more than the $TEMPLATE_BODY_MAX CloudFormation takes in a request" >&2
-    return 1
+    bucket="$(cfn_output CDKToolkit BucketName)"
+    [[ -n "$bucket" ]] || { echo "The CDK bootstrap stack CDKToolkit names no staging bucket (output BucketName)" >&2; return 1; }
+    object="colvenna-catalog/$stack/maintenance-first-$(sha256sum "$template" | cut -c1-64).json"
+    aws s3 cp --region "$COLVENNA_REGION" --only-show-errors "$template" "s3://$bucket/$object"
+    source=(--template-url "https://$bucket.s3.$COLVENNA_REGION.amazonaws.com/$object")
+  else
+    source=(--template-body "file://$template")
   fi
   # The stack's parameters (CDK's BootstrapVersion) as they are.
   keys="$(aws cloudformation describe-stacks --region "$COLVENNA_REGION" --stack-name "$stack" \
@@ -425,17 +434,22 @@ sl_maintenance_first() {
     [[ "$key" == None ]] || parameters+=("ParameterKey=$key,UsePreviousValue=true")
   done
   ((${#parameters[@]} == 0)) || parameters=(--parameters "${parameters[@]}")
-  if aws cloudformation update-stack --region "$COLVENNA_REGION" --stack-name "$stack" --template-body "file://$template" \
+  if aws cloudformation update-stack --region "$COLVENNA_REGION" --stack-name "$stack" "${source[@]}" \
     "${parameters[@]}" --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND >/dev/null 2>"$err"; then
-    aws cloudformation wait stack-update-complete --region "$COLVENNA_REGION" --stack-name "$stack" \
-      || { echo "$stack: the maintenance function's update did not complete: $(stack_status "$stack")" >&2; return 1; }
-    echo "  $maintenance as this version makes it; nothing else of $stack changed"
+    aws cloudformation wait stack-update-complete --region "$COLVENNA_REGION" --stack-name "$stack" && updated=1
   elif grep -q "No updates are to be performed" "$err"; then
-    echo "  $maintenance already as this version makes it"
-  else
-    cat "$err" >&2
-    return 1
+    updated=2
   fi
+  [[ -z "$object" ]] || aws s3 rm --region "$COLVENNA_REGION" --only-show-errors "s3://$bucket/$object"
+  case "$updated" in
+    1) echo "  $maintenance as this version makes it; nothing else of $stack changed" ;;
+    2) echo "  $maintenance already as this version makes it" ;;
+    *)
+      [[ -s "$err" ]] && cat "$err" >&2
+      echo "$stack: the maintenance function's update did not complete: $(stack_status "$stack")" >&2
+      return 1
+      ;;
+  esac
 }
 
 # sl_database: the catalog's database user and database, and the authorizer's read-only user, made or
