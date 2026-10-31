@@ -9,6 +9,9 @@ scripts accept for a rehearsal.
                401 to an anonymous read
   immutable    a tag is never moved to another digest (the release registry's ECR repositories are
                IMMUTABLE); writing the digest it holds again is fine
+  no_head      a HEAD of a manifest answers 405, as some registries do: crane warns on stderr, then reads it
+               with GET
+  denied       every read but /v2/ answers 403 DENIED: a registry that will not let these credentials in
 
 Every request is logged (requests: method, path, whether it carried valid credentials), so a test can
 say what was read and written. seed_image and seed_blob put content in without the API."""
@@ -35,8 +38,9 @@ def digest_of(data):
 
 
 class Registry:
-    def __init__(self, credentials=None, public=True, immutable=False):
+    def __init__(self, credentials=None, public=True, immutable=False, no_head=False, denied=False):
         self.credentials, self.public, self.immutable = credentials, public, immutable
+        self.no_head, self.denied = no_head, denied
         self.blobs = {}
         self.manifests = {}  # repository -> {digest: (media type, bytes)}
         self.tags = {}  # repository -> {tag: digest}
@@ -154,6 +158,10 @@ def _handler(registry):
                 return self.answer(200, b"{}") if authorized else self.challenge()
             if not authorized and (write or not registry.public):
                 return self.challenge()
+            if registry.denied and not write:
+                return self.error(403, "DENIED", "requested access to the resource is denied")
+            if registry.no_head and self.command == "HEAD" and "/manifests/" in path:
+                return self.answer(405, b"", head=True)
             found = re.fullmatch(r"/v2/(.+)/blobs/uploads/([^/]*)", path)
             if found:
                 return self.upload(found[1], found[2], query, data)

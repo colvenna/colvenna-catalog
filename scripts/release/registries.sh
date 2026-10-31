@@ -24,17 +24,43 @@ registry_use() {
     | helm registry login "$registry" --username AWS --password-stdin >>"$log" 2>&1
 }
 
-# registry_held <reference>: the digest the registry holds under the reference's tag, or nothing when it
-# holds none (the registry API's MANIFEST_UNKNOWN or NAME_UNKNOWN, or status 404); status 1, saying why on
-# stderr, when it cannot tell.
-registry_held() {
-  local out
-  if out="$(crane digest "$1" 2>&1)"; then
-    echo "$out"
-  elif ! grep -qE 'MANIFEST_UNKNOWN|NAME_UNKNOWN|status code 404' <<<"$out"; then
-    echo "cannot read $1: $(tail -1 <<<"$out")" >&2
-    return 1
+# registry_absent <error file>: whether the error a registry read left in the file says that what was
+# asked for is not there: the distribution API's MANIFEST_UNKNOWN, NAME_UNKNOWN or BLOB_UNKNOWN, status
+# 404, or Helm's "not found".
+registry_absent() {
+  grep -qE 'MANIFEST_UNKNOWN|NAME_UNKNOWN|BLOB_UNKNOWN|status code 404|: not found' "$1"
+}
+
+# registry_read_failed <what> <error file>: after a read of what failed, leaving its error in the file:
+# the caller's fail, with status 3 when the registry says it is not there, 1 otherwise (credentials, the
+# network, the registry itself).
+registry_read_failed() {
+  local said
+  said="$(grep . "$2" | tail -1)"
+  if registry_absent "$2"; then
+    fail "The registry has no $1: $said" 3
   fi
+  fail "Cannot read $1: $said"
+}
+
+# registry_held <reference>: the digest the registry holds under the reference's tag, or nothing when it
+# holds none; status 1, saying why on stderr, when it cannot tell. Only crane's output is the answer:
+# what it says on stderr (a warning that it read with GET after a HEAD failed, say) is not.
+registry_held() {
+  local out err
+  err="$(mktemp)"
+  if out="$(crane digest "$1" 2>"$err")"; then
+    rm -f "$err"
+    echo "$out"
+    return 0
+  fi
+  if registry_absent "$err"; then
+    rm -f "$err"
+    return 0
+  fi
+  echo "cannot read $1: $(grep . "$err" | tail -1)" >&2
+  rm -f "$err"
+  return 1
 }
 
 # registry_package <dir>: the one chart package a helm pull left in the directory; status 1 otherwise.

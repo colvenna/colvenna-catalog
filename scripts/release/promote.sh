@@ -144,8 +144,8 @@ still_this_commit() {
 # candidate's digest, B's, and what the release's tag holds, if anything.
 image="$registry/$image_repository"
 image_digest="$(python3 "$manifest_py" get "$manifest" image.digest)"
-config="$(crane config "$image@$image_digest" 2>&1)" \
-  || fail "The release registry has no $image_repository@$image_digest, $candidate's image: $(tail -1 <<<"$config")" 3
+config="$(crane config "$image@$image_digest" 2>"$work/err")" \
+  || registry_read_failed "$image_repository@$image_digest, $candidate's image" "$work/err"
 faults="$(image_problems "$config" "$built_from" "$(python3 "$manifest_py" get "$manifest" image.platform)")"
 [[ -z "$faults" ]] || fail "$image_repository@$image_digest, $candidate's image: $(tr '\n' ' ' <<<"$faults")" 3
 image_held="$(registry_held "$image:$image_tag")" || fail "Cannot tell what $image_repository:$image_tag holds"
@@ -158,8 +158,15 @@ chart="$registry/$chart_repository"
 candidate_chart="$(python3 "$manifest_py" get "$manifest" chart.digest)"
 chart_name="$(python3 "$manifest_py" get "$manifest" chart.name)"
 chart_path="$(python3 "$manifest_py" get "$manifest" chart.path)"
-helm pull "oci://$chart@$candidate_chart" -d "$work/candidate" "${REGISTRY_PLAIN[@]}" >>"$evidence/chart.log" 2>&1 \
-  || { tail -5 "$evidence/chart.log" >&2; fail "Cannot pull $candidate's chart, $chart_repository@$candidate_chart" 3; }
+# pull <reference> <dir>: Helm pulls the chart into the directory, its output appended to the evidence.
+pull() {
+  if ! helm pull "oci://$1" -d "$2" "${REGISTRY_PLAIN[@]}" >>"$evidence/chart.log" 2>"$work/err"; then
+    cat "$work/err" >>"$evidence/chart.log"
+    registry_read_failed "the chart $1" "$work/err"
+  fi
+  cat "$work/err" >>"$evidence/chart.log"
+}
+pull "$chart@$candidate_chart" "$work/candidate"
 candidate_package="$(registry_package "$work/candidate")" || fail "Cannot pull $candidate's chart"
 git -C "$REPO" archive "$built_from" "$chart_path" | tar -x -C "$work/source"
 release_chart_source "$work/source/$chart_path" "$work/expected/$chart_name" "$candidate_version" "$candidate" "$built_from"
@@ -176,8 +183,7 @@ chart_files="$(tar -tzf "$package" | grep -vc '/$')"
 chart_digest="$(registry_held "$chart:$version")" || fail "Cannot tell what $chart_repository:$version holds"
 if [[ -n "$chart_digest" ]]; then
   # An earlier run's chart (packaging is not reproducible byte for byte): it must be the same files.
-  helm pull "oci://$chart@$chart_digest" -d "$work/held" "${REGISTRY_PLAIN[@]}" >>"$evidence/chart.log" 2>&1 \
-    || fail "Cannot pull $chart_repository@$chart_digest"
+  pull "$chart@$chart_digest" "$work/held"
   held_package="$(registry_package "$work/held")" || fail "Cannot pull $chart_repository@$chart_digest"
   python3 "$promotion_py" chart-diff "$candidate_package" "$held_package" "$version" "$version" >>"$evidence/chart.log" 2>&1 \
     || fail "The release registry holds chart $version ($chart_digest), which is not $candidate's but for version and appVersion: tags never move" 3
@@ -205,8 +211,7 @@ else
   log "chart: pushed $chart_repository:$version $chart_digest"
 fi
 # What the registry holds, pulled back by its digest, compared with the candidate's: the comparison kept.
-helm pull "oci://$chart@$chart_digest" -d "$work/pulled" "${REGISTRY_PLAIN[@]}" >>"$evidence/chart.log" 2>&1 \
-  || fail "Cannot pull $chart_repository@$chart_digest back"
+pull "$chart@$chart_digest" "$work/pulled"
 pulled_package="$(registry_package "$work/pulled")" || fail "Cannot pull $chart_repository@$chart_digest back"
 {
   echo "$chart_repository@$chart_digest (version $version), pulled back from the release registry, against"

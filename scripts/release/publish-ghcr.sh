@@ -131,11 +131,14 @@ chart_problems() {
 # 1. The release registry's copies are the release's.
 source_image="$registry/$(get image.repository)@$image_digest"
 source_chart="$registry/$(get chart.repository)@$chart_digest"
-config="$(crane config "$source_image" 2>&1)" || fail "The release registry has no $source_image: $(tail -1 <<<"$config")" 3
+config="$(crane config "$source_image" 2>"$work/err")" || registry_read_failed "$source_image" "$work/err"
 faults="$(image_problems "$config" "$built_from" "$platform")"
 [[ -z "$faults" ]] || fail "$source_image: $(tr '\n' ' ' <<<"$faults")" 3
-helm pull "oci://$source_chart" -d "$work/source-chart" "${REGISTRY_PLAIN[@]}" >>"$evidence/chart.log" 2>&1 \
-  || { tail -5 "$evidence/chart.log" >&2; fail "Cannot pull oci://$source_chart" 3; }
+if ! helm pull "oci://$source_chart" -d "$work/source-chart" "${REGISTRY_PLAIN[@]}" >>"$evidence/chart.log" 2>"$work/err"; then
+  cat "$work/err" >>"$evidence/chart.log"
+  registry_read_failed "the chart oci://$source_chart" "$work/err"
+fi
+cat "$work/err" >>"$evidence/chart.log"
 source_package="$(registry_package "$work/source-chart")" || fail "Cannot pull oci://$source_chart"
 faults="$(chart_problems "$source_package")"
 [[ -z "$faults" ]] || fail "oci://$source_chart: $(tr '\n' ' ' <<<"$faults")" 3
@@ -188,39 +191,39 @@ anonymous() {
     "$@"
   )
 }
-# hidden <output>: whether the registry would not show it without credentials (refused, or answered
+# hidden <error file>: whether the registry would not show it without credentials (refused, or answered
 # that it is not there, which it is to the credentials that copied it).
 hidden() {
-  grep -qE 'UNAUTHORIZED|DENIED|MANIFEST_UNKNOWN|NAME_UNKNOWN|status code 40[134]' <<<"$1"
+  grep -qE 'UNAUTHORIZED|DENIED|MANIFEST_UNKNOWN|NAME_UNKNOWN|status code 40[134]' "$1"
 }
 private=()
 # readable <repository> <digest>: whether anyone reads the tag, which must then hold the digest; one
 # that is not readable without credentials yet is noted in private.
 readable() {
   local out
-  if ! out="$(anonymous crane digest "$1:$version" 2>&1)"; then
-    hidden "$out" || fail "Cannot read $1:$version without credentials: $(tail -1 <<<"$out")"
+  if ! out="$(anonymous crane digest "$1:$version" 2>"$work/err")"; then
+    hidden "$work/err" || fail "Cannot read $1:$version without credentials: $(grep . "$work/err" | tail -1)"
     private+=("$1")
     return 1
   fi
   [[ "$out" == "$2" ]] || fail "$1:$version is $out to anyone, not $2" 3
 }
 if readable "$image_target" "$image_digest"; then
-  out="$(anonymous crane validate --remote "$image_target@$image_digest" 2>&1)" \
-    || fail "Anyone cannot pull $image_target@$image_digest whole: $(tail -1 <<<"$out")"
-  config="$(anonymous crane config "$image_target@$image_digest" 2>&1)" \
-    || fail "Cannot read $image_target@$image_digest's configuration without credentials: $(tail -1 <<<"$config")"
+  anonymous crane validate --remote "$image_target@$image_digest" >"$work/validate.log" 2>"$work/err" \
+    || fail "Anyone cannot pull $image_target@$image_digest whole: $(grep . "$work/err" | tail -1)"
+  config="$(anonymous crane config "$image_target@$image_digest" 2>"$work/err")" \
+    || fail "Cannot read $image_target@$image_digest's configuration without credentials: $(grep . "$work/err" | tail -1)"
   faults="$(image_problems "$config" "$built_from" "$platform")"
   [[ -z "$faults" ]] || fail "$image_target@$image_digest: $(tr '\n' ' ' <<<"$faults")" 3
   log "anyone: $image_target:$version is $image_digest, pulled whole, labelled $RELEASE_REVISION_LABEL=$built_from, for $platform"
 fi
 if readable "$chart_target" "$chart_digest"; then
-  layer="$(anonymous crane manifest "$chart_target@$chart_digest" | jq -r --arg t "$HELM_CHART_LAYER" \
+  layer="$(anonymous crane manifest "$chart_target@$chart_digest" 2>"$work/err" | jq -r --arg t "$HELM_CHART_LAYER" \
     '[.layers[] | select(.mediaType == $t)] | if length == 1 then .[0].digest else "" end')" \
     || fail "Cannot read $chart_target@$chart_digest's manifest without credentials"
   [[ "$layer" == sha256:* ]] || fail "$chart_target@$chart_digest has no single chart layer ($HELM_CHART_LAYER)" 3
-  anonymous crane blob "$chart_target@$layer" >"$work/anonymous-chart.tgz" \
-    || fail "Cannot fetch $chart_target@$layer without credentials"
+  anonymous crane blob "$chart_target@$layer" >"$work/anonymous-chart.tgz" 2>"$work/err" \
+    || fail "Cannot fetch $chart_target@$layer without credentials: $(grep . "$work/err" | tail -1)"
   [[ "sha256:$(sha256sum <"$work/anonymous-chart.tgz" | cut -d' ' -f1)" == "$layer" ]] \
     || fail "$chart_target@$layer is not what its digest says" 3
   faults="$(chart_problems "$work/anonymous-chart.tgz")"

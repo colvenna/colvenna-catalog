@@ -375,6 +375,14 @@ class PromoteRefuses(unittest.TestCase):
         self.assertEqual(world.registry.tag(CHART_REPOSITORY, "1.0.0"), tampered)
         world.unchanged(self)
 
+    def test_a_registry_that_cannot_be_read_is_a_failure_not_a_mismatch(self):
+        world = self.world()
+        world.registry.denied = True
+        out = world.promote()
+        self.assertRefused(out, 1, "Cannot read", "DENIED")
+        self.assertNotIn("has no", out.stderr)
+        world.unchanged(self)
+
     def test_a_run_that_stopped_runs_again_and_keeps_what_it_pushed(self):
         world = self.world()
         subprocess.run([str(TOOLS / "crane"), "tag", f"{world.registry.host}/{IMAGE_REPOSITORY}@{world.image}", RELEASE],
@@ -510,6 +518,14 @@ class Publish(unittest.TestCase):
                 self.assertIn(needle, out.stderr)
                 self.assertEqual(ghcr.writes(), [])
 
+    def test_a_release_registry_that_cannot_be_read(self):
+        ghcr = self.ghcr()
+        self.release.registry.denied = True
+        out = self.publish(ghcr)
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn("Cannot read", out.stderr)
+        self.assertEqual(ghcr.writes(), [])
+
     def test_never_aws_ecr_public(self):
         ghcr = self.ghcr()
         for settings in ({"PUBLISH_IMAGE": "public.ecr.aws/colvenna/colvenna-catalog"},
@@ -569,6 +585,47 @@ class Publish(unittest.TestCase):
         self.assertIn("not write:packages: gh auth refresh -h github.com -s write:packages", out.stderr)
         self.assertEqual(stubs.calls(), ["gh api -i /user"])
         self.assertEqual(self.release.registry.requests, [])
+
+
+class Registries(unittest.TestCase):
+    """registries.sh, which both scripts source, against a stub registry."""
+
+    def held(self, registry, reference):
+        script = (f'source "{REPO}/deploy/lib/release.sh"; source "{REPO}/scripts/release/registries.sh"; '
+                  f'registry_held "{registry.host}/{reference}"')
+        return subprocess.run(["bash", "-c", f"set -euo pipefail; {script}"], capture_output=True, text=True,
+                              env={**os.environ, "PATH": f"{TOOLS}:{os.environ['PATH']}", "DOCKER_CONFIG": str(scratch())})
+
+    def test_a_tag_s_digest_and_none_for_a_tag_not_there(self):
+        registry = registry_stub.Registry()
+        self.addCleanup(registry.close)
+        digest = registry.seed_image("a/image", "1.0.0", {REVISION: "b" * 40})
+        out = self.held(registry, "a/image:1.0.0")
+        self.assertEqual((out.returncode, out.stdout), (0, digest + "\n"), out.stderr)
+        for reference in ("a/image:2.0.0", "b/image:1.0.0"):
+            with self.subTest(reference):
+                out = self.held(registry, reference)
+                self.assertEqual((out.returncode, out.stdout), (0, ""), out.stderr)
+
+    def test_crane_s_warnings_are_not_its_answer(self):
+        """A registry that answers HEAD with 405: crane warns on stderr, then reads with GET."""
+        registry = registry_stub.Registry(no_head=True)
+        self.addCleanup(registry.close)
+        digest = registry.seed_image("a/image", "1.0.0", {REVISION: "b" * 40})
+        warned = subprocess.run([str(TOOLS / "crane"), "digest", f"{registry.host}/a/image:1.0.0"], capture_output=True,
+                                text=True, env={**os.environ, "DOCKER_CONFIG": str(scratch())})
+        self.assertEqual(warned.stdout, digest + "\n")
+        self.assertIn("falling back on GET", warned.stderr)
+        out = self.held(registry, "a/image:1.0.0")
+        self.assertEqual((out.returncode, out.stdout), (0, digest + "\n"), out.stderr)
+
+    def test_a_registry_that_will_not_be_read(self):
+        registry = registry_stub.Registry(denied=True)
+        self.addCleanup(registry.close)
+        out = self.held(registry, "a/image:1.0.0")
+        self.assertEqual(out.returncode, 1)
+        self.assertEqual(out.stdout, "")
+        self.assertIn("DENIED", out.stderr)
 
 
 class Scripts(unittest.TestCase):
