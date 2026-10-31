@@ -842,7 +842,7 @@ class OrphanLogGroups(unittest.TestCase):
         self.assertEqual([c for c in stubs.calls() if " delete-log-group " in c], [])
 
     def test_the_orphans_go_before_the_synthesized_stack_is_deployed(self):
-        script = ('sl_delete_orphan_log_groups() { echo "orphans $1 $2" >>"$WORK/steps"; };'
+        script = ('sl_delete_orphan_log_groups() { echo "orphans $1 $2" >>"$WORK/steps"; }; sl_redeploy_stage() { :; };'
                   ' deploy_assembly() { echo "deploy $1" >>"$WORK/steps"; }; stack_output() { echo "$2"; };'
                   ' sl_deploy_serverless')
         work = tempfile.mkdtemp()

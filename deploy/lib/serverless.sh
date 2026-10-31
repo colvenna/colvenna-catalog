@@ -404,7 +404,8 @@ sl_delete_orphan_log_groups() {
 
 # sl_deploy_serverless: the serverless stack sl_synth_serverless synthesized, deployed, the log groups
 # it makes of functions that are gone deleted first (sl_delete_orphan_log_groups, which the functions
-# step runs once already before it changes anything); exports the names and secrets the later steps use.
+# step runs once already before it changes anything), and then a deployment of its API for the stage,
+# outside CloudFormation (sl_redeploy_stage); exports the names and secrets the later steps use.
 sl_deploy_serverless() {
   local stack
   stack="$(stack_id Serverless)"
@@ -422,23 +423,23 @@ sl_deploy_serverless() {
   sl_redeploy_stage
 }
 
-# sl_redeploy_stage: the API's stage serves the API as its stack now has it (#34). A gateway response
-# takes effect with a deployment of the API, which CDK makes depend on the responses the stack has; one
-# the stack no longer has is deleted only in CloudFormation's clean-up, after the new deployment, whose
-# snapshot keeps it (measured: an upgrade from a version that set INTEGRATION_FAILURE to 503 went on
-# answering an oversize request 503). So once the stack is deployed, a new deployment of the API is the
-# stage's; the deployment it replaces is deleted if it was this function's (one of CloudFormation's is
-# CloudFormation's to delete).
+# sl_redeploy_stage: the API's stage (the stack's STAGE, catalog) serves the API as its stack now has it
+# (#34). A gateway response takes effect with a deployment of the API, which CDK makes depend on the
+# responses the stack has (aws-cdk-lib's GatewayResponse adds the dependency); one the stack no longer has
+# is deleted only in CloudFormation's clean-up, after the new deployment, whose snapshot keeps it
+# (measured: an upgrade from a version that set INTEGRATION_FAILURE to 503 went on answering an oversize
+# request 503). So once the stack is deployed, a new deployment of the API, marked as this function's by
+# its description, is the stage's, and every other deployment so marked is deleted; CloudFormation's and
+# any other stay. The stage's deployment is then not the one the stack records.
 sl_redeploy_stage() {
-  local before owned deployed
-  before="$(aws apigateway get-stage --region "$COLVENNA_REGION" --rest-api-id "$API_ID" --stage-name catalog \
-    --query deploymentId --output text)"
-  owned="$(stack_resources "$(stack_id Serverless)" AWS::ApiGateway::Deployment)"
+  local deployed old
   deployed="$(aws apigateway create-deployment --region "$COLVENNA_REGION" --rest-api-id "$API_ID" --stage-name catalog \
     --description "install.sh ($SOURCE_SHA): the API as its stack left it" --query id --output text)"
-  if [[ -n "$before" && "$before" != None && "$before" != "$deployed" ]] && ! grep -qxF -- "$before" <<<"$owned"; then
-    aws apigateway delete-deployment --region "$COLVENNA_REGION" --rest-api-id "$API_ID" --deployment-id "$before" >/dev/null
-  fi
+  for old in $(aws apigateway get-deployments --region "$COLVENNA_REGION" --rest-api-id "$API_ID" \
+    --query "items[?starts_with(description || '', 'install.sh (') && id != '$deployed'].id" --output text); do
+    [[ "$old" == None ]] || aws apigateway delete-deployment --region "$COLVENNA_REGION" --rest-api-id "$API_ID" \
+      --deployment-id "$old" >/dev/null
+  done
   echo "  the stage catalog serves the API as its stack left it (deployment $deployed)"
 }
 
