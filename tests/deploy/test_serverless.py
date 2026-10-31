@@ -750,7 +750,7 @@ class VerifyCleanWaitsForRds(unittest.TestCase):
         stubs = Stubs({"aws": {"": {"stdout": ""}, **responses}})
         out = run_bash(f'"{REPO}/tests/serverless/verify-clean.sh" ux1e us-west-2', path_prepend=stubs.bin,
                        env={**stubs.env, "AWS_PROFILE": "stub", "RDS_DELETING_WAIT": wait, "RDS_DELETING_SECONDS": seconds})
-        self.calls = stubs.calls()
+        self.calls = stubs.calls()  # every aws call of the run, for the tests that look at them
         reads = len([c for c in self.calls if c.startswith(f"aws {self.SNAPSHOTS_LISTED}")])
         # Nothing on stderr but the errors the stub was told to answer with, no shell error; a refusal
         # (exit 2) says why there.
@@ -780,7 +780,7 @@ class VerifyCleanWaitsForRds(unittest.TestCase):
         # What it waits for is named, on a line the judge does not take for one of the report's.
         self.assertTrue(lines[0].startswith("wait  left: only what RDS is still deleting"), lines[0])
         self.assertIn(f"({self.TAGGED_LINE}: rds snapshot:{self.SNAPSHOT}; RDS snapshots: {self.SNAPSHOT}); reading again "
-                      "every 0 s, for 60 s at most", lines[0])
+                      "every 0 s, the last wait ending no later than 60 s after the first read", lines[0])
         self.assertRegex(lines[-1], r"^note  waited [0-9]+ s \(2 more read\(s\)\) for what RDS is still deleting: it is gone$")
 
     def test_the_tagging_index_s_entry_of_a_snapshot_gone_does_not_count(self):

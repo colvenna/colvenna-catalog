@@ -203,7 +203,7 @@ while ((left && !other_left && SECONDS - began + RDS_DELETING_WAIT <= RDS_DELETI
   if ((reads == 0)); then
     echo "wait  left: only what RDS is still deleting, the automated snapshots and backups of instances that no longer" \
       "exist ($(printf '%s; ' "${waited_for[@]}" | sed 's/; $//')); reading again every $RDS_DELETING_WAIT s," \
-      "for $RDS_DELETING_SECONDS s at most"
+      "the last wait ending no later than $RDS_DELETING_SECONDS s after the first read"
   fi
   sleep "$RDS_DELETING_WAIT"
   survey
