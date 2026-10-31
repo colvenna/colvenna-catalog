@@ -93,34 +93,45 @@ def contents(ctx):
     return out
 
 
+def names_in(get):
+    """What an install of this configuration (get: its settings by key) adds to an existing instance and
+    bucket: its database, its users (the authorizer's too, serverless) and its prefix."""
+    user = get("COLVENNA_DB_USER")
+    return {"databases": {get("COLVENNA_DB_NAME")}, "roles": {user, f"{user}_authz"},
+            "prefixes": {get("COLVENNA_WAREHOUSE_PREFIX") + "/"}}
+
+
 def own_names(inst, stacks):
-    """What the install may add: its database, its users (the authorizer's too, serverless), its
-    prefix, its stacks."""
-    user = inst.get("COLVENNA_DB_USER")
-    return {"databases": {inst.get("COLVENNA_DB_NAME")}, "roles": {user, f"{user}_authz"},
-            "prefixes": {inst.prefix + "/"}, "stacks": set(stacks)}
+    """What the install may add: its names (names_in) and its stacks."""
+    return dict(names_in(inst.get), stacks=set(stacks))
 
 
 def alongside_names(inst, paths):
-    """What the installs alongside may add to the existing resources (#43): each one's database, users
-    and prefix, from its configuration with the defaults this one's has (deploy/config/example.env).
-    Refused (ValueError) unless each is another install into this one's existing database or bucket,
-    under names none of which is this one's."""
+    """What the installs alongside may add to the existing resources (#43): the database and users of each
+    one into this one's existing database instance, and the prefix of each one into its bucket, from its
+    configuration with the defaults this one's has (deploy/config/example.env). Refused (ValueError)
+    unless each is another install into this one's existing database or bucket, under names none of
+    which is this one's."""
     out = {"databases": set(), "roles": set(), "prefixes": set()}
     mine = own_names(inst, set())
     for path in paths:
         cfg = dict(parse_env(EXAMPLE.read_text(encoding="utf-8")), **parse_env(Path(path).read_text(encoding="utf-8")))
-        shares = ((cfg.get("COLVENNA_DB") == "existing" and cfg.get("COLVENNA_DB_ENDPOINT") == inst.get("COLVENNA_DB_ENDPOINT"))
-                  or (cfg.get("COLVENNA_BUCKET") and cfg.get("COLVENNA_BUCKET") == inst.get("COLVENNA_BUCKET")))
-        if cfg.get("COLVENNA_ENV") == inst.env or not shares:
-            raise ValueError(f"--alongside {path}: {cfg.get('COLVENNA_ENV')} is not another install into this one's "
-                             "existing database or bucket")
-        user = cfg.get("COLVENNA_DB_USER")
-        theirs = {"databases": {cfg.get("COLVENNA_DB_NAME")}, "roles": {user, f"{user}_authz"},
-                  "prefixes": {cfg.get("COLVENNA_WAREHOUSE_PREFIX") + "/"}}
+        name = cfg.get("COLVENNA_ENV")
+        if name == inst.env:
+            raise ValueError(f"--alongside {path}: that is this install's configuration ({name})")
+        database = (cfg.get("COLVENNA_DB") == "existing" and inst.get("COLVENNA_DB") == "existing"
+                    and cfg.get("COLVENNA_DB_ENDPOINT") == inst.get("COLVENNA_DB_ENDPOINT"))
+        bucket = bool(cfg.get("COLVENNA_BUCKET")) and cfg.get("COLVENNA_BUCKET") == inst.get("COLVENNA_BUCKET")
+        if not (database or bucket):
+            raise ValueError(f"--alongside {path}: {name} installs into neither this install's existing database nor its bucket")
+        theirs = names_in(cfg.get)
+        if not database:
+            theirs["databases"], theirs["roles"] = set(), set()
+        if not bucket:
+            theirs["prefixes"] = set()
         clash = sorted(n for k, v in theirs.items() for n in v & mine[k])
         if clash:
-            raise ValueError(f"--alongside {path}: {cfg.get('COLVENNA_ENV')} has this install's names {clash}")
+            raise ValueError(f"--alongside {path}: {name} has this install's names {clash}")
         for k, v in theirs.items():
             out[k] |= v
     return out
@@ -148,9 +159,10 @@ def judge_existing_untouched(before, after, made, own, alongside=None):
     theirs = {k: v for k, v in theirs.items() if v}
     foreign = {k: sorted(set(v) - own.get(k, set()) - alongside.get(k, set())) for k, v in made.items()}
     foreign = {k: v for k, v in foreign.items() if v}
+    hint = "" if not foreign or alongside else " (another install into them at the same time? name it with --alongside)"
     return not changed and not foreign, (f"{'as recorded' if not changed else f'changed: {changed}'}; added and deployed: "
-                                         f"{made}; the installs alongside's: {theirs or 'none'}; "
-                                         f"not the install's: {foreign or 'none'}")
+                                         f"{made}; added by the installs alongside: {theirs or 'none'}; "
+                                         f"not the install's: {foreign or 'none'}{hint}")
 
 
 def judge_ready_within(started, ready, worked, limit=LIMIT):

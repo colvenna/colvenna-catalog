@@ -519,8 +519,14 @@ class Dep01And02(unittest.TestCase):
         names = self.d2.alongside_names(Inst(), [config("sx1")])
         self.assertEqual(names, {"databases": {"sx1_catalog"}, "roles": {"sx1_catalog", "sx1_catalog_authz"}, "prefixes": {"sx1/"}})
         self.assertEqual(self.d2.alongside_names(Inst(), []), {"databases": set(), "roles": set(), "prefixes": set()})
-        for bad, needle in ((config("ex1"), "not another install"),
-                            (config("sx2", COLVENNA_DB_ENDPOINT="other.example.com", COLVENNA_BUCKET="other"), "not another install"),
+        # Sharing the bucket only, its prefix there is its; sharing the instance only, its database and users.
+        self.assertEqual(self.d2.alongside_names(Inst(), [config("sb1", COLVENNA_DB="create", COLVENNA_DB_ENDPOINT="")]),
+                         {"databases": set(), "roles": set(), "prefixes": {"sb1/"}})
+        self.assertEqual(self.d2.alongside_names(Inst(), [config("sd1", COLVENNA_BUCKET="")]),
+                         {"databases": {"sd1_catalog"}, "roles": {"sd1_catalog", "sd1_catalog_authz"}, "prefixes": set()})
+        for bad, needle in ((config("ex1"), "that is this install's configuration"),
+                            (config("sx2", COLVENNA_DB_ENDPOINT="other.example.com", COLVENNA_BUCKET="other"),
+                             "installs into neither this install's existing database nor its bucket"),
                             (config("sx3", COLVENNA_DB_USER="ex1_catalog"), "this install's names ['ex1_catalog', 'ex1_catalog_authz']")):
             with self.assertRaises(ValueError) as raised:
                 self.d2.alongside_names(Inst(), [bad])
@@ -540,9 +546,10 @@ class Dep01And02(unittest.TestCase):
         alongside = {"databases": {"sx_catalog"}, "roles": {"sx_catalog", "sx_catalog_authz"}, "prefixes": {"sx/"}}
         ok, detail = self.d2.judge_existing_untouched({"vpc": 1}, {"vpc": 1}, both, own)
         self.assertFalse(ok, "without --alongside, as before")
+        self.assertIn("name it with --alongside", detail)
         ok, detail = self.d2.judge_existing_untouched({"vpc": 1}, {"vpc": 1}, both, own, alongside)
         self.assertTrue(ok, detail)
-        self.assertIn("the installs alongside's: {'databases': ['sx_catalog']", detail)
+        self.assertIn("added by the installs alongside: {'databases': ['sx_catalog']", detail)
         ok, detail = self.d2.judge_existing_untouched({"vpc": 1}, {"vpc": 1}, dict(both, roles=both["roles"] + ["colvenna_catalog"]),
                                                       own, alongside)
         self.assertFalse(ok)
