@@ -459,18 +459,26 @@ test('every function\'s log group is the stack\'s, named /aws/lambda/<function>,
 test('what the gateway answers itself is retryable: a database the authorizer cannot reach, a request over the concurrency', () => {
   const responses = resources(defaults, 'AWS::ApiGateway::GatewayResponse').map(([, r]) => [r.Properties.ResponseType, r.Properties.StatusCode]);
   assert.deepEqual(responses.sort(), [
+    // A configuration error is no reason to retry: it keeps its 500 from the catch-all.
+    ['API_CONFIGURATION_ERROR', '500'],
     ['AUTHORIZER_CONFIGURATION_ERROR', '503'],
     ['AUTHORIZER_FAILURE', '503'],
-    // A throttled invocation of the server, and a function that failed (#80): never 500 or 502, which
-    // Paimon's client does not retry.
-    ['INTEGRATION_FAILURE', '503'],
+    // A throttled invocation of the server, and a function that failed (#80): the 5XX integration failures, never
+    // 500 or 502, which Paimon's client does not retry.
+    ['DEFAULT_5XX', '503'],
+    // The gateway's timeout: the request may still be running.
+    ['INTEGRATION_TIMEOUT', '504'],
     // The stage's own throttle.
     ['THROTTLED', '429'],
   ]);
-  // Not the catch-all, which would change every other 5XX; not the gateway's timeout, whose request may
-  // still be running.
-  for (const [, r] of resources(defaults, 'AWS::ApiGateway::GatewayResponse')) {
-    assert.ok(!['DEFAULT_5XX', 'INTEGRATION_TIMEOUT'].includes(r.Properties.ResponseType), r.Properties.ResponseType);
+});
+
+test('a request too large for Lambda is answered 413, never "retry" (#34)', () => {
+  // Lambda's refusal of an event over its payload limit is an INTEGRATION_FAILURE too, 413 at the type's default:
+  // neither that type nor the 4XX catch-all is set, so it keeps its own status, which the 5XX catch-all does not reach.
+  const types = resources(defaults, 'AWS::ApiGateway::GatewayResponse').map(([, r]) => r.Properties.ResponseType);
+  for (const type of ['INTEGRATION_FAILURE', 'DEFAULT_4XX', 'REQUEST_TOO_LARGE']) {
+    assert.ok(!types.includes(type), type);
   }
 });
 
