@@ -14,6 +14,7 @@ OP_NAMES = {"ddl": "Create, drop", "write": "Write, commit", "read": "Read",
             "credentials": "Per-table credentials", "endpoints": "Endpoints"}
 FORM_NAMES = {"eks": "EKS", "serverless": "serverless"}
 STATUS = {"PASS": "pass", "FAIL": "**FAIL**", "NOT_RUN": "not run"}
+DECLARED_AS = {"supported": "supported", "limitation": "a limitation"}
 
 HOW = """\
 How each operation is checked (tests/compat/README.md has the details):
@@ -73,6 +74,19 @@ def current_reasons(declared, form, cell):
                 v["reason"] = value[1]
 
 
+def changed_declarations(declared, form, cells):
+    """(cell, table, operation, (declaration, reason)) of each entry declared.tsv now declares otherwise
+    than it was declared for the run: the run's verdicts stay judged by its own declarations."""
+    changed = []
+    for cell in cells:
+        for table in TABLE_TYPES:
+            for op in OPERATIONS:
+                value = declared.get((form, cell["cell"], table, op))
+                if value and value[0] != cell["results"][table][op]["declared"]:
+                    changed.append((cell, table, op, value))
+    return changed
+
+
 def render(run_dirs, link_base=None, declared=None):
     """The page; declared: declared.tsv's declarations ({} to keep each run's own reasons)."""
     declared_digest = None
@@ -108,11 +122,19 @@ def render(run_dirs, link_base=None, declared=None):
             facts.append(f"matrix at `{meta['matrixCommit'][:12]}`" + (" (uncommitted changes)" if meta.get(
                 "matrixTreeDirty") else ""))
         out += ["; ".join(facts) + f". Raw results: [{Path(run_dir).name}]({raw}/).", ""]
-        if declared_digest and meta.get("declaredSha256") and meta["declaredSha256"] != declared_digest:
-            same = all(declared.get((meta["form"], c["cell"], t, o), ("",))[0] == c["results"][t][o]["declared"]
-                       for c in cells for t in TABLE_TYPES for o in OPERATIONS)
-            out += [("`declared.tsv` has changed since this run: the same declarations, their reasons now the causes "
-                     "the runs measured." if same else "**`declared.tsv`'s declarations have changed since this run.**"), ""]
+        changed = changed_declarations(declared, meta["form"], cells)
+        if changed:
+            out += ["**`declared.tsv`'s declarations have changed since this run.** The verdicts below are judged by "
+                    "the run's own declarations; these entries are now declared otherwise:", ""]
+            for c, t, o, (now, reason) in changed:
+                was = DECLARED_AS[c["results"][t][o]["declared"]]
+                why = f": {reason}." if now == "limitation" else "."
+                out.append(f"- {c['engine']} {c['engineVersion']}, {TABLE_NAMES[t]}, {OP_NAMES[o].lower()}: declared "
+                           f"{was} for the run, now {DECLARED_AS[now]}{why}")
+            out.append("")
+        elif declared_digest and meta.get("declaredSha256") and meta["declaredSha256"] != declared_digest:
+            out += ["`declared.tsv` has changed since this run: the same declarations, their reasons now the causes "
+                    "the runs measured.", ""]
         again = sorted({(c["rejudged"]["matrixCommit"] or "")[:12] for c in cells if c.get("rejudged")})
         changes = [f"{c['engine']} {c['engineVersion']} {x}" for c in cells for x in c.get("rejudged", {}).get("changed", [])]
         if again:

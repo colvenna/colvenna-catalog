@@ -244,7 +244,7 @@ Cell `doris-4.1.5`: the official Doris 4.1.5 images with their bundled Paimon 1.
 
 #### UAT-CMP-08 StarRocks 4.1.6, read only
 
-Cell `starrocks-4.1.6`: the official StarRocks 4.1.6 image with its bundled Paimon 1.3.1, `paimon.catalog.type=rest` with `paimon.option.*` passed through. EKS and serverless declarations: 5 supported (read and endpoints of `pk` and `append`; endpoints of `pk-dv`) and 10 limitations: read-only in 1.0; no per-table credentials (it reads with read-only S3 credentials of its own, as the cell states); `pk-dv` reads declared as Doris's until a run shows otherwise (design section 7).
+Cell `starrocks-4.1.6`: the official StarRocks 4.1.6 image with its bundled Paimon 1.3.1, `paimon.catalog.type=rest` with `paimon.option.*` passed through. EKS and serverless declarations: 4 supported (read and endpoints of `append`; endpoints of `pk` and `pk-dv`) and 11 limitations: read-only in 1.0; no per-table credentials (it reads with read-only S3 credentials of its own, as the cell states); `pk` reads: with short-lived credentials, the first read through StarRocks's JNI reader after its BE starts fails, a defect of the Hadoop 3.3.4 it bundles (#31, [StarRocks/starrocks#81984](https://github.com/StarRocks/starrocks/issues/81984): every run of `v1.0.0-rc.2` met it; a limitation, as the requester decided on 2026-10-31 for a cause not fixed before the next candidate); `pk-dv` reads declared as Doris's until a run shows otherwise (design section 7).
 
 ### 5.2 Catalog
 

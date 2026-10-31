@@ -16,7 +16,7 @@ The examples assume an EKS install with the defaults of `install.sh`: namespace,
   | Spark 3.5.9 | 2.0.0, 2.1.0 | As above |
   | Spark 4.1.3 | 2.1.0 | As above |
   | Doris 4.1.5 | 1.4.2, bundled | Read, with per-table credentials; not the rows of uncompacted level-0 files of a deletion-vector table (section 9.2) |
-  | StarRocks 4.1.6 | 1.3.1, bundled | Read, with S3 credentials of its own; the same deletion-vector limitation (section 9.2) |
+  | StarRocks 4.1.6 | 1.3.1, bundled | Read, with S3 credentials of its own; with short-lived ones, its first read of a primary-key table can fail; the same deletion-vector limitation (section 9.2) |
 
   No engine has run against the serverless form yet. The Paimon 2.0.0 Java client has: it created, wrote, committed and read tables through the private API with per-table credentials (`tests/serverless`).
 - **Two deployment forms**, in a standard AWS Region: on Amazon EKS, two replicas behind a Service; or serverless, on AWS Lambda behind a private REST API.
@@ -132,7 +132,7 @@ Use the token of a principal with `READ` on what Doris reads. The trust store go
 
 ### 4.5 StarRocks
 
-StarRocks 4.1.6 also only reads, and does not use the catalog's per-table credentials: give it read-only S3 credentials of its own. The matrix used the access key of an IAM user that may only `s3:GetObject` the objects under the warehouse prefix and `s3:ListBucket` that prefix:
+StarRocks 4.1.6 also only reads, and does not use the catalog's per-table credentials: give it read-only S3 credentials of its own, for a principal that may only `s3:GetObject` the objects under the warehouse prefix and `s3:ListBucket` that prefix. The release's UAT gives it a role's short-lived credentials, never long-lived keys ([UAT-CMP-08](../uat/cases.md#uat-cmp-08-starrocks-416-read-only)), with these properties:
 
 ```sql
 CREATE EXTERNAL CATALOG colvenna PROPERTIES (
@@ -145,12 +145,20 @@ CREATE EXTERNAL CATALOG colvenna PROPERTIES (
   "aws.s3.use_instance_profile" = "false",
   "aws.s3.access_key" = "<access key ID>",
   "aws.s3.secret_key" = "<secret access key>",
+  "aws.s3.session_token" = "<session token>",
   "aws.s3.region" = "<region>",
-  "aws.s3.endpoint" = "<the Region's S3 endpoint>"
+  "aws.s3.endpoint" = "<the Region's S3 endpoint>",
+  "paimon.option.fs.s3a.access.key" = "<access key ID>",
+  "paimon.option.fs.s3a.secret.key" = "<secret access key>",
+  "paimon.option.fs.s3a.session.token" = "<session token>",
+  "paimon.option.fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider",
+  "paimon.option.fs.s3a.endpoint.region" = "<region>"
 );
 ```
 
-The matrix set these five `aws.s3.*` properties ([StarRocks's Paimon catalog](https://docs.starrocks.io/docs/data_source/catalog/paimon_catalog/) describes them); its results keep their names, not their values. The trust store goes to the FE and the BE, as for Doris. A role's temporary credentials instead (with `aws.s3.session_token`, and `paimon.option.fs.s3a.session.token` for its JNI reader) made the first read of a primary-key table fail in one run, and later reads pass (section 9.2). The release's UAT runs this cell with a role's short-lived credentials, never long-lived keys ([UAT-CMP-08](../uat/cases.md#uat-cmp-08-starrocks-416-read-only)); if you use an IAM user's key, keep its policy to reading the warehouse prefix, and rotate it.
+The `aws.s3.*` properties are those of [StarRocks's Paimon catalog](https://docs.starrocks.io/docs/data_source/catalog/paimon_catalog/), for its native reader; the matrix's results keep their names, not their values. The `paimon.option.fs.s3a.*` ones are for Paimon's own S3 file system, which the FE and the JNI reader use ([`PaimonSplitScanner`](https://github.com/StarRocks/starrocks/blob/6862092fd57e95a892fdfd465ac4ae3a9beefbe1/java-extensions/paimon-reader/src/main/java/com/starrocks/paimon/reader/PaimonSplitScanner.java#L113) reads with the file system of the table the FE serialized): StarRocks gives that file system the access key and the secret key but not `aws.s3.session_token` ([`PaimonConnector.initFsOption`](https://github.com/StarRocks/starrocks/blob/6862092fd57e95a892fdfd465ac4ae3a9beefbe1/fe/fe-core/src/main/java/com/starrocks/connector/paimon/PaimonConnector.java#L128-L143)), so without `paimon.option.fs.s3a.session.token` it has no session token (in a local test, every read then failed). The trust store goes to the FE and the BE, as for Doris.
+
+With short-lived credentials, the first read of a primary-key table after the BE starts fails, and later reads pass: a limitation of StarRocks 4.1.6 (section 9.2). An IAM user's access key does not meet it: the runs of 2026-10-28 gave the example's `aws.s3.*` properties except `aws.s3.session_token`, and no `paimon.option.fs.s3a.*` ones. If you use one, keep its policy to reading the warehouse prefix, and rotate it.
 
 ### 4.6 Checking a connection
 
@@ -367,6 +375,7 @@ Port 9100 serves Prometheus metrics to pods of namespaces labelled `colvenna-cat
 | Serverless: 504 | The request took longer than API Gateway's 29 seconds | A commit still takes effect exactly once; the client's retry finds it |
 | Serverless: 503 from the authorizer | It cannot reach the database to check the token | The database, its security group, the authorizer's log |
 | Doris or StarRocks miss the latest rows of a deletion-vector table | Their bundled Paimon does not read uncompacted level-0 files | Section 9.2 |
+| StarRocks: `Provider TemporaryAWSCredentialsProvider has no credentials` on the first read of a primary-key table | Its bundled Hadoop 3.3.4, with short-lived credentials | Run the read again (section 9.2) |
 | A Flink job FINISHED, but rows are missing | Section 9.1 | Write bounded inputs in batch mode, or at parallelism 1 |
 
 ## 9. Known limitations
@@ -388,7 +397,8 @@ From the [compatibility matrix](../compat/matrix.md) (generated by `tests/compat
 - **StarRocks 4.1.6** (bundles Paimon 1.3.1):
   - Read-only, as Doris.
   - Primary-key tables with deletion vectors: as Doris.
-  - It does not use per-table credentials: it needs read-only S3 credentials of its own. An IAM user's access key works. With a role's temporary credentials instead (`aws.s3.session_token` with `paimon.option.fs.s3a.session.token`), the first read of a primary-key table through its JNI reader failed (`TemporaryAWSCredentialsProvider has no credentials`) and later reads passed; why was not established.
+  - It does not use per-table credentials: it needs read-only S3 credentials of its own (section 4.5).
+  - Primary-key tables, with short-lived credentials: the first read through its JNI reader, which reads the splits that need a merge ([`PaimonScanNode`](https://github.com/StarRocks/starrocks/blob/6862092fd57e95a892fdfd465ac4ae3a9beefbe1/fe/fe-core/src/main/java/com/starrocks/planner/PaimonScanNode.java#L155-L174)), fails after the BE starts, and can fail after the catalog is created with new credentials: `Provider TemporaryAWSCredentialsProvider has no credentials`. The reads after it pass. Every run of `v1.0.0-rc.2`'s UAT met it, in both forms and both Regions, and a local reproduction failed 15 first reads of 15 after a BE start; the matrix declares it a limitation. The BE reads with the `paimon-s3` 1.3.1 that StarRocks 4.1.6 bundles ([`java-extensions/paimon-reader/pom.xml`](https://github.com/StarRocks/starrocks/blob/6862092fd57e95a892fdfd465ac4ae3a9beefbe1/java-extensions/paimon-reader/pom.xml#L16)), which carries Hadoop 3.3.4. Its `S3FileIO` keeps one file system per set of options and bucket ([`S3FileIO.java`](https://github.com/apache/paimon/blob/28dfdfed24877c5f4c36b7c2409794fc8ef79607/paimon-filesystems/paimon-s3-impl/src/main/java/org/apache/paimon/s3/S3FileIO.java#L60)), so the BE's scanners share one `TemporaryAWSCredentialsProvider`, and Hadoop 3.3.4's gives no credentials to the calls made while its first call is still loading them ([`AbstractSessionCredentialsProvider`](https://github.com/apache/hadoop/blob/rel/release-3.3.4/hadoop-tools/hadoop-aws/src/main/java/org/apache/hadoop/fs/s3a/auth/AbstractSessionCredentialsProvider.java#L74), [HADOOP-18233](https://issues.apache.org/jira/browse/HADOOP-18233), fixed in Hadoop 3.3.5). Locally, with that class of Hadoop 3.3.6 swapped into the jar, none of 10 first reads failed. Reported as [StarRocks/starrocks#81984](https://github.com/StarRocks/starrocks/issues/81984). Run the read again, or use an IAM user's access key (section 4.5). StarRocks's `main` and `branch-4.2` bundle Paimon 2.0.0, whose `paimon-s3` carries Hadoop 3.4.2, with the fix; on 2026-10-31 the latest release tags, 4.1.7 and 4.0.17, bundled 1.3.1.
 - **The serverless form** has not been run in the matrix yet.
 - **Column grants** depend on the engine calling Paimon's `/auth` (tables with `query-auth.enabled=true`); which engines do is not verified.
 

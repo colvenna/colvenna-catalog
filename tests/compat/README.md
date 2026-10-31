@@ -25,7 +25,7 @@ What you need:
 - Python 3.8 or later; Maven with JDK 21, or Docker, to build the flows;
 - where the engines run: Docker on the host (`--backend docker`), or `kubectl` on a cluster (`--backend kubernetes`) in which a namespace with the catalog's client label (`--client-label`) reaches the catalog;
 - for the endpoint check, the catalog's access log (`--server-log`): `kubectl:<namespace>:<label selector>` for the EKS form, or `command:<command>` printing the log between `$COMPAT_SINCE` and `$COMPAT_UNTIL` (CloudWatch Logs, for the serverless form); without it the endpoint entries do not run;
-- for the StarRocks cell, read-only S3 credentials of its own, as JSON of StarRocks's `aws.s3.*` properties (`--starrocks-s3-file`).
+- for the StarRocks cell, read-only S3 credentials of its own, as JSON of StarRocks's catalog properties (`--starrocks-s3-file`): its `aws.s3.*` ones, and with short-lived credentials the `paimon.option.fs.s3a.*` ones too, which the [user manual](../../docs/manual/user.md#45-starrocks) gives (section 4.5).
 
 On a host with Docker, against any catalog its containers reach (Docker's bridge network by default):
 
@@ -68,6 +68,8 @@ Nothing written keeps a token, account ID, ARN, bucket, IP address or the catalo
 ```bash
 tests/compat/matrix.py page docs/compat/runs/<run id>... --link-base runs --out docs/compat/matrix.md
 ```
+
+A limitation's reason on the page is `declared.tsv`'s current one. When `declared.tsv` now declares an entry otherwise than it was declared for a run, the page keeps the run's verdicts, judged by the run's own declarations, and names each such entry with its current declaration and, for a limitation, its reason.
 
 When a rule of the judge changes after a run, `tests/compat/matrix.py rejudge <run dir>...` judges it again from its kept raw output, nothing run again; each cell then records the commit that judged it and what changed, and the page says so. `tests/compat/matrix.py check` validates `cells.json` and `declared.tsv`; `python3 -m unittest discover -s tests/compat` tests the runner and `mvn -B -f tests/compat/flows/pom.xml verify` builds and tests the flows, as CI does (`compat-test`).
 
