@@ -835,6 +835,13 @@ Some refusals need a change to the account (no CloudWatch Logs role for API Gate
 
 **Cleanup**: the install stays at the candidate for UAT-DEP-07.
 
+**When the previous release fails a check itself** (the requester's decision of 2026-10-31, [#55](https://github.com/colvenna/colvenna-catalog/issues/55)). The pods replaced, the functions moved back and the server that answers after a restore are the previous release's, so a check of this case or UAT-DEP-07 can fail on a defect of the previous release alone. Such a failure counts as **the previous release's limitation, not against the candidate**, when both of these hold:
+
+1. **The defect is the previous release's own, and the candidate has its fix.** An issue names the defect and the change that fixed it, and the fix is in the candidate's commit, chart or image.
+2. **An extra run shows the candidate passes in the previous release's place.** The same case runs once more, on an install of its own, between two builds that both carry the fix: the upgrade (this case) or the going back (UAT-DEP-07), with the same loops, checks and judge. It goes from the candidate, installed with `install.sh --release <candidate>`, to a later build, which may be from source (`install.sh --from-source`) and differ only so that the upgrade replaces what the failing check depends on (the pods, a function version). Its evidence is kept beside the case's, under `<case>-prev/`, and the report names the run, the two builds and its result. Every check of the extra run must pass; the checks that do not depend on the previous release (`runs-the-candidate`, for one) are judged as the extra run's builds allow, and the report says which.
+
+The run's own result stays as it is (`FAIL`), and the report gives the case's result beside it as "the previous release's limitation", with the issue and the extra run. If either condition is missing (the candidate has the same defect, say), the `FAIL` counts against the candidate.
+
 **Harness**: `tests/uat/uat.py run UAT-DEP-06 ... --candidate <the candidate's checkout>` (#52): the loops are `tests/uat/paimon`'s; the pre-upgrade snapshot is kept, tagged, for UAT-DEP-07.
 
 #### UAT-DEP-07 Going back to the previous release
@@ -875,6 +882,8 @@ Some refusals need a change to the account (no CloudWatch Logs role for API Gate
 | `forward-again` | The upgrade back to the candidate succeeds, and UAT-DEP-06's checks hold for it |
 
 **Cleanup**: the install is left at the candidate; the pre-upgrade snapshot is deleted.
+
+**When the previous release fails a check itself**: as UAT-DEP-06 says ([#55](https://github.com/colvenna/colvenna-catalog/issues/55)); the extra run goes back from a later build carrying the fix to the candidate, by the branch the two builds' migrations select.
 
 **Harness**: `tests/uat/uat.py run UAT-DEP-07 ... --candidate <checkout> --previous <checkout>` (#52); which branch runs follows from the two checkouts' migrations. With the schema moved forward it leaves the install on the restored instance, its configuration so changed written beside the original as `<env>-restored.env`, as UAT-DEP-10 does; `newer-schema-restored` compares with UAT-DEP-06's record from just before its snapshot, found beside this run's evidence.
 
