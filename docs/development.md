@@ -48,7 +48,7 @@ A release candidate is named `v<major>.<minor>.<patch>-rc.<n>`, `v1.0.0-rc.1` sa
 | `manifest.json` | The manifest ([`scripts/release/manifest.py`](../scripts/release/manifest.py) defines it; schema 1). It records the commit the candidate is built from, B (`source.built_from`). It records the image's repository, tag and digest (`linux/amd64`), and the chart's name, version, repository and OCI digest. It records the git objects of the chart directory (`chart.tree`), `install.sh`, `uninstall.sh`, `deploy/lib` and the CDK app (`deploy/aws`). It records the UAT cases document `docs/uat/cases.md` (its commit and blob, or `absent`) and the required cases it lists, and the performance terms `docs/performance/terms.md` (`performance`: its commit and blob, or `absent`), whose targets the candidate's performance acceptance is judged by. Last come the supported configurations: the deployment forms (`eks`, `serverless`, or both) and two or more standard Regions. It names no registry, no account and no identity |
 | `notes.md` | The release notes, from [`release/notes-template.md`](../release/notes-template.md): at the tag, the candidate's identity only. The deliverables' state, the reports and the verdict are added on `main` later, linking immutable versions only |
 
-A release, `v<major>.<minor>.<patch>` (`v1.0.0`), is one of its candidates judged GO and promoted, never rebuilt: the same image digest, and the candidate's chart with only its version and appVersion changed ([Promoting a GO candidate](#promoting-a-go-candidate)). `release/<release>/` holds the same two files: the release's manifest ([`scripts/release/promotion.py`](../scripts/release/promotion.py)), which is the candidate's under the release's names with `promotion`, where it came from, and the release notes, the candidate's as accepted. The release's image and chart then go to the GitHub Container Registry, and only there ([Publishing to GHCR](#publishing-to-ghcr)).
+A release, `v<major>.<minor>.<patch>` (`v1.0.0`), is one of its candidates judged GO and promoted, never rebuilt: the same image digest, and the candidate's chart with only its version and appVersion changed ([Promoting a GO candidate](#promoting-a-go-candidate)). `release/<release>/` holds the same two files and a third: the release's manifest ([`scripts/release/promotion.py`](../scripts/release/promotion.py)), which is the candidate's under the release's names with `promotion`, where it came from; the release notes, the candidate's as accepted; and `chart-comparison.txt`, the release's chart compared with the candidate's, file by file. The release's image and chart then go to the GitHub Container Registry, and only there ([Publishing to GHCR](#publishing-to-ghcr)).
 
 `python3 scripts/release/manifest.py validate <manifest>` checks a manifest field by field. With `--go`, it also says what the candidate still lacks to be a candidate for GO. A candidate built from a commit without `docs/uat/cases.md` or `docs/performance/terms.md` (`v1.0.0-rc.1` has neither) records them as absent, and the required case set as empty: it can be installed and tried, but it can never be GO. [The UAT cases](uat/cases.md) list the required cases in a table between `<!-- required-cases:start -->` and `<!-- required-cases:end -->` (their section 7), one case ID (`UAT-<AREA>-<nn>`) at the start of each row; `scripts/release/test_uat_cases.py` checks that the table parses and names only cases the document defines. The performance acceptance's scenarios and targets, which the requester confirmed on 2026-10-29, are in [the performance terms](performance/terms.md).
 
@@ -146,7 +146,7 @@ helm show chart oci://<registry>/colvenna-catalog-release/charts/colvenna-catalo
 
 ### Promoting a GO candidate
 
-A release is not built: once a candidate is judged GO, it is promoted (decided on 2026-10-31, #3). Its release notes on `main` record the verdict: the `Release verdict` row of their verdict table says `GO`. From a clean checkout of the candidate's tag, as the release registry's maintainer:
+A release is not built: once a candidate is judged GO, it is promoted (decided on 2026-10-31, #3). Its release notes on `main` record the verdict: the `Release verdict` row of their verdict table says `GO`, and its basis links the release check. From a clean checkout of the candidate's tag, as the release registry's maintainer:
 
 ```bash
 git fetch origin --tags
@@ -157,7 +157,7 @@ AWS_PROFILE=<profile> scripts/release/promote.sh v1.0.0-rc.<n> v1.0.0
 A candidate promotes to its own version only (`v1.0.0-rc.<n>` to `v1.0.0`). Before it reads anything from a registry, `promote.sh` checks (exit 2 when one fails):
 
 - the tree is clean, and HEAD is the candidate's tag commit, C, which differs from B under `release/<candidate>/` alone; the candidate's manifest is valid, fit for GO (`manifest.py validate --go`), and pins C's git objects;
-- the candidate's release notes at `RELEASE_RECORD` (default `origin/main`, which must have C) give the release verdict `GO`, plain, bold or as code. `NO-GO`, the template's `<GO / NO-GO>` or anything else is refused, and so is a record whose `release/<candidate>/manifest.json` is not C's;
+- the candidate's release notes at `RELEASE_RECORD` (default `origin/main`, which must have C) give the release verdict `GO`, plain, bold or as code, with a basis that links the release check. `NO-GO`, the template's `<GO / NO-GO>`, or a basis that is still the template's or links nothing is refused, and so is a record whose `release/<candidate>/manifest.json` is not C's;
 - neither the tag `v1.0.0`, the branch `release-v1.0.0` nor `release/v1.0.0/` exists yet.
 
 Then, before it writes anything into the release registry, it checks what that holds (exit 3 when it is not the candidate's):
@@ -165,19 +165,14 @@ Then, before it writes anything into the release registry, it checks what that h
 - the image, by the candidate's digest, is labelled B and is for `linux/amd64`;
 - the candidate's chart, pulled by its digest, is B's chart directory as the candidate's release packaged it, as `verify-artifacts.sh` checks.
 
-It unpacks the candidate's chart package and changes only `Chart.yaml`'s version, to `1.0.0`, and appVersion, to `v1.0.0` (`promotion.py rechart`). The annotation `colvenna-catalog/source-commit` stays B. It packages that again and compares the two packages file by file (`promotion.py chart-diff`): every file must be in both, with the same bytes and mode, and every line of `Chart.yaml` but those two must be the same. Any other difference refuses the promotion. The comparison is the evidence's `chart-comparison.txt`.
+It unpacks the candidate's chart package and changes only `Chart.yaml`'s version and appVersion, both to `1.0.0` (`promotion.py rechart`). The annotation `colvenna-catalog/source-commit` stays B. It packages that again and compares the two packages file by file (`promotion.py chart-diff`): every file must be in both, with the same bytes and mode, and every line of `Chart.yaml` but those two must be the same. Any other difference refuses the promotion.
 
 Only then does it write into the release registry:
 
-- the tag `v1.0.0` on the candidate's image (`crane tag`: the same manifest under a second tag, so nothing is copied or built; the repository's immutable tags allow a new tag, never a moved one);
-- the chart as version `1.0.0` (`helm push`), a new digest. It pulls that back by its digest and compares it with the candidate's again (`chart-comparison-pulled.txt`).
+- the tag `v1.0.0` on the candidate's image. `crane tag` tags a remote image without downloading it ([crane's documentation](https://github.com/google/go-containerregistry/blob/v0.22.1/cmd/crane/doc/crane_tag.md)), so nothing is copied or built, and the digest is the candidate's. The repository's tags are immutable, which refuses a push under a tag it already holds ([Amazon ECR's documentation](https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-tag-mutability.html)), and never a new tag;
+- the chart as version `1.0.0` (`helm push`), a new digest. It pulls that back by its digest and compares it with the candidate's again. That comparison is `release/v1.0.0/chart-comparison.txt`.
 
-Last, it writes `release/v1.0.0/manifest.json` and `notes.md`, commits the two files alone on C, on the branch `release-v1.0.0`, and tags that commit `v1.0.0` (annotated). It pushes nothing to git; push the tag and the branch, and open the release's pull request:
-
-```bash
-git push origin v1.0.0 release-v1.0.0
-gh pr create --base main --head release-v1.0.0 --title "release: v1.0.0, promoted from v1.0.0-rc.<n>"
-```
+Last, it writes `release/v1.0.0/manifest.json`, `notes.md` and `chart-comparison.txt`, commits the three files alone on C, on the branch `release-v1.0.0`, and tags that commit `v1.0.0` (annotated). It pushes nothing to git. Push the tag and the branch (`git push origin v1.0.0 release-v1.0.0`), then open the release's pull request from `release-v1.0.0`: it links the candidate's acceptance record and says how the release was promoted.
 
 Like a candidate's, this pull request is an exception to [Delivering a change](#delivering-a-change): its branch is `release-<release>`, made at C, it is never rebased, and it merges with a merge commit, which brings `release/v1.0.0/` to `main`. Unlike a candidate's, the tag is on the branch's own commit, not on the merge, so other pull requests may merge before it.
 
@@ -188,11 +183,11 @@ The release's manifest is the candidate's, under the release's names, with `prom
 | `release` | `v1.0.0`, where a candidate's has `candidate` |
 | `source` | The candidate's, `tag` saying that `v1.0.0` points at the candidate's tag commit with `release/v1.0.0/` added, nothing else |
 | `image` | The candidate's: the same digest, the tag `v1.0.0` |
-| `chart` | The candidate's name, path, tree and repository; version `1.0.0`, appVersion `v1.0.0`, and the new package's digest |
+| `chart` | The candidate's name, path, tree and repository; version and appVersion `1.0.0` (a candidate's appVersion is its name, `v1.0.0-rc.<n>`), and the new package's digest |
 | `promotion` | `candidate`; `tag_commit`, C; `manifest`, the candidate's manifest's path and blob at C; `acceptance`, the candidate's acceptance record: the commit whose `release/<candidate>/notes.md` records GO, that file's blob, and `verdict: GO`; `chart`, the candidate's chart's version and digest, what changed (`version`, `appVersion`) and how many files were compared |
 | `installer`, `cdk`, `uat_cases`, `required_cases`, `performance`, `configurations` | The candidate's, unchanged |
 
-The release notes are the candidate's at `RELEASE_RECORD`, as accepted. Their title and heading take the release's name, their date is the promotion's, and their first section is the release's identity: the candidate it was promoted from, a link to the acceptance record at its commit, the image and the chart. Every other section is the candidate's, unchanged. The candidate's deliverables, verdict and limitations are the release's.
+The release notes are the candidate's at `RELEASE_RECORD`, as accepted. Their title and heading take the release's name, their date is the promotion's, and their status is `final`. Their first section is the release's identity: the candidate it was promoted from, a link to the acceptance record at its commit, the image, the chart and its comparison. Every other section is the candidate's, unchanged. The candidate's deliverables, verdict and limitations are the release's.
 
 The release registry is the one `make-manifest.sh` uses: the caller's account's in `COLVENNA_RELEASE_REGION`, or `COLVENNA_RELEASE_REGISTRY`. A run that stopped can run again. A `v1.0.0` tag on the image must hold the candidate's digest, and a chart `1.0.0` already there must be the candidate's but for the two fields; each is then kept. Anything else is refused, because tags never move. The image keeps the label `org.opencontainers.image.version=<candidate>` it was built with. The evidence, including who ran it, goes to `.state/release/v1.0.0/`.
 
@@ -209,17 +204,17 @@ COLVENNA_RELEASE_REGISTRY=<ACCOUNT_ID>.dkr.ecr.<region>.amazonaws.com AWS_PROFIL
 
 `publish-ghcr.sh` reads `release/v1.0.0/manifest.json` from the tag `v1.0.0`, never the working tree, and validates it. Before it reads anything from a registry, it refuses (exit 2):
 
-- a target that is not GHCR. The targets are `ghcr.io/colvenna/colvenna-catalog` and `ghcr.io/colvenna/charts/colvenna-catalog`; `PUBLISH_IMAGE` and `PUBLISH_CHART` may name another `ghcr.io/<owner>/<name>`, nothing else;
+- a target that is not the release's GHCR repository: `ghcr.io/colvenna/colvenna-catalog` for the image and `ghcr.io/colvenna/charts/colvenna-catalog` for the chart. `PUBLISH_IMAGE` and `PUBLISH_CHART` may name only those, or a loopback registry's in a rehearsal;
 - AWS ECR Public, in any form (`public.ecr.aws`, its API endpoints), as a target or as the release registry;
 - a candidate's name: only a release is published.
 
-The credentials it pushes with are `GHCR_USERNAME` and `GHCR_TOKEN`, a token with the `write:packages` scope ([GitHub's documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)). Without them it takes gh's: `gh auth token`, and the login of gh's user. gh's token must have `write:packages` among the scopes `gh api -i /user` reports (`X-OAuth-Scopes`), or it is refused.
+The credentials it pushes with are `GHCR_USERNAME` and `GHCR_TOKEN`, a token with the `write:packages` scope ([GitHub's documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)). Without them it takes gh's: `gh auth token`, and the login of gh's user. gh's token must have `write:packages` among the scopes it was granted, which `gh api -i /user` reports in its `X-OAuth-Scopes` header ([GitHub's documentation](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps)), or it is refused.
 
 It then works in three steps:
 
 1. It checks the release registry's copies (exit 3 when they are not the release's). The image must be labelled `org.opencontainers.image.revision` = `source.built_from` and be for `linux/amd64`. The chart must be the manifest's version and appVersion, annotated `colvenna-catalog/source-commit` = `source.built_from`.
-2. It copies each by its digest (`crane copy`: the same manifest, so the same digest), tagged `1.0.0`. A tag already there that holds another digest is never moved (exit 3); one that holds the release's is kept.
-3. With no credentials at all, it checks what anyone pulls. Each tag must resolve to the manifest's digest, and the image must carry the same label and platform. Helm must pull the chart version `1.0.0` with the manifest's digest and annotation.
+2. It copies each by its digest, tagged `1.0.0`: `crane copy` keeps the digest ([crane's documentation](https://github.com/google/go-containerregistry/blob/v0.22.1/cmd/crane/doc/crane_copy.md)). A tag already there that holds another digest is never moved (exit 3); one that holds the release's is kept.
+3. With no credentials at all, it checks what anyone pulls. crane reads an empty configuration, so that it falls back on no other login file. Each tag must resolve to the manifest's digest. The image must pull whole (`crane validate --remote`), with the same label and platform. The chart's package, fetched by crane and checked against its digest, must be the same version, appVersion and annotation, and Helm must pull the chart version `1.0.0` with the manifest's digest.
 
 GHCR makes a package private when it is first published. A package linked to a repository (the image's `org.opencontainers.image.source` label links it) inherits that repository's access permissions, but not its visibility. So the first run ends with exit 4: both copies are there, but not readable without credentials. Before it copies, the script prints how to make each package public and how to check it. The steps are the organization's Packages tab, the package, Package settings, Danger Zone, Change visibility, Public; the organization's "Package creation" setting must allow public packages. A public package can never be made private again ([GitHub's documentation](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility)). Each check must print `public` ([the REST API](https://docs.github.com/en/rest/packages/packages#get-a-package-for-an-organization); gh's token needs `read:packages`; the chart package's name has its `/` as `%2F`):
 
@@ -237,7 +232,7 @@ helm pull oci://ghcr.io/colvenna/charts/colvenna-catalog --version 1.0.0    # Di
 
 The evidence goes to `.state/release/publish-v1.0.0-<time>/`.
 
-Both scripts take a loopback registry (`127.0.0.1:<port>`), read and written over plain HTTP, in place of the release registry or of GHCR, for a rehearsal. The offline tests do so: `scripts/release/test_promote_publish.py` runs both scripts end to end, in clones of their own. They run against stub OCI registries ([`scripts/release/registry_stub.py`](../scripts/release/registry_stub.py)), with the pinned crane and Helm, and with `aws` and `gh` that answer nothing. `scripts/release/test_promotion.py` tests `promotion.py`.
+Both scripts take a loopback registry (`127.0.0.1:<port>`), read and written over plain HTTP, in place of the release registry or of GHCR, for a rehearsal. Rehearse in a clone of its own: `promote.sh` still commits and tags, and the commit's and the tag's messages then say they are a rehearsal's, never to be pushed. The offline tests do so: `scripts/release/test_promote_publish.py` runs both scripts end to end, in clones of their own. They run against stub OCI registries ([`scripts/release/registry_stub.py`](../scripts/release/registry_stub.py)), with the pinned crane and Helm, and with `aws` and `gh` that answer nothing. `scripts/release/test_promotion.py` tests `promotion.py`. The two scripts share their registry steps in [`scripts/release/registries.sh`](../scripts/release/registries.sh).
 
 ### Trial candidates
 
@@ -302,7 +297,7 @@ So a change to `pom.xml`, the lockfile or a pin fails CI until the record follow
 4. Review, and CI (GitHub Actions on the exact SHA; `scripts/ci-local.sh` there only under a recorded waiver, when Actions cannot run), must pass on a branch rebased onto the current `main`.
 5. Merge that exact SHA, then remove the worktree and the branch.
 
-The one exception is a release candidate's pull request ([Making a candidate](#making-a-candidate)). Its commit adds `release/<candidate>/` to B, the commit the candidate's image and chart were built from, and nothing else, because `install.sh --release` refuses a tag that differs from B anywhere else. So it is on a `release-<candidate>` branch made at B, it is not rebased onto a newer `main`, and nothing else merges before it. CI ran on B when it merged, and runs on this pull request's head, B with `release/<candidate>/`, as on any other. A release's pull request is the other ([Promoting a GO candidate](#promoting-a-go-candidate)): its commit, which the release's tag points at, adds `release/<release>/` alone to the candidate's tag commit, on a `release-<release>` branch made there. It is not rebased either, and merges with a merge commit; since the tag is on the branch's commit, other pull requests may merge before it.
+The exceptions are the release pull requests. The first is a release candidate's ([Making a candidate](#making-a-candidate)). Its commit adds `release/<candidate>/` to B, the commit the candidate's image and chart were built from, and nothing else, because `install.sh --release` refuses a tag that differs from B anywhere else. So it is on a `release-<candidate>` branch made at B, it is not rebased onto a newer `main`, and nothing else merges before it. CI ran on B when it merged, and runs on this pull request's head, B with `release/<candidate>/`, as on any other. The second is a release's ([Promoting a GO candidate](#promoting-a-go-candidate)): its commit, which the release's tag points at, adds `release/<release>/` alone to the candidate's tag commit, on a `release-<release>` branch made there. It is not rebased either, and merges with a merge commit; since the tag is on the branch's commit, other pull requests may merge before it.
 
 ## Porting fixes from Colvenna Lake
 

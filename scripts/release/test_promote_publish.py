@@ -8,6 +8,7 @@ tagged; a candidate not judged GO, a tree that is not the tag's, and a chart or 
 candidate's are refused before anything is written. publish-ghcr.sh: the release's image and chart are
 copied by digest, verified as anyone pulls them (private until made public, exit 4), a tag holding another
 digest is never moved, and an AWS ECR Public target is refused before anything is read."""
+import base64
 import json
 import os
 import re
@@ -35,8 +36,11 @@ REVISION = "org.opencontainers.image.revision"
 PUBLISHER = ("publisher", "not-a-real-token")  # pragma: allowlist secret - the stub GHCR's made-up credentials
 # What a clone of its own needs of this one to run the two scripts.
 COPIED = ("scripts/release/promote.sh", "scripts/release/publish-ghcr.sh", "scripts/release/promotion.py",
-          "scripts/release/manifest.py", "deploy/lib/release.sh", ".gitignore")
+          "scripts/release/manifest.py", "scripts/release/registries.sh", "deploy/lib/release.sh", ".gitignore")
 CHART_DIR = "deploy/helm/colvenna-catalog"
+# The template's verdict row, and the release check a verdict's basis links.
+VERDICT_ROW = "| Release verdict | <GO / NO-GO> | <the release check report's link> |"
+BASIS = "[the release check](https://github.com/colvenna/colvenna-catalog/blob/" + "d" * 40 + "/docs/release/check.md)"
 
 
 def git(repo, *args):
@@ -150,8 +154,9 @@ class World:
         git(repo, "commit", "-q", "-m", f"release: {CANDIDATE}")
         self.tag_commit = git(repo, "rev-parse", "HEAD")
         git(repo, "tag", "-a", CANDIDATE, "-m", CANDIDATE)
+        assert VERDICT_ROW in draft
         (repo / f"release/{CANDIDATE}/notes.md").write_text(
-            draft.replace("| Release verdict | <GO / NO-GO> |", f"| Release verdict | {verdict} |"))
+            draft.replace(VERDICT_ROW, f"| Release verdict | {verdict} | {BASIS} |"))
         git(repo, "commit", "-q", "-am", "the verdict")
         self.record = git(repo, "rev-parse", "HEAD")
         git(repo, "checkout", "-q", "--detach", self.tag_commit)
@@ -197,7 +202,8 @@ class Promote(unittest.TestCase):
         self.assertEqual(git(repo, "cat-file", "-t", f"refs/tags/{RELEASE}"), "tag")
         self.assertEqual(git(repo, "rev-parse", f"{tagged}^"), self.world.tag_commit)
         self.assertEqual(git(repo, "diff", "--name-only", self.world.tag_commit, tagged).splitlines(),
-                         [f"release/{RELEASE}/manifest.json", f"release/{RELEASE}/notes.md"])
+                         [f"release/{RELEASE}/chart-comparison.txt", f"release/{RELEASE}/manifest.json",
+                          f"release/{RELEASE}/notes.md"])
         self.assertEqual(git(repo, "rev-parse", f"release-{RELEASE}"), tagged)
         self.assertEqual(git(repo, "status", "--porcelain"), "")
 
@@ -226,18 +232,22 @@ class Promote(unittest.TestCase):
 
     def test_the_chart_is_the_candidate_s_with_only_version_and_app_version_changed(self):
         held = held_package(self.world.registry, CHART_REPOSITORY, "1.0.0")
-        report, problems = promotion.chart_differences(str(self.world.candidate_package), str(held), "1.0.0", RELEASE)
+        report, problems = promotion.chart_differences(str(self.world.candidate_package), str(held), "1.0.0", "1.0.0")
         self.assertEqual(problems, [], report)
         shown = subprocess.run([str(TOOLS / "helm"), "show", "chart", str(held)], capture_output=True, text=True).stdout
         self.assertIn("version: 1.0.0\n", shown)
-        self.assertIn(f"appVersion: {RELEASE}\n", shown)
+        self.assertIn("appVersion: 1.0.0\n", shown)
         self.assertIn(f"colvenna-catalog/source-commit: {self.world.built_from}", shown)
-        comparison = (self.world.evidence / "chart-comparison.txt").read_text()
-        self.assertIn("changed   colvenna-catalog/Chart.yaml: version 1.0.0-rc.2 -> 1.0.0", comparison)
+        comparison = git(self.world.repo, "show", f"{RELEASE}:release/{RELEASE}/chart-comparison.txt")
+        self.assertIn(f"{CHART_REPOSITORY}@{self.release['chart']['digest']} (version 1.0.0), pulled back", comparison)
+        self.assertIn(f"{CHART_REPOSITORY}@{self.world.chart} (version 1.0.0-rc.2)", comparison)
+        self.assertIn("changed   colvenna-catalog/Chart.yaml: version 1.0.0-rc.2 -> 1.0.0, appVersion v1.0.0-rc.2 ->"
+                      " 1.0.0", comparison)
         self.assertIn(f"{self.release['promotion']['chart']['files']} files compared: only Chart.yaml's version and"
                       " appVersion differ", comparison)
+        self.assertEqual((self.world.evidence / "chart-comparison.txt").read_text().rstrip("\n"), comparison)
         self.assertIn("only Chart.yaml's version and appVersion differ",
-                      (self.world.evidence / "chart-comparison-pulled.txt").read_text())
+                      (self.world.evidence / "chart-packaged.txt").read_text())
 
     def test_the_notes_are_the_candidate_s_under_the_release_s_name(self):
         notes = git(self.world.repo, "show", f"{RELEASE}:release/{RELEASE}/notes.md")
@@ -246,6 +256,15 @@ class Promote(unittest.TestCase):
         self.assertIn(f"blob/{self.world.record}/release/{CANDIDATE}/notes.md", notes)
         self.assertEqual(notes, promotion.notes(self.release, git(
             self.world.repo, "show", f"{self.world.record}:release/{CANDIDATE}/notes.md") + "\n").rstrip("\n"))
+
+    def test_a_rehearsal_s_commit_and_tag_say_so(self):
+        """The stub is a loopback registry: a rehearsal, never to be pushed."""
+        message = git(self.world.repo, "for-each-ref", "--format=%(contents)", f"refs/tags/{RELEASE}")
+        self.assertIn(f"a rehearsal against the loopback registry {self.world.registry.host}, not a release: never"
+                      " push it", message)
+        self.assertIn("rehearsal", git(self.world.repo, "log", "-1", "--format=%s", RELEASE))
+        self.assertIn(f"git tag -d {RELEASE}", self.out.stdout)
+        self.assertNotIn("next: git push", self.out.stdout)
 
     def test_a_release_is_promoted_once(self):
         git(self.world.repo, "checkout", "-q", "--detach", self.world.tag_commit)
@@ -336,7 +355,7 @@ class PromoteRefuses(unittest.TestCase):
 
     def test_a_candidate_s_image_built_from_another_commit(self):
         world = self.world(image_revision="e" * 40)
-        self.assertRefused(world.promote(), 3, f"{REVISION}={'e' * 40}, not {world.built_from}")
+        self.assertRefused(world.promote(), 3, f"its label {REVISION} is {'e' * 40}, not {world.built_from}")
         world.unchanged(self)
 
     def test_an_image_tag_that_holds_another_digest(self):
@@ -348,7 +367,7 @@ class PromoteRefuses(unittest.TestCase):
 
     def test_a_chart_version_that_holds_other_files(self):
         world = self.world()
-        push_chart(world.registry, chart_package(world.repo / CHART_DIR, "1.0.0", RELEASE, world.built_from,
+        push_chart(world.registry, chart_package(world.repo / CHART_DIR, "1.0.0", "1.0.0", world.built_from,
                                                  changed_template))
         tampered = world.registry.tag(CHART_REPOSITORY, "1.0.0")
         world.registry.requests.clear()
@@ -361,7 +380,7 @@ class PromoteRefuses(unittest.TestCase):
         subprocess.run([str(TOOLS / "crane"), "tag", f"{world.registry.host}/{IMAGE_REPOSITORY}@{world.image}", RELEASE],
                        check=True, capture_output=True, env={**os.environ, "DOCKER_CONFIG": str(scratch())})
         work = scratch()
-        directory = promotion.rechart(str(world.candidate_package), str(work), "1.0.0", RELEASE)
+        directory = promotion.rechart(str(world.candidate_package), str(work), "1.0.0", "1.0.0")
         helm("package", directory, "-d", str(work / "packaged"))
         earlier = push_chart(world.registry, work / "packaged/colvenna-catalog-1.0.0.tgz")
         world.registry.requests.clear()
@@ -393,7 +412,7 @@ class Release:
         self.repo = clone()
         self.registry = registry_stub.Registry(immutable=True)
         self.image = self.registry.seed_image(IMAGE_REPOSITORY, RELEASE, {REVISION: revision})
-        self.chart = push_chart(self.registry, chart_package(REPO / CHART_DIR, "1.0.0", RELEASE, annotation))
+        self.chart = push_chart(self.registry, chart_package(REPO / CHART_DIR, "1.0.0", "1.0.0", annotation))
         candidate = manifest.build({
             "candidate": CANDIDATE, "built_from": "b" * 40, "generated": "2026-10-30T06:00:00Z", "image_digest": self.image,
             "chart_digest": "sha256:" + "2" * 64, "objects": {p: "4" * 40 for p in manifest.PINNED_PATHS},
@@ -460,6 +479,16 @@ class Publish(unittest.TestCase):
         self.assertEqual(len(ghcr.writes()), written)
         self.assertIn("is " + self.release.image + " already", out.stdout)
 
+    def test_another_login_file_never_makes_a_private_package_look_public(self):
+        """crane falls back on REGISTRY_AUTH_FILE (Podman's) when it finds no configuration: the check
+        without credentials gives it an empty one."""
+        ghcr = self.ghcr(public=False)
+        auth = scratch() / "auth.json"
+        token = base64.b64encode(":".join(PUBLISHER).encode()).decode()
+        auth.write_text(json.dumps({"auths": {ghcr.host: {"auth": token}}}))
+        out = self.publish(ghcr, REGISTRY_AUTH_FILE=str(auth))
+        self.assertEqual(out.returncode, 4, out.stdout + out.stderr)
+
     def test_a_tag_holding_another_digest_is_never_moved(self):
         ghcr = self.ghcr()
         other = ghcr.seed_image("colvenna/colvenna-catalog", "1.0.0", {REVISION: "b" * 40}, layer=b"other")
@@ -504,7 +533,7 @@ class Publish(unittest.TestCase):
             with self.subTest(target):
                 out = self.publish(ghcr, PUBLISH_IMAGE=target)
                 self.assertEqual(out.returncode, 2, out.stdout + out.stderr)
-                self.assertIn("not a GHCR repository", out.stderr)
+                self.assertIn("is published to GHCR only", out.stderr)
         self.assertEqual(ghcr.requests, [])
 
     def test_a_release_s_name_and_its_tag(self):
@@ -558,7 +587,7 @@ class Scripts(unittest.TestCase):
     def test_the_stub_registry_s_chart_package_is_a_helm_package(self):
         registry = registry_stub.Registry()
         self.addCleanup(registry.close)
-        package = chart_package(REPO / CHART_DIR, "1.0.0", RELEASE, "b" * 40)
+        package = chart_package(REPO / CHART_DIR, "1.0.0", "1.0.0", "b" * 40)
         push_chart(registry, package)
         with tarfile.open(held_package(registry, CHART_REPOSITORY, "1.0.0")) as held, tarfile.open(package) as pushed:
             self.assertEqual(sorted(held.getnames()), sorted(pushed.getnames()))

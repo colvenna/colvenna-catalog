@@ -13,9 +13,12 @@ scripts accept for a rehearsal.
 Every request is logged (requests: method, path, whether it carried valid credentials), so a test can
 say what was read and written. seed_image and seed_blob put content in without the API."""
 import base64
+import gzip
 import hashlib
+import io
 import json
 import re
+import tarfile
 import threading
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -65,13 +68,20 @@ class Registry:
         return digest
 
     def seed_image(self, repository, tag, labels, os="linux", architecture="amd64", layer=b"layer"):
-        """A small image (one layer) with these labels and platform; its manifest's digest."""
+        """A small image (one layer, a gzipped tarball holding one file of these bytes) with these labels
+        and platform, as crane validate checks one; its manifest's digest."""
+        uncompressed = io.BytesIO()
+        with tarfile.open(fileobj=uncompressed, mode="w") as archive:
+            info = tarfile.TarInfo("layer")
+            info.size = len(layer)
+            archive.addfile(info, io.BytesIO(layer))
+        compressed = gzip.compress(uncompressed.getvalue(), mtime=0)
         config = json.dumps({"architecture": architecture, "os": os, "config": {"Labels": labels},
-                             "rootfs": {"type": "layers", "diff_ids": [digest_of(layer)]}}).encode()
+                             "rootfs": {"type": "layers", "diff_ids": [digest_of(uncompressed.getvalue())]}}).encode()
         manifest = json.dumps({
             "schemaVersion": 2, "mediaType": OCI_MANIFEST,
             "config": {"mediaType": OCI_CONFIG, "digest": self.seed_blob(config), "size": len(config)},
-            "layers": [{"mediaType": OCI_LAYER, "digest": self.seed_blob(layer), "size": len(layer)}],
+            "layers": [{"mediaType": OCI_LAYER, "digest": self.seed_blob(compressed), "size": len(compressed)}],
         }).encode()
         return self.seed_manifest(repository, manifest, tag=tag)
 

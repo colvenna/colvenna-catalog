@@ -24,9 +24,13 @@ B = "b" * 40
 C = "c" * 40
 RECORD = "d" * 40
 IMAGE = "sha256:" + "1" * 64
+# A release verdict's basis: the release check that judged the candidate.
+BASIS = f"[the release check](https://github.com/colvenna/colvenna-catalog/blob/{'d' * 40}/docs/release/v1.0.0-rc.2.md)"
 CANDIDATE_CHART = "sha256:" + "2" * 64
 RELEASE_CHART = "sha256:" + "3" * 64
 CANDIDATE, RELEASE = "v1.0.0-rc.2", "v1.0.0"
+# The release's chart version and appVersion alike.
+VERSION = "1.0.0"
 
 
 def candidate_manifest(**changes):
@@ -75,7 +79,7 @@ class Names(unittest.TestCase):
         self.assertEqual(promotion.names(CANDIDATE, RELEASE), [
             ("image", "colvenna-catalog-release/colvenna-catalog", CANDIDATE, RELEASE),
             ("chart", "colvenna-catalog-release/charts/colvenna-catalog", "1.0.0-rc.2", "1.0.0")])
-        self.assertEqual(promotion.published(RELEASE), [("image", "1.0.0"), ("chart", "1.0.0")])
+        self.assertEqual(promotion.published(RELEASE), "1.0.0")
 
     def test_a_candidate_promotes_to_its_own_version_only(self):
         for candidate, release in (("v1.0.0-rc.2", "v1.0.1"), ("v1.0.0-rc.2", "v1.0.0-rc.3"), ("v1.0.0", "v1.0.0"),
@@ -91,10 +95,13 @@ class Names(unittest.TestCase):
                     promotion.published(name)
 
 
-def notes_with(result):
+def notes_with(result, basis=BASIS):
+    """The candidate's notes with the release verdict and its basis filled in."""
     template = (REPO / "release/notes-template.md").read_text()
     text = manifest.notes(candidate_manifest(), template)
-    return text.replace("| Release verdict | <GO / NO-GO> |", f"| Release verdict | {result} |")
+    row = "| Release verdict | <GO / NO-GO> | <the release check report's link> |"
+    assert row in text
+    return text.replace(row, f"| Release verdict | {result} | {basis} |")
 
 
 class Verdict(unittest.TestCase):
@@ -110,13 +117,20 @@ class Verdict(unittest.TestCase):
                     promotion.verdict(notes_with(result))
                 self.assertIn("not GO", str(caught.exception))
 
+    def test_the_basis_links_the_release_check(self):
+        for basis in ("<the release check report's link>", "", "the release check, by hand", "[the check]()"):
+            with self.subTest(basis):
+                with self.assertRaises(ValueError) as caught:
+                    promotion.verdict(notes_with("GO", basis))
+                self.assertIn("it links the release check", str(caught.exception))
+
     def test_the_template_s_draft_is_not_a_verdict(self):
         draft = manifest.notes(candidate_manifest(), (REPO / "release/notes-template.md").read_text())
         with self.assertRaises(ValueError):
             promotion.verdict(draft)
 
     def test_one_verdict_row(self):
-        for text in ("# notes\n", notes_with("GO") + "\n| Release verdict | GO | again |\n"):
+        for text in ("# notes\n", notes_with("GO") + f"\n| Release verdict | GO | {BASIS} |\n"):
             with self.subTest(text[:10]):
                 with self.assertRaises(ValueError) as caught:
                     promotion.verdict(text)
@@ -139,7 +153,7 @@ class Rechart(unittest.TestCase):
         self.dir = Path(tempfile.mkdtemp())
         self.candidate = package(self.dir, CHART)
 
-    def release_package(self, changes=None, extra=None, missing=None, version="1.0.0", app=RELEASE):
+    def release_package(self, changes=None, extra=None, missing=None, version=VERSION, app=VERSION):
         files = dict(CHART)
         files["Chart.yaml"] = promotion.with_versions(CHART_YAML, version, app)
         files.update(changes or {})
@@ -149,16 +163,16 @@ class Rechart(unittest.TestCase):
         out = Path(tempfile.mkdtemp())
         return package(out, files)
 
-    def differences(self, release, version="1.0.0", app=RELEASE):
+    def differences(self, release, version=VERSION, app=VERSION):
         return promotion.chart_differences(str(self.candidate), str(release), version, app)
 
     def test_rechart_changes_only_the_two_fields(self):
         out = Path(tempfile.mkdtemp())
-        directory = Path(promotion.rechart(str(self.candidate), str(out), "1.0.0", RELEASE))
+        directory = Path(promotion.rechart(str(self.candidate), str(out), VERSION, VERSION))
         self.assertEqual(directory, out / "colvenna-catalog")
         chart = (directory / "Chart.yaml").read_text().splitlines()
         self.assertIn("version: 1.0.0", chart)
-        self.assertIn(f"appVersion: {RELEASE}", chart)
+        self.assertIn("appVersion: 1.0.0", chart)
         self.assertIn(f"  colvenna-catalog/source-commit: {B}", chart)
         self.assertEqual([line for line in chart if not line.startswith(("version:", "appVersion:"))],
                          [line for line in CHART_YAML.splitlines() if not line.startswith(("version:", "appVersion:"))])
@@ -169,7 +183,7 @@ class Rechart(unittest.TestCase):
         report, problems = self.differences(self.release_package())
         self.assertEqual(problems, [])
         self.assertIn("changed   colvenna-catalog/Chart.yaml: version 1.0.0-rc.2 -> 1.0.0, appVersion v1.0.0-rc.2 ->"
-                      " v1.0.0; every other line the same", report)
+                      " 1.0.0; every other line the same", report)
         self.assertEqual(sum(line.startswith("same      ") for line in report), 2)
         self.assertEqual(report[-1], "3 files compared: only Chart.yaml's version and appVersion differ")
 
@@ -178,9 +192,9 @@ class Rechart(unittest.TestCase):
             "a template": {"changes": {"templates/service.yaml": "kind: Service\n# changed\n"}},
             "the values": {"changes": {"values.yaml": "replicas: 3\n"}},
             "another field of Chart.yaml": {"changes": {"Chart.yaml": promotion.with_versions(
-                CHART_YAML.replace("A REST", "Not a REST"), "1.0.0", RELEASE)}},
+                CHART_YAML.replace("A REST", "Not a REST"), VERSION, VERSION)}},
             "the annotation": {"changes": {"Chart.yaml": promotion.with_versions(
-                CHART_YAML.replace(B, C), "1.0.0", RELEASE)}},
+                CHART_YAML.replace(B, C), VERSION, VERSION)}},
             "a file more": {"extra": {"templates/extra.yaml": "{}\n"}},
             "a file less": {"missing": ["values.yaml"]},
             "the candidate's version kept": {"version": "1.0.0-rc.2", "app": CANDIDATE},
@@ -191,7 +205,7 @@ class Rechart(unittest.TestCase):
                 self.assertNotEqual(problems, [], report)
 
     def test_another_version_than_the_release_s(self):
-        _, problems = self.differences(self.release_package(), version="1.0.1", app="v1.0.1")
+        _, problems = self.differences(self.release_package(), version="1.0.1", app="1.0.1")
         self.assertIn("colvenna-catalog/Chart.yaml: version is '1.0.0', not '1.0.1'", problems)
 
     def test_a_mode_that_differs(self):
@@ -200,7 +214,7 @@ class Rechart(unittest.TestCase):
             for member in source.getmembers():
                 data = source.extractfile(member).read()
                 if member.name.endswith("Chart.yaml"):
-                    data = promotion.with_versions(data.decode(), "1.0.0", RELEASE).encode()
+                    data = promotion.with_versions(data.decode(), VERSION, VERSION).encode()
                     member.size = len(data)
                 if member.name.endswith("values.yaml"):
                     member.mode = 0o755
@@ -217,13 +231,13 @@ class Rechart(unittest.TestCase):
                     info.type = kind
                     archive.addfile(info, io.BytesIO(b""))
                 with self.assertRaises(ValueError):
-                    promotion.rechart(str(bad), tempfile.mkdtemp(), "1.0.0", RELEASE)
+                    promotion.rechart(str(bad), tempfile.mkdtemp(), VERSION, VERSION)
 
     def test_chart_yaml_needs_each_field_once(self):
         for text in ("name: c\nversion: 1\n", "version: 1\nappVersion: a\nversion: 2\n"):
             with self.subTest(text):
                 with self.assertRaises(ValueError):
-                    promotion.with_versions(text, "1.0.0", RELEASE)
+                    promotion.with_versions(text, VERSION, VERSION)
 
     def test_with_helm_s_own_packaging(self):
         """The pinned Helm packages the re-versioned directory with nothing else changed."""
@@ -235,16 +249,16 @@ class Rechart(unittest.TestCase):
         subprocess.run([str(HELM), "package", str(work / "source/colvenna-catalog"), "-d", str(work / "candidate")],
                        check=True, capture_output=True)
         before = work / "candidate/colvenna-catalog-1.0.0-rc.2.tgz"
-        directory = promotion.rechart(str(before), str(work / "release"), "1.0.0", RELEASE)
+        directory = promotion.rechart(str(before), str(work / "release"), VERSION, VERSION)
         subprocess.run([str(HELM), "package", directory, "-d", str(work / "packaged")], check=True, capture_output=True)
         after = work / "packaged/colvenna-catalog-1.0.0.tgz"
-        out = run("chart-diff", str(before), str(after), "1.0.0", RELEASE)
+        out = run("chart-diff", str(before), str(after), VERSION, VERSION)
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertIn("only Chart.yaml's version and appVersion differ", out.stdout)
         shown = subprocess.run([str(HELM), "show", "chart", str(after)], capture_output=True, text=True).stdout
         self.assertIn(f"colvenna-catalog/source-commit: {B}", shown)
         self.assertIn("version: 1.0.0\n", shown)
-        out = run("chart-diff", str(before), str(before), "1.0.0", RELEASE)
+        out = run("chart-diff", str(before), str(before), VERSION, VERSION)
         self.assertEqual(out.returncode, 1)
         self.assertIn("DIFFERS", out.stdout)
 
@@ -257,7 +271,7 @@ class Build(unittest.TestCase):
         self.assertEqual(m["release"], RELEASE)
         self.assertEqual(m["image"], {**candidate["image"], "tag": RELEASE})
         self.assertEqual(m["image"]["digest"], IMAGE)
-        self.assertEqual(m["chart"], {**candidate["chart"], "version": "1.0.0", "appVersion": RELEASE,
+        self.assertEqual(m["chart"], {**candidate["chart"], "version": "1.0.0", "appVersion": "1.0.0",
                                       "digest": RELEASE_CHART})
         self.assertEqual(m["source"], {**candidate["source"], "tag": f"{RELEASE} points at {CANDIDATE}'s tag commit"
                                        f" with release/{RELEASE}/ added, nothing else"})
@@ -305,7 +319,7 @@ class Validate(unittest.TestCase):
             "the image's digest": (lambda m: m["image"].update(digest="latest"), "image.digest"),
             "the image's tag": (lambda m: m["image"].update(tag=CANDIDATE), "image.tag"),
             "the chart's version": (lambda m: m["chart"].update(version="1.0.0-rc.2"), "chart.version"),
-            "the chart's appVersion": (lambda m: m["chart"].update(appVersion="1.0.0"), "chart.appVersion"),
+            "the chart's appVersion": (lambda m: m["chart"].update(appVersion=RELEASE), "chart.appVersion"),
             "the source's tag": (lambda m: m["source"].update(tag="x"), "source.tag"),
             "a candidate of another release": (lambda m: m["promotion"].update(candidate="v1.0.1-rc.1"),
                                                "promotion.candidate"),
@@ -376,6 +390,8 @@ class Notes(unittest.TestCase):
     def test_the_release_s_name_and_identity(self):
         self.assertIn('title: "Colvenna Catalog v1.0.0 release notes"', self.notes)
         self.assertIn("date: 2026-11-02", self.notes)
+        self.assertIn("status: final", self.notes)
+        self.assertNotIn("status: draft", self.notes)
         self.assertIn("\n# Colvenna Catalog v1.0.0 release notes\n", self.notes)
         self.assertNotIn("# Colvenna Catalog v1.0.0-rc.2 release notes", self.notes)
         self.assertIn("## 1. Release\n", self.notes)
@@ -387,12 +403,14 @@ class Notes(unittest.TestCase):
         self.assertIn(f"colvenna-catalog-release/charts/colvenna-catalog@{RELEASE_CHART}`, version `1.0.0`", section)
         self.assertIn(f"`{CANDIDATE}`'s chart (`{CANDIDATE_CHART}`, version `1.0.0-rc.2`)", section)
         self.assertIn("`ghcr.io/colvenna/colvenna-catalog:1.0.0`", section)
-        self.assertIn("its 10 files compared one by one", section)
+        self.assertIn("its 10 files compared one by one ([`chart-comparison.txt`](https://github.com/colvenna/"
+                      f"colvenna-catalog/blob/{RELEASE}/release/{RELEASE}/chart-comparison.txt))", section)
+        self.assertIn("version `1.0.0`, appVersion `1.0.0`", section)
 
     def test_every_other_section_is_the_candidate_s_as_accepted(self):
         after = self.text[self.text.index("## 2. Deliverables"):]
         self.assertTrue(self.notes.endswith(after))
-        self.assertIn("| Release verdict | GO |", self.notes)
+        self.assertIn(f"| Release verdict | GO | {BASIS} |", self.notes)
         self.assertIn("None found.", self.notes)
 
     def test_the_template_s_comment_says_where_the_notes_come_from(self):
@@ -429,36 +447,42 @@ class Registries(unittest.TestCase):
                     promotion.registry_kind(registry)
 
     def test_ghcr_or_a_loopback_registry(self):
-        for target, kind in ((promotion.GHCR_IMAGE, "ghcr"), (promotion.GHCR_CHART, "ghcr"),
-                             ("ghcr.io/another-owner/colvenna-catalog", "ghcr"), ("127.0.0.1:5000/colvenna/x", "loopback")):
+        for what, target, kind in (("image", promotion.GHCR_IMAGE, "ghcr"), ("chart", promotion.GHCR_CHART, "ghcr"),
+                                   ("image", "127.0.0.1:5000/colvenna/x", "loopback"),
+                                   ("chart", "localhost:5000/colvenna/charts/x", "loopback")):
             with self.subTest(target):
-                self.assertEqual(promotion.target_kind(target), kind)
+                self.assertEqual(promotion.target_kind(what, target), kind)
+                self.assertEqual(run("target", what, target).stdout, kind + "\n")
 
     def test_never_aws_ecr_public(self):
         for target in ("public.ecr.aws/colvenna/colvenna-catalog", "PUBLIC.ECR.AWS/colvenna/charts/colvenna-catalog",
                        "oci://public.ecr.aws/colvenna/colvenna-catalog", "https://public.ecr.aws/x/y",
                        "public.ecr.aws:443/colvenna/colvenna-catalog", "api.ecr-public.us-east-1.amazonaws.com/x/y",
                        "registry.public.ecr.aws/x"):
-            with self.subTest(target):
-                with self.assertRaises(ValueError) as caught:
-                    promotion.target_kind(target)
-                self.assertIn(promotion.NEVER_ECR_PUBLIC, str(caught.exception))
-                out = run("target", target)
-                self.assertEqual(out.returncode, 1)
-                self.assertIn("AWS ECR Public is never a target", out.stderr)
+            for what in ("image", "chart"):
+                with self.subTest(target=target, what=what):
+                    with self.assertRaises(ValueError) as caught:
+                        promotion.target_kind(what, target)
+                    self.assertIn(promotion.NEVER_ECR_PUBLIC, str(caught.exception))
+                    out = run("target", what, target)
+                    self.assertEqual(out.returncode, 1)
+                    self.assertIn("AWS ECR Public is never a target", out.stderr)
         with self.assertRaises(ValueError) as caught:
             promotion.registry_kind("public.ecr.aws")
         self.assertIn(promotion.NEVER_ECR_PUBLIC, str(caught.exception))
 
     def test_nothing_else(self):
-        for target in ("docker.io/colvenna/colvenna-catalog", "444455556666.dkr.ecr.us-west-2.amazonaws.com/colvenna-catalog",
-                       "quay.io/colvenna/colvenna-catalog", "ghcr.io/colvenna/colvenna-catalog:1.0.0",
-                       "ghcr.io/colvenna/colvenna-catalog@" + IMAGE, "ghcr.io/colvenna", "ghcr.io/Colvenna/x",
-                       "oci://ghcr.io/colvenna/x", "ghcr.io.example.com/colvenna/x"):
-            with self.subTest(target):
+        cases = [("image", t) for t in (
+            "docker.io/colvenna/colvenna-catalog", "444455556666.dkr.ecr.us-west-2.amazonaws.com/colvenna-catalog",
+            "quay.io/colvenna/colvenna-catalog", "ghcr.io/colvenna/colvenna-catalog:1.0.0",
+            "ghcr.io/colvenna/colvenna-catalog@" + IMAGE, "ghcr.io/another-owner/colvenna-catalog", promotion.GHCR_CHART,
+            "oci://ghcr.io/colvenna/colvenna-catalog", "ghcr.io.example.com/colvenna/colvenna-catalog")]
+        cases.append(("chart", promotion.GHCR_IMAGE))
+        for what, target in cases:
+            with self.subTest(what=what, target=target):
                 with self.assertRaises(ValueError) as caught:
-                    promotion.target_kind(target)
-                self.assertIn("not a GHCR repository", str(caught.exception))
+                    promotion.target_kind(what, target)
+                self.assertIn(f"the {what} is published to GHCR only", str(caught.exception))
 
 
 class Usage(unittest.TestCase):

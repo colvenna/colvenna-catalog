@@ -6,9 +6,9 @@ manifest.py) judged GO and promoted without rebuilding anything (docs/developmen
 GO candidate"). promote.sh makes it on top of the candidate's tag commit:
 
 - the image is the candidate's, by the same digest, tagged <release> as well in the release registry;
-- the chart is the candidate's package with only Chart.yaml's version and appVersion changed (to
-  <release> without its "v", and <release>), packaged again: a new digest, compared with the
-  candidate's file by file;
+- the chart is the candidate's package with only Chart.yaml's version and appVersion changed, both to
+  <release> without its "v" (1.0.0), packaged again: a new digest, compared with the candidate's file
+  by file, the comparison kept beside the manifest (release/<release>/chart-comparison.txt);
 - the manifest is the candidate's under the release's names (release, source.tag, image.tag,
   chart.version, chart.appVersion and chart.digest), and `promotion` says where it came from: the
   candidate, its tag commit and manifest, the commit whose release/<candidate>/notes.md records its
@@ -16,13 +16,16 @@ GO candidate"). promote.sh makes it on top of the candidate's tag commit:
 - the release notes are the candidate's as accepted, under the release's name, their first section
   the release's identity.
 
+A candidate is judged GO when its release notes' verdict table says so, with a basis that links the
+release check (verdict).
+
 publish-ghcr.sh copies a release's image and chart by digest to the GitHub Container Registry, and
 only there: target says which repositories it may publish to.
 
 usage:
   promotion.py names <candidate> <release>    image and chart: repository, the candidate's tag, the
                                               release's tag, tab-separated
-  promotion.py published <release>            image and chart: the tag GHCR gives them, tab-separated
+  promotion.py published <release>            the tag GHCR gives the release's image and chart
   promotion.py verdict <notes.md>             GO, if the notes' release verdict is GO
   promotion.py rechart <package> <dir> <version> <appVersion>
                                               the package's files into <dir>, Chart.yaml's version and
@@ -37,8 +40,8 @@ usage:
   promotion.py notes <manifest> < notes       the release notes, from the candidate's as accepted
   promotion.py registry <registry>            the release registry's kind: ecr (an ECR registry of a
                                               standard Region) or loopback (a rehearsal's)
-  promotion.py target <repository>            a publish target's kind: ghcr or loopback; never AWS ECR
-                                              Public
+  promotion.py target image|chart <repository> a publish target's kind: ghcr (the GHCR repository of
+                                              the image or the chart) or loopback; never AWS ECR Public
 Problems go to stderr, with exit status 1.
 """
 import copy
@@ -58,7 +61,6 @@ RELEASE = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 # as an OCI artifact.
 GHCR_IMAGE = "ghcr.io/colvenna/colvenna-catalog"
 GHCR_CHART = f"ghcr.io/colvenna/charts/{manifest.CHART_NAME}"
-GHCR = re.compile(r"^ghcr\.io/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+$")
 # A registry on this host, for a rehearsal or the offline tests: read and written over plain HTTP.
 LOOPBACK = re.compile(r"^(?:localhost|127\.0\.0\.1):[0-9]{1,5}$")
 LOOPBACK_TARGET = re.compile(r"^(?:localhost|127\.0\.0\.1):[0-9]{1,5}(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+$")
@@ -108,7 +110,7 @@ def published(release):
     found = release_problems(release)
     if found:
         raise ValueError(found[0])
-    return [("image", chart_version(release)), ("chart", chart_version(release))]
+    return chart_version(release)
 
 
 def source_tag(release, candidate):
@@ -120,17 +122,22 @@ VERDICT_ROW = re.compile(r"^\s*\|\s*Release verdict\s*\|")
 
 
 def verdict(text):
-    """GO when the notes' release verdict is GO (plain, bold or as code); ValueError saying what it is
-    otherwise: NO-GO, the template's placeholder, no verdict row, or more than one."""
+    """GO when the notes' release verdict is GO (plain, bold or as code) and its basis links the release
+    check; ValueError saying what it is otherwise: NO-GO, the template's placeholder, a basis that is
+    still the template's or links nothing, no verdict row, or more than one."""
     rows = [line for line in text.splitlines() if VERDICT_ROW.match(line)]
     if len(rows) != 1:
         raise ValueError(f"the release notes have {len(rows)} 'Release verdict' rows, not one: the verdict is"
                          " recorded in section 5's table")
     cells = [cell.strip() for cell in rows[0].strip().strip("|").split("|")]
     result = cells[1] if len(cells) > 1 else ""
+    basis = cells[2] if len(cells) > 2 else ""
     if result.strip("*` ") != "GO":
         raise ValueError(f"the release verdict is {result or 'empty'}, not GO: only a candidate judged GO is"
                          " promoted")
+    if re.fullmatch(r"<.*>", basis) or not re.search(r"\]\([^)\s]+\)", basis):
+        raise ValueError(f"the release verdict's basis is {basis or 'empty'}: it links the release check that"
+                         " judged the candidate GO")
     return "GO"
 
 
@@ -168,6 +175,18 @@ def field(line):
     if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
         value = value[1:-1]
     return found[1], value
+
+
+def chart_lines(text):
+    """(the lines of Chart.yaml's text but its version and appVersion, {version, appVersion: value})."""
+    kept, changed = [], {}
+    for line in text.splitlines():
+        parsed = field(line)
+        if parsed and parsed[0] in CHANGED:
+            changed[parsed[0]] = parsed[1]
+        else:
+            kept.append(line)
+    return kept, changed
 
 
 def with_versions(text, version, app_version):
@@ -223,12 +242,9 @@ def chart_differences(candidate, release, version, app_version):
             else:
                 problems.append(f"{path}: differs")
             continue
-        old, new = a.decode().splitlines(), b.decode().splitlines()
-        if [line for line in old if (field(line) or ("",))[0] not in CHANGED] != \
-                [line for line in new if (field(line) or ("",))[0] not in CHANGED]:
+        (old, before), (new, after) = chart_lines(a.decode()), chart_lines(b.decode())
+        if old != new:
             problems.append(f"{path}: differs beyond version and appVersion")
-        before = {k: v for k, v in map(lambda line: field(line) or ("", ""), old) if k in CHANGED}
-        after = {k: v for k, v in map(lambda line: field(line) or ("", ""), new) if k in CHANGED}
         wanted = {"version": version, "appVersion": app_version}
         for key in CHANGED:
             if after.get(key) != wanted[key]:
@@ -269,7 +285,7 @@ def build(candidate, params):
         "source": {**candidate["source"], "tag": source_tag(release, name)},
         "generated": params["generated"],
         "image": {**candidate["image"], "tag": release},
-        "chart": {**candidate["chart"], "version": chart_version(release), "appVersion": release,
+        "chart": {**candidate["chart"], "version": chart_version(release), "appVersion": chart_version(release),
                   "digest": params["chart_digest"]},
         **{key: copy.deepcopy(candidate[key]) for key in KEPT},
     }
@@ -368,7 +384,8 @@ def problems(m, release=None):
     if isinstance(m["chart"], dict):
         need(m["chart"].get("version") == chart_version(name),
              f"chart.version: {m['chart'].get('version')!r}, not {chart_version(name)!r}")
-        need(m["chart"].get("appVersion") == name, f"chart.appVersion: {m['chart'].get('appVersion')!r}, not {name!r}")
+        need(m["chart"].get("appVersion") == chart_version(name),
+             f"chart.appVersion: {m['chart'].get('appVersion')!r}, not {chart_version(name)!r}")
         digest = m["chart"].get("digest")
         need(isinstance(digest, str) and manifest.DIGEST.fullmatch(digest) is not None,
              f"chart.digest: {digest!r} is not sha256:<64 lowercase hex digits>")
@@ -406,7 +423,7 @@ def identity(m):
 | Built from | commit [`{built_from[:8]}`]({REPOSITORY}/commit/{built_from}) (`{built_from}`). The tag `{release}` points at a commit that adds only `release/{release}/` to `{candidate}`'s tag commit, `{p['tag_commit']}` |
 | Manifest | [`release/{release}/manifest.json`]({REPOSITORY}/blob/{release}/release/{release}/manifest.json): `{candidate}`'s manifest under the release's names, and `promotion`, where it came from |
 | Image | `{image['repository']}@{image['digest']}` (`{image['platform']}`): `{candidate}`'s image, tagged `{release}` as well, labelled `org.opencontainers.image.revision={built_from}` (its `org.opencontainers.image.version` label stays `{candidate}`, as it was built) |
-| Helm chart | `oci://<registry>/{chart['repository']}@{chart['digest']}`, version `{chart['version']}`, appVersion `{chart['appVersion']}`: `{candidate}`'s chart (`{p['chart']['digest']}`, version `{p['chart']['version']}`) with only `Chart.yaml`'s version and appVersion changed, its {p['chart']['files']} files compared one by one; annotated `colvenna-catalog/source-commit: {built_from}` |
+| Helm chart | `oci://<registry>/{chart['repository']}@{chart['digest']}`, version `{chart['version']}`, appVersion `{chart['appVersion']}`: `{candidate}`'s chart (`{p['chart']['digest']}`, version `{p['chart']['version']}`) with only `Chart.yaml`'s version and appVersion changed, its {p['chart']['files']} files compared one by one ([`chart-comparison.txt`]({REPOSITORY}/blob/{release}/release/{release}/chart-comparison.txt)); annotated `colvenna-catalog/source-commit: {built_from}` |
 | Public copies | By the same digests, `{GHCR_IMAGE}:{chart_version(release)}` and `oci://{GHCR_CHART}` version `{chart_version(release)}`, once `scripts/release/publish-ghcr.sh {release}` has published them |
 | Generated | {m['generated'][:10]} |
 
@@ -429,8 +446,9 @@ helm show chart oci://<registry>/{chart['repository']}@{chart['digest']} | sed -
 
 def notes(m, text):
     """The release notes from the candidate's as accepted (text): the title and heading under the
-    release's name, the date the promotion's, the template's comment replaced by one saying where the
-    notes come from, and section 1 the release's identity; every other section unchanged."""
+    release's name, the date the promotion's, the status final (nothing is left to fill in: the verdict
+    is GO), the template's comment replaced by one saying where the notes come from, and section 1 the
+    release's identity; every other section unchanged."""
     candidate, release = m["promotion"]["candidate"], m["release"]
     title = f"Colvenna Catalog {candidate} release notes"
     heading = re.search(rf"^# {re.escape(title)}\n", text, re.MULTILINE)
@@ -445,6 +463,7 @@ def notes(m, text):
     head = re.sub(rf'^title: "?{re.escape(title)}"?$', f'title: "Colvenna Catalog {release} release notes"', head,
                   count=1, flags=re.MULTILINE)
     head = re.sub(r"^date: .*$", f"date: {m['generated'][:10]}", head, count=1, flags=re.MULTILINE)
+    head = re.sub(r"^status: .*$", "status: final", head, count=1, flags=re.MULTILINE)
     comment = (f"<!--\nscripts/release/promote.sh wrote these notes when it promoted {candidate} to {release}:"
                f" section 1 from\nrelease/{release}/manifest.json; every other section is {candidate}'s release"
                f" notes as accepted\n(release/{candidate}/notes.md at {m['promotion']['acceptance']['commit']}),"
@@ -468,17 +487,19 @@ def registry_kind(registry):
     return "ecr"
 
 
-def target_kind(repository):
-    """ghcr or loopback: a repository publish-ghcr.sh may copy a release into, ghcr.io/<owner>/<name>
-    or a loopback registry's (a rehearsal), without a tag or digest. Never AWS ECR Public."""
+def target_kind(what, repository):
+    """ghcr or loopback: whether publish-ghcr.sh may copy the release's image or chart (what) into the
+    repository, which is either its GHCR repository (GHCR_IMAGE, GHCR_CHART) or a loopback registry's (a
+    rehearsal), without a tag or digest. Never AWS ECR Public."""
+    expected = {"image": GHCR_IMAGE, "chart": GHCR_CHART}[what]
     if ECR_PUBLIC.search(repository):
-        raise ValueError(f"{repository!r}: {NEVER_ECR_PUBLIC} ({GHCR_IMAGE}, {GHCR_CHART})")
-    if GHCR.fullmatch(repository):
+        raise ValueError(f"{repository!r}: {NEVER_ECR_PUBLIC} ({expected})")
+    if repository == expected:
         return "ghcr"
     if LOOPBACK_TARGET.fullmatch(repository):
         return "loopback"
-    raise ValueError(f"{repository!r}: not a GHCR repository, ghcr.io/<owner>/<name> without a tag or digest"
-                     f" ({GHCR_IMAGE}, {GHCR_CHART}), nor a loopback registry's for a rehearsal")
+    raise ValueError(f"{repository!r}: the {what} is published to GHCR only, as {expected}, or to a loopback"
+                     " registry in a rehearsal")
 
 
 def main(argv):
@@ -487,8 +508,7 @@ def main(argv):
         for row in names(*args):
             print("\t".join(row))
     elif command == "published" and len(args) == 1:
-        for row in published(args[0]):
-            print("\t".join(row))
+        print(published(args[0]))
     elif command == "verdict" and len(args) == 1:
         print(verdict(read(args[0])))
     elif command == "rechart" and len(args) == 4:
@@ -511,8 +531,8 @@ def main(argv):
         print(notes(valid(args[0]), sys.stdin.read()), end="")
     elif command == "registry" and len(args) == 1:
         print(registry_kind(args[0]))
-    elif command == "target" and len(args) == 1:
-        print(target_kind(args[0]))
+    elif command == "target" and len(args) == 2 and args[0] in ("image", "chart"):
+        print(target_kind(*args))
     else:
         raise ValueError(__doc__.split("usage:\n", 1)[1].split("Problems", 1)[0].rstrip())
 
