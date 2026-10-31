@@ -446,6 +446,16 @@ test('an upgrade migrates before anything that serves changes: the maintenance f
   }
 });
 
+test('every function\'s log group is the stack\'s, named /aws/lambda/<function>, which install.sh reads before a deploy (#54)', () => {
+  const groups = Object.fromEntries(resources(defaults, 'AWS::Logs::LogGroup').map(([id, g]) => [id, g.Properties.LogGroupName]));
+  const functions = resources(defaults, 'AWS::Lambda::Function');
+  assert.equal(functions.length, 5);
+  for (const [, f] of functions) {
+    const group = f.Properties.LoggingConfig.LogGroup.Ref;
+    assert.equal(groups[group], `/aws/lambda/${f.Properties.FunctionName}`, f.Properties.FunctionName);
+  }
+});
+
 test('what the gateway answers itself is retryable: a database the authorizer cannot reach, a request over the concurrency', () => {
   const responses = resources(defaults, 'AWS::ApiGateway::GatewayResponse').map(([, r]) => [r.Properties.ResponseType, r.Properties.StatusCode]);
   assert.deepEqual(responses.sort(), [

@@ -372,11 +372,43 @@ sl_synth_serverless() {
     -c "concurrency=$COLVENNA_LAMBDA_CONCURRENCY" -c "snapStart=$([[ "$COLVENNA_SNAPSTART" == on ]] && echo true || echo false)"
 }
 
-# sl_deploy_serverless: the serverless stack sl_synth_serverless synthesized, deployed; exports the
-# names and secrets the later steps use.
+# sl_delete_orphan_log_groups <stack> <template>: before the template is deployed, the log groups it makes
+# for this install's functions that are there already and that the stack does not own (#54): a function's
+# log group is written again after the stack that made it let it go, Lambda making it anew, as when going
+# back to a version without the function deletes it while a run of it goes on (the purge function's runs
+# take up to 15 minutes). CloudFormation would then refuse to make it ("already exists"), so such a group
+# is deleted, if it is one of this install's functions' (/aws/lambda/colvenna-catalog-<env>-...) and that
+# function is gone; a group still another function's is left, for CloudFormation to refuse. Prints what it
+# deleted; a group written again after that makes the deploy fail as before, and a run again deletes it.
+sl_delete_orphan_log_groups() {
+  local stack="$1" template="$2" owned="" groups group found function err="$WORK/orphan-log-groups.err"
+  [[ "$(stack_status "$stack")" == NONE ]] || owned="$(stack_resources "$stack" AWS::Logs::LogGroup)"
+  groups="$(jq -r '.Resources[] | select(.Type == "AWS::Logs::LogGroup") | .Properties.LogGroupName | strings' "$template")"
+  for group in $groups; do
+    [[ "$group" == "/aws/lambda/colvenna-catalog-$COLVENNA_ENV-"* ]] || continue
+    grep -qxF -- "$group" <<<"$owned" && continue
+    found="$(aws logs describe-log-groups --region "$COLVENNA_REGION" --log-group-name-prefix "$group" \
+      --query "logGroups[?logGroupName=='$group'] | length(@)" --output text 2>"$err")" || { cat "$err" >&2; return 1; }
+    [[ "$found" == 1 ]] || continue
+    function="${group#/aws/lambda/}"
+    if aws lambda get-function --region "$COLVENNA_REGION" --function-name "$function" >/dev/null 2>"$err"; then
+      echo "  $group is the function $function's, which $stack does not own: left" >&2
+      continue
+    fi
+    grep -q ResourceNotFoundException "$err" || { cat "$err" >&2; return 1; }
+    aws logs delete-log-group --region "$COLVENNA_REGION" --log-group-name "$group"
+    echo "  deleted $group: the log group of $function, which is gone, written after its stack let it go"
+  done
+  rm -f "$err"
+}
+
+# sl_deploy_serverless: the serverless stack sl_synth_serverless synthesized, deployed, the log groups
+# it makes of functions that are gone deleted first (sl_delete_orphan_log_groups, which the functions
+# step runs once already before it changes anything); exports the names and secrets the later steps use.
 sl_deploy_serverless() {
   local stack
   stack="$(stack_id Serverless)"
+  sl_delete_orphan_log_groups "$stack" "$STATE_DIR/cdk.out/$stack.template.json"
   deploy_assembly "$stack"
   API_URL="$(stack_output "$stack" ApiUrl)"
   SERVER_FUNCTION="$(stack_output "$stack" ServerFunctionName)"
@@ -572,6 +604,8 @@ install_serverless() {
 
   step "functions"
   sl_synth_serverless "$image" "${common[@]}"
+  # Before anything changes: a group of a function still there stops the run here, not after migrate.
+  sl_delete_orphan_log_groups "$(stack_id Serverless)" "$STATE_DIR/cdk.out/$(stack_id Serverless).template.json"
   local upgrade=""
   if [[ -n "$running" && "$running" != "$image" ]]; then
     upgrade=1
