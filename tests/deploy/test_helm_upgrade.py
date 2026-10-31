@@ -162,6 +162,8 @@ class HelmUpgradeTest(unittest.TestCase):
         self.release("superseded", "deployed")
         # The run starts as on an operator's host, the signal at its default disposition, whatever this test
         # inherited: under nohup SIGHUP comes ignored, and bash cannot reset a signal ignored on entry (#76).
+        # Only SIGHUP: of the signals the harness resets (uatlib.deploy.SESSION_SIGNALS), the only one these
+        # tests send that a parent can leave ignored (SIGKILL cannot be).
         first = subprocess.Popen(["bash", "-c", f'source "{HELPER}"; helm_upgrade rel ./chart --namespace ns --wait'],
                                  env={**self.env, "HELM_STUB_HANG": "1"}, start_new_session=True,
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,

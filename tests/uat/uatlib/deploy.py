@@ -108,8 +108,12 @@ class Run:
 SESSION_SIGNALS = (signal.SIGHUP, signal.SIGINT, signal.SIGQUIT, signal.SIGTERM)
 
 
-def default_session_signals():
-    """In a child about to exec: the session's signals at their default disposition (preexec_fn)."""
+def reset_session_signals():
+    """In a child about to exec: the session's signals at their default disposition (preexec_fn).
+    Popen runs it between fork and exec, which Python's documentation warns against while other threads
+    run: none does when a case starts a script (the one thread pool, stacks_elsewhere's, has ended by
+    then). Popen has no thread-safe way to set the child's signals (posix_spawn's setsigdef is not
+    reachable through it), and `env --default-signal` needs a coreutils some hosts lack."""
     for s in SESSION_SIGNALS:
         signal.signal(s, signal.SIG_DFL)
 
@@ -149,7 +153,7 @@ class Installer:
             stdin = subprocess.DEVNULL
         p = subprocess.Popen(command, cwd=str(self.checkout), stdin=stdin, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, env=self.env(), start_new_session=True,
-                             preexec_fn=default_session_signals)
+                             preexec_fn=reset_session_signals)
         session = _Session(p, master)
         try:
             if slave is not None:
