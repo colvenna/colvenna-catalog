@@ -78,21 +78,26 @@ class Records(unittest.TestCase):
 
     def test_the_writers_table_expired_by_paimon(self):
         """#56: a table the loops write to for over an hour loses its earliest snapshots to Paimon's own
-        expiry; any other snapshot missing, or one of another table, is still a problem."""
+        expiry, which leaves 10 at least; any other snapshot missing, a prefix gone with fewer than 10 left,
+        or one of another table, is still a problem."""
         snap = {"plannedRows": 20, "commitUser": "w"}
+        loop = {"plannedRows": 30, "commitUser": "uat-loop-writer"}
         b = self.rec([], {"events": {1: snap, 2: snap, 3: snap}, "orders": {1: snap}})
-        later = self.rec([], {"events": {3: snap, 4: {"plannedRows": 30, "commitUser": "uat-loop-writer"}},
-                              "orders": {1: snap}})
+        later = self.rec([], {"events": {3: snap, **{i: loop for i in range(4, 13)}}, "orders": {1: snap}})
         ok, detail = lifecycle.data_unchanged(b, later, writer_table="events")
         self.assertTrue(ok, detail)
         self.assertIn("2 snapshots compared", detail)
         self.assertIn("expired by Paimon meanwhile (the earliest of the writer's table): 2 ['events 1', 'events 2']", detail)
-        hole = self.rec([], {"events": {1: snap, 3: snap}, "orders": {1: snap}})
+        few = self.rec([], {"events": {3: snap, 4: loop}, "orders": {1: snap}})
+        self.assertFalse(lifecycle.data_unchanged(b, few, writer_table="events")[0])  # Paimon keeps 10
+        all_new = self.rec([], {"events": {i: loop for i in range(4, 14)}, "orders": {1: snap}})
+        self.assertTrue(lifecycle.data_unchanged(b, all_new, writer_table="events")[0])  # 10 left, all the loops'
+        hole = self.rec([], {"events": {1: snap, 3: snap, **{i: loop for i in range(4, 13)}}, "orders": {1: snap}})
         self.assertFalse(lifecycle.data_unchanged(b, hole, writer_table="events")[0])  # not the earliest
         self.assertFalse(lifecycle.data_unchanged(b, self.rec([], {"events": later["snapshots"]["events"], "orders": {}}),
                                                   writer_table="events")[0])  # another table's
         self.assertFalse(lifecycle.data_unchanged(b, later, writer_table=None)[0])  # no writer: nothing expires
-        self.assertEqual(lifecycle.expired({1: snap}, {}), [])
+        self.assertEqual(lifecycle.expired_snapshot_ids({1: snap}, {}), [])
 
     def test_identities_with_a_new_token(self):
         b = self.rec([], {})

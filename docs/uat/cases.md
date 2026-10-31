@@ -828,7 +828,7 @@ Some refusals need a change to the account (no CloudWatch Logs role for API Gate
 | `reads-uninterrupted` | Every read succeeded and saw a snapshot no older than the one before; no gap of more than 60 s |
 | `tokens-uninterrupted` | The tokens issued before the upgrade worked throughout and after; every `/token` request succeeded and its credentials read |
 | `migration-chain-forward` | The schema version rows before are all still there, unchanged; any added have higher versions; the version equals the candidate's number of migrations |
-| `data-unchanged` | Every table's snapshots from before have the same contents; the only new snapshots are the writer's. The writer's table may lose its earliest snapshots to Paimon's own expiry once they are older than `snapshot.time-retained` (1 hour by default): reported, not judged (#56) |
+| `data-unchanged` | Every table's snapshots from before have the same contents; the only new snapshots are the writer's. The writer's table may lose its earliest snapshots to Paimon's own expiry once they are older than `snapshot.time-retained` (1 hour by default), which always leaves `snapshot.num-retained.min` (10) at least: reported, not judged (#56) |
 | `grants-and-identities-unchanged` | Principals, tokens and grants as recorded, plus the new token |
 | `audit-continuous` | The audit events from before are still there; events of the window recorded |
 | `new-token-works` | The token issued after the upgrade works |
@@ -868,7 +868,7 @@ Some refusals need a change to the account (no CloudWatch Logs role for API Gate
 | --- | --- |
 | `same-schema-rolled-back` | (Same schema) The previous version serves: EKS: every pod runs the previous release's image after the rollback; serverless: the alias `live` on a version of the previous image |
 | `same-schema-uninterrupted` | (Same schema) UAT-DEP-06's `writes-uninterrupted`, `reads-uninterrupted` and `tokens-uninterrupted` hold through the rollback |
-| `same-schema-data-kept` | (Same schema) Data, grants and identities as recorded, plus the loops' commits |
+| `same-schema-data-kept` | (Same schema) Data, grants and identities as recorded, plus the loops' commits; the writer's table's earliest snapshots may be gone to Paimon's own expiry, as UAT-DEP-06's `data-unchanged` says (#56) |
 | `newer-schema-refused` | (Schema moved forward, negative) The previous version refuses to start against the newer schema, naming the versions: EKS: its pods never become ready; serverless: its `migrate` refuses, before the server function changes |
 | `newer-schema-nothing-written` | (Schema moved forward) The schema version rows, every table's pointer and the commit intents are unchanged by the refused version |
 | `newer-schema-restored` | (Schema moved forward) After the restore, the previous release serves; tables, grants and identities are as at the snapshot, consistent once reconciled (as UAT-DEP-10); the interruption's length is recorded, not judged |

@@ -99,16 +99,24 @@ def same_snapshots(a, b, table):
     return bool(sa) and sa.keys() == sb.keys() and all(same_snapshot(sa[k], sb[k]) for k in sa)
 
 
-def expired(before, now):
-    """Of one table's snapshots ({id: record}), those Paimon's own expiry took (#56): missing now, and all
+# Paimon 2.0.0's snapshot.num-retained.min (CoreOptions): its expiry always leaves at least this many.
+PAIMON_RETAINED_MIN = 10
+
+
+def expired_snapshot_ids(before, now):
+    """Of one table's snapshots ({id: record}), the ids Paimon's own expiry took (#56): missing now, and all
     before the earliest snapshot still there. In Paimon 2.0.0 every commit expires the table's snapshots
-    older than snapshot.time-retained (CoreOptions: 1 hour by default, keeping at least
-    snapshot.num-retained.min, 10), earliest first (TableCommitImpl after the commit, ExpireSnapshotsImpl),
-    so a table the loops write to for longer than that loses its first snapshots; one missing after the
-    earliest is no expiry. The records hold no snapshot's time, so the hour itself is not checked."""
+    older than snapshot.time-retained (CoreOptions: 1 hour by default), earliest first, and never below
+    snapshot.num-retained.min (10): ExpireSnapshotsImpl stops at the latest less 10 (TableCommitImpl after
+    the commit). So a table the loops write to for longer than that loses its first snapshots, and keeps 10
+    at least; one missing after the earliest, or a prefix gone with fewer than 10 left, is no expiry. The
+    records hold no snapshot's time, so the hour itself is not checked."""
     if not now:
         return []
-    earliest = min(int(k) for k in now)
+    ids = [int(k) for k in now]
+    earliest, latest = min(ids), max(ids)
+    if latest - earliest + 1 < PAIMON_RETAINED_MIN:
+        return []
     return sorted((k for k in before if k not in now and int(k) < earliest), key=int)
 
 
@@ -118,10 +126,10 @@ def data_unchanged(before, after, writer_table=None, writer_user="uat-loop-write
     problems, gone = [], []
     for table, snaps in before["snapshots"].items():
         now = after["snapshots"].get(table, {})
-        old = expired(snaps, now) if table == writer_table else []
-        gone += [f"{table} {k}" for k in old]
+        expired = expired_snapshot_ids(snaps, now) if table == writer_table else []
+        gone += [f"{table} {k}" for k in expired]
         for sid, s in snaps.items():
-            if sid not in old and not same_snapshot(s, now.get(sid)):
+            if sid not in expired and not same_snapshot(s, now.get(sid)):
                 problems.append(f"{table} snapshot {sid}: {s} then {now.get(sid)}")
         for sid, s in now.items():
             if sid not in snaps and not (table == writer_table and s.get("commitUser") == writer_user):
