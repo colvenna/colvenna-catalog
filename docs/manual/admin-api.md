@@ -60,13 +60,13 @@ The examples below then run as they are, without what only the EKS form has: `ku
 
 - 401 from its authorizer, to a request without a valid token. The server does not see it, so the audit log does not record it. The authorizer keeps each answer for 60 seconds, so a token revoked or expired in the last minute still reaches the server, which refuses it.
 - 403 to a request from outside the API's VPC endpoints.
-- 413 to a request body over about 6 MiB; nothing is done.
+- 413 to a request body over about 6 MiB; nothing is done (`v1.0.0-rc.2` answers 503 instead, [#34](https://github.com/colvenna/colvenna-catalog/issues/34)).
 - 503 when the authorizer cannot check the token.
 - 429, and 503, to a request beyond what the install serves at once (`COLVENNA_LAMBDA_CONCURRENCY`); nothing is done, and it can be sent again.
 - 503 when the server's function failed (a crash, say); the request may have been done. Sent again, a write is answered as after a lost answer (409 for a create), but a token issue issues a second token: list the principal's tokens and revoke the one you did not get.
 - 504 when it gave up waiting at 29 seconds.
 
-These examples have been run in the EKS form; in the serverless form they have not yet been run end to end.
+These examples have been run end to end in both forms (`v1.0.0-rc.2`'s UAT-CAT-05, both Regions).
 
 A first call:
 
