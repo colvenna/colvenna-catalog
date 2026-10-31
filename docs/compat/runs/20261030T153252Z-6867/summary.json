@@ -1,0 +1,16 @@
+{
+  "run": "20261030T153252Z-6867",
+  "form": "serverless",
+  "completed": true,
+  "outcomes": {
+    "doris-4.1.5": "pass",
+    "starrocks-4.1.6": "fail",
+    "flink-1.20-paimon-2.0.0": "pass",
+    "flink-1.20-paimon-2.1.0": "pass",
+    "flink-2.2-paimon-2.1.0": "pass",
+    "spark-3.5-paimon-2.0.0": "pass",
+    "spark-3.5-paimon-2.1.0": "pass",
+    "spark-4.1-paimon-2.1.0": "pass"
+  },
+  "cleanup": "PASS"
+}

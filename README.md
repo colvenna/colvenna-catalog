@@ -22,7 +22,7 @@ An open, Apache-2.0 REST catalog server for [Apache Paimon](https://paimon.apach
 `install.sh` installs into your AWS account, in either form, from a clean checkout (`--from-source`), or the tag of a release candidate or of a release promoted from one (`--release <candidate>` or `--release v1.0.0`; a release's install has run in offline tests only); `uninstall.sh` removes it and keeps the database and the bucket unless given `--delete-data`. Copy [`deploy/config/example.env`](deploy/config/example.env), which lists every key, to `deploy/config/<env>.env` (git ignores it) and set `COLVENNA_FORM`:
 
 - `eks`: two catalog pods in your EKS cluster, behind a Service that only labelled namespaces reach (and, if asked, an internal NLB).
-- `serverless`: the same image on AWS Lambda, behind a private REST API that only your VPC's `execute-api` endpoints reach, with a bearer-token authorizer in front of the server's own check, and no compute running while idle. `COLVENNA_NETWORK=create` makes a VPC with no internet path and the endpoints it needs; `existing` uses yours. The functions sign in to PostgreSQL with RDS IAM tokens, so no password is stored in them. The [LLD](docs/design/colvenna-catalog-lld.md#部署) has the details. So far the serverless form has been installed live only from source into a new VPC; its `--release` path and `COLVENNA_NETWORK=existing` are tested offline only, and the UAT runs them live (UAT-DEP-01 and 02 of the [UAT cases](docs/uat/cases.md)).
+- `serverless`: the same image on AWS Lambda, behind a private REST API that only your VPC's `execute-api` endpoints reach, with a bearer-token authorizer in front of the server's own check, and no compute running while idle. `COLVENNA_NETWORK=create` makes a VPC with no internet path and the endpoints it needs; `existing` uses yours. The functions sign in to PostgreSQL with RDS IAM tokens, so no password is stored in them. The [LLD](docs/design/colvenna-catalog-lld.md#部署) has the details. The serverless form's `--release` path and `COLVENNA_NETWORK=existing` (with an existing database) ran live in `v1.0.0-rc.2`'s UAT, in both Regions (UAT-DEP-01 and 02 of the [UAT cases](docs/uat/cases.md); [the report](docs/uat/reports/v1.0.0-rc.2/report.md)).
 
 Neither form has a public or anonymous entry, and the serverless form never has a Lambda function URL: the CDK app refuses both when it synthesizes.
 
@@ -109,7 +109,7 @@ The [compatibility matrix](docs/compat/matrix.md) is generated from runs of [`te
 | Doris 4.1.5 | 1.4.2, bundled | Read-only in 1.0. Reads and per-table credentials pass, but on a deletion-vector table it does not read the rows still in uncompacted level-0 files, a limitation of Paimon 1.4.2 |
 | StarRocks 4.1.6 | 1.3.1, bundled | Read-only in 1.0, with read-only S3 credentials of its own instead of per-table ones. Reads pass, with the same deletion-vector limitation. With short-lived credentials, as `v1.0.0-rc.2`'s UAT gave it, its first read of a primary-key table after its BE starts failed, a defect of the Hadoop it bundles, now declared a limitation ([user manual](docs/manual/user.md#92-engines), section 9.2) |
 
-The serverless form has not been run in the matrix yet.
+The serverless form ran the same cells on `v1.0.0-rc.2`, with the same outcomes ([the matrix](docs/compat/matrix.md)).
 
 ## Documentation
 

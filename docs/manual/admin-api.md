@@ -66,7 +66,7 @@ The examples below then run as they are, without what only the EKS form has: `ku
 - 503 when the server's function failed (a crash, say); the request may have been done. Sent again, a write is answered as after a lost answer (409 for a create), but a token issue issues a second token: list the principal's tokens and revoke the one you did not get.
 - 504 when it gave up waiting at 29 seconds.
 
-These examples have been run in the EKS form; in the serverless form they have not yet been run end to end.
+These examples have been run end to end in both forms (`v1.0.0-rc.2`'s UAT-CAT-05, both Regions).
 
 A first call:
 
