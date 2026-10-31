@@ -100,10 +100,12 @@ def same_snapshots(a, b, table):
 
 
 def expired(before, now):
-    """The snapshots of before that Paimon's own expiry took (#56): those missing now that all come before
-    the earliest snapshot still there. Each commit expires its table's snapshots older than
-    snapshot.time-retained (1 hour by default), earliest first, so a table the loops write to for longer
-    than that loses its first snapshots; one missing after the earliest is not an expiry."""
+    """Of one table's snapshots ({id: record}), those Paimon's own expiry took (#56): missing now, and all
+    before the earliest snapshot still there. In Paimon 2.0.0 every commit expires the table's snapshots
+    older than snapshot.time-retained (CoreOptions: 1 hour by default, keeping at least
+    snapshot.num-retained.min, 10), earliest first (TableCommitImpl after the commit, ExpireSnapshotsImpl),
+    so a table the loops write to for longer than that loses its first snapshots; one missing after the
+    earliest is no expiry. The records hold no snapshot's time, so the hour itself is not checked."""
     if not now:
         return []
     earliest = min(int(k) for k in now)
@@ -125,8 +127,8 @@ def data_unchanged(before, after, writer_table=None, writer_user="uat-loop-write
             if sid not in snaps and not (table == writer_table and s.get("commitUser") == writer_user):
                 problems.append(f"{table} snapshot {sid} new, by {s.get('commitUser')}")
     expiry = f"; expired by Paimon meanwhile (the earliest of the writer's table): {len(gone)} {gone[:3]}" if gone else ""
-    return not problems, (f"{sum(len(s) for s in before['snapshots'].values())} snapshots compared; problems {problems[:5]}"
-                          f"{expiry}")
+    compared = sum(len(s) for s in before["snapshots"].values()) - len(gone)
+    return not problems, f"{compared} snapshots compared; problems {problems[:5]}{expiry}"
 
 
 def identities_unchanged(before, after, new_tokens=()):
