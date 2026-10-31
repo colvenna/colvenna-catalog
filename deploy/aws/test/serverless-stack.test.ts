@@ -456,7 +456,7 @@ test('every function\'s log group is the stack\'s, named /aws/lambda/<function>,
   }
 });
 
-test('what the gateway answers itself is retryable: a database the authorizer cannot reach, a request over the concurrency', () => {
+test('what the gateway answers itself: retryable for a database the authorizer cannot reach and a request over the concurrency', () => {
   const responses = resources(defaults, 'AWS::ApiGateway::GatewayResponse').map(([, r]) => [r.Properties.ResponseType, r.Properties.StatusCode]);
   assert.deepEqual(responses.sort(), [
     // A configuration error is no reason to retry: it keeps its 500 from the catch-all.
@@ -471,6 +471,11 @@ test('what the gateway answers itself is retryable: a database the authorizer ca
     // The stage's own throttle.
     ['THROTTLED', '429'],
   ]);
+  // Only the retryable ones say "retry"; the timeout and the configuration error keep the gateway's own message.
+  for (const [, r] of resources(defaults, 'AWS::ApiGateway::GatewayResponse')) {
+    const message = r.Properties.ResponseTemplates['application/json'];
+    assert.equal(/retry/.test(message), ['503', '429'].includes(r.Properties.StatusCode), r.Properties.ResponseType);
+  }
 });
 
 test('a request too large for Lambda is answered 413, never "retry" (#34)', () => {

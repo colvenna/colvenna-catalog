@@ -597,19 +597,13 @@ export class CatalogServerlessStack extends Stack {
         templates: { 'application/json': '{"message": "The catalog cannot check the bearer token now; retry."}' },
       });
     }
-    // Requests over the reserved concurrency (#80), and a request too large for Lambda (#34). Each is the gateway
-    // response INTEGRATION_FAILURE (measured, the access log's errorType): Lambda refuses to invoke the server
-    // (429), which API Gateway answers 500 by default, and Paimon's client never retries it; a function that ran
-    // and failed, 502; and an event over Lambda's 6 MB of payload (RequestTooLargeException), 413 "Request Too
-    // Long", as API Gateway answers it. A gateway response's status is fixed by its type, so INTEGRATION_FAILURE
-    // itself is left at its default, which keeps each its own status, and the 5XX catch-all, DEFAULT_5XX, makes
-    // the first two 503, which the client sends again, while the 413 is a 4XX it does not touch (measured
-    // 2026-10-31, the LLD's "无服务器形态"). A trade-off, the LLD's too: a throttled request never ran, and most
-    // writes apply once however often they are sent; a few (a fast-forward, replaceTable, a schema rollback, a
-    // consumer reset, a token issued) would apply again if the function failed after their commit, which takes
-    // running out of memory or Lambda failing. The catch-all reaches every 5XX the gateway makes and does not
-    // set itself, so these keep theirs: a gateway timeout (504), whose request may still be running, and a
-    // configuration error (500), which no retry mends.
+    // Requests over the reserved concurrency (#80) and requests too large for Lambda (#34) are both the gateway
+    // response INTEGRATION_FAILURE, which, once set, fixes one status for both. Left at its default, each keeps its
+    // own (500, 502 for a function that failed, 413 for an event over Lambda's 6 MB), and the 5XX catch-all makes
+    // the 5XX ones 503, which Paimon's client sends again, while the 413 stays (measured; the LLD's "无服务器形态",
+    // also for the trade-off of retrying a function that failed). The catch-all reaches every 5XX the gateway
+    // makes and does not set itself, so a gateway timeout keeps its 504 (the request may still be running) and a
+    // configuration error its 500 (no retry mends it).
     api.addGatewayResponse('Default5xx', {
       type: apigw.ResponseType.DEFAULT_5XX,
       statusCode: '503',
@@ -619,7 +613,8 @@ export class CatalogServerlessStack extends Stack {
       ['IntegrationTimeout', apigw.ResponseType.INTEGRATION_TIMEOUT, '504'],
       ['ApiConfigurationError', apigw.ResponseType.API_CONFIGURATION_ERROR, '500'],
     ] as const) {
-      api.addGatewayResponse(responseId, { type, statusCode });
+      // The gateway's own message, as its default response has it.
+      api.addGatewayResponse(responseId, { type, statusCode, templates: { 'application/json': '{"message":$context.error.messageString}' } });
     }
     // The stage's own throttle (above): 429, its default, with a message of the catalog's.
     api.addGatewayResponse('Throttled', {
