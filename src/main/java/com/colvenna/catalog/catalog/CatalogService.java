@@ -89,6 +89,25 @@ public final class CatalogService {
 
     private static final String MAIN = Identifier.DEFAULT_MAIN_BRANCH;
 
+    /**
+     * Client options the catalog's config answers as defaults ({@code GET /v1/config}): a client's
+     * own setting of a key wins over them, and {@code COLVENNA_CLIENT_OVERRIDES} wins over both.
+     * Paimon merges them into the options its FileIO is made with, per-table credentials included
+     * ({@code RESTTokenFileIO}).
+     *
+     * <p>{@code fs.s3a.create.performance} (#1): without it, S3A (Hadoop 3.4.2, which the {@code
+     * paimon-s3} of Paimon 2.0.0 and 2.1.0 bundles) sends a HEAD and a LIST before every file it
+     * creates without overwrite, and a LIST before one it overwrites ({@code
+     * S3AFileSystem.innerCreateFile}); with it, none. Paimon's client creates without overwrite
+     * only files it names with a UUID of its own (data, manifest, manifest list, index and
+     * statistics files, and the temporary file of an atomic write, whose rename still refuses an
+     * existing target), and overwrites only files at paths that are never directories (hints, tags,
+     * consumers, and index files of UUID names). Snapshots are not affected: the catalog publishes
+     * them with a conditional write of its own. A commit creates four such files, and each retry on
+     * a newer snapshot three.
+     */
+    static final Map<String, String> CLIENT_DEFAULTS = Map.of("fs.s3a.create.performance", "true");
+
     private final Db db;
     private final CatalogStore store;
     private final TableFiles files;
@@ -216,7 +235,7 @@ public final class CatalogService {
         }
         Map<String, String> overrides = new HashMap<>(clientOverrides);
         overrides.put(RESTCatalogInternalOptions.PREFIX.key(), warehouseName);
-        return new ConfigResponse(Map.of(), overrides);
+        return new ConfigResponse(CLIENT_DEFAULTS, overrides);
     }
 
     // ================================================================ databases
