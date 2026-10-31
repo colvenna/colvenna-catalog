@@ -100,6 +100,23 @@ deploy_stack() {
     || { tail -30 "$EVIDENCE/cdk.log" >&2; return 1; }
 }
 
+# synth_stack <stack> <cdk arguments...>: the stack synthesized into STATE_DIR/cdk.out, for a look at its
+# template (STATE_DIR/cdk.out/<stack>.template.json) before deploy_assembly deploys it.
+synth_stack() {
+  local stack="$1"
+  shift
+  (cd "$REPO/deploy/aws" && npx cdk synth "$stack" --quiet --no-notices --no-version-reporting \
+    --output "$STATE_DIR/cdk.out" "$@") >>"$EVIDENCE/cdk.log" 2>&1 || { tail -30 "$EVIDENCE/cdk.log" >&2; return 1; }
+}
+
+# deploy_assembly <stack>: deploys the stack synth_stack synthesized, as it is (no synthesis again),
+# leaving its outputs in STATE_DIR/<stack>.json as deploy_stack does.
+deploy_assembly() {
+  (cd "$REPO/deploy/aws" && npx cdk deploy "$1" --app "$STATE_DIR/cdk.out" --require-approval never --no-notices \
+    --no-version-reporting --outputs-file "$STATE_DIR/$1.json") >>"$EVIDENCE/cdk.log" 2>&1 \
+    || { tail -30 "$EVIDENCE/cdk.log" >&2; return 1; }
+}
+
 # cfn_output <stack> <key>: an output of a deployed stack, read from CloudFormation; empty when there
 # is no such stack or output; fails when CloudFormation cannot be read, which is no proof of either.
 cfn_output() {

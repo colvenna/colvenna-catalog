@@ -14,6 +14,11 @@
 
 # The preflight's judgement of a VPC and a database (deploy/lib/vpc_check.py, beside this file).
 SL_VPC_CHECK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/vpc_check.py"
+# The change of the deployed serverless stack's template before an upgrade's migrate (beside this file).
+SL_TEMPLATE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/serverless_template.py"
+# CloudFormation takes a template of at most this many bytes in the request itself (UpdateStack's
+# TemplateBody: https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_UpdateStack.html).
+TEMPLATE_BODY_MAX=51200
 # How long uninstall.sh waits for Lambda to release a function's network interfaces before the network
 # stack can go (#12: about 20 minutes).
 ENI_WAIT_MINUTES=45
@@ -350,20 +355,28 @@ sl_stacks() {
     DB_ADMIN_SECRET_ARN DB_RESOURCE_ID REPOSITORY_URI
 }
 
-# sl_deploy_serverless <server image> <maintenance image> <cdk arguments...>: the serverless stack, its
-# functions on these images (repository@digest); exports the names and secrets the later steps use.
-sl_deploy_serverless() {
-  local server_image="$1" maintenance_image="$2" stack
-  shift 2
-  stack="$(stack_id Serverless)"
-  deploy_stack "$stack" "$@" -c stack=serverless -c "vpcId=$VPC_ID" -c "subnetIds=$SUBNET_IDS" -c "subnetZones=$SUBNET_ZONES" \
-    -c "securityGroupId=$CATALOG_SECURITY_GROUP" -c "apiEndpointIds=$API_ENDPOINTS" -c "imageUri=$server_image" \
-    -c "maintenanceImageUri=$maintenance_image" -c "bucket=$BUCKET" -c "warehousePrefix=$COLVENNA_WAREHOUSE_PREFIX" \
+# sl_synth_serverless <image> <cdk arguments...>: this version's serverless stack synthesized, its
+# functions on the image (repository@digest), into STATE_DIR/cdk.out: what an upgrade takes the
+# maintenance function from before migrate (sl_maintenance_first), and what sl_deploy_serverless deploys.
+sl_synth_serverless() {
+  local image="$1"
+  shift
+  synth_stack "$(stack_id Serverless)" "$@" -c stack=serverless -c "vpcId=$VPC_ID" -c "subnetIds=$SUBNET_IDS" \
+    -c "subnetZones=$SUBNET_ZONES" -c "securityGroupId=$CATALOG_SECURITY_GROUP" -c "apiEndpointIds=$API_ENDPOINTS" \
+    -c "imageUri=$image" -c "bucket=$BUCKET" -c "warehousePrefix=$COLVENNA_WAREHOUSE_PREFIX" \
     -c "warehouseName=$COLVENNA_WAREHOUSE_NAME" -c "databaseEndpoint=$DB_ENDPOINT" -c "databasePort=$DB_PORT" \
     -c "databaseName=$COLVENNA_DB_NAME" -c "databaseUser=$COLVENNA_DB_USER" -c "databaseResourceId=$DB_RESOURCE_ID" \
     -c "dataTokens=$COLVENNA_DATA_TOKENS" \
     -c "dataTokenDuration=$COLVENNA_DATA_TOKEN_DURATION" -c "memory=$COLVENNA_LAMBDA_MEMORY" \
     -c "concurrency=$COLVENNA_LAMBDA_CONCURRENCY" -c "snapStart=$([[ "$COLVENNA_SNAPSTART" == on ]] && echo true || echo false)"
+}
+
+# sl_deploy_serverless: the serverless stack sl_synth_serverless synthesized, deployed; exports the
+# names and secrets the later steps use.
+sl_deploy_serverless() {
+  local stack
+  stack="$(stack_id Serverless)"
+  deploy_assembly "$stack"
   API_URL="$(stack_output "$stack" ApiUrl)"
   SERVER_FUNCTION="$(stack_output "$stack" ServerFunctionName)"
   MAINTENANCE_FUNCTION="$(stack_output "$stack" MaintenanceFunctionName)"
@@ -373,6 +386,71 @@ sl_deploy_serverless() {
   ADMIN_TOKEN_SECRET_ARN="$(stack_output "$stack" AdminTokenSecretArn)"
   API_ID="$(stack_output "$stack" ApiId)"
   export API_URL SERVER_FUNCTION MAINTENANCE_FUNCTION PURGE_FUNCTION AUTHORIZER_FUNCTION OPS_FUNCTION ADMIN_TOKEN_SECRET_ARN API_ID
+}
+
+# sl_stack_settled <stack>: the stack's status once no operation of it is under way (one a run that was
+# stopped left going on, UAT-DEP-04), waiting an hour at most.
+sl_stack_settled() {
+  local status
+  for _ in $(seq 1 360); do
+    status="$(stack_status "$1")"
+    [[ "$status" == *_IN_PROGRESS ]] || { printf '%s\n' "$status"; return 0; }
+    sleep 10
+  done
+  echo "$1 is still $status after an hour" >&2
+  return 1
+}
+
+# sl_maintenance_first: an upgrade's first change, while the server runs another image (#63): the
+# serverless stack as it is deployed, with the maintenance function as this version makes it (its image,
+# its settings and the database it migrates, which install onto a restored instance changes too, and its
+# role's policy, which names that database) and nothing else changed, so that this version's migrate runs
+# before anything that serves changes, and a migrate that refuses (an older version going back onto a
+# newer schema) leaves the server function, its published versions and the alias live, the authorizer and
+# the ops and purge functions as they were. Not a CDK deploy of this version: it would also change the
+# server function's description and settings, and with them publish a new version and move the alias.
+# CloudFormation updates the stack with its deployed template so changed (serverless_template.py, from
+# what sl_synth_serverless made) and the stack's own parameters; given no role and no tags, UpdateStack
+# keeps the stack's role (the CDK bootstrap's execution role) and tags (its API reference, read
+# 2026-10-31: https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_UpdateStack.html). It
+# rolls back if that fails; a template with nothing to change (a run again after a refused or failed
+# migrate) is no failure. Exports the names the database and migrate steps use, from the stack's outputs:
+# the database step runs on the ops function the stack has, the one of the version that serves.
+sl_maintenance_first() {
+  local stack maintenance keys key parameters=() deployed="$WORK/serverless-deployed.json" template="$WORK/serverless-template.json"
+  local err="$WORK/update-stack.err"
+  stack="$(stack_id Serverless)"
+  sl_stack_settled "$stack" >/dev/null
+  maintenance="$(cfn_output "$stack" MaintenanceFunctionName)"
+  [[ -n "$maintenance" ]] || { echo "$stack has no output MaintenanceFunctionName: not a serverless stack this knows" >&2; return 1; }
+  MAINTENANCE_FUNCTION="$maintenance"
+  OPS_FUNCTION="$(cfn_output "$stack" OpsFunctionName)"
+  export MAINTENANCE_FUNCTION OPS_FUNCTION
+  aws cloudformation get-template --region "$COLVENNA_REGION" --stack-name "$stack" --template-stage Original \
+    --query TemplateBody --output json >"$deployed"
+  python3 "$SL_TEMPLATE" maintenance-first "$deployed" "$STATE_DIR/cdk.out/$stack.template.json" "$maintenance" >"$template"
+  if (($(wc -c <"$template") > TEMPLATE_BODY_MAX)); then
+    echo "$stack's template is $(wc -c <"$template") bytes, more than the $TEMPLATE_BODY_MAX CloudFormation takes in a request" >&2
+    return 1
+  fi
+  # The stack's parameters (CDK's BootstrapVersion) as they are.
+  keys="$(aws cloudformation describe-stacks --region "$COLVENNA_REGION" --stack-name "$stack" \
+    --query 'Stacks[0].Parameters[].ParameterKey' --output text)"
+  for key in $keys; do
+    [[ "$key" == None ]] || parameters+=("ParameterKey=$key,UsePreviousValue=true")
+  done
+  ((${#parameters[@]} == 0)) || parameters=(--parameters "${parameters[@]}")
+  if aws cloudformation update-stack --region "$COLVENNA_REGION" --stack-name "$stack" --template-body "file://$template" \
+    "${parameters[@]}" --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND >/dev/null 2>"$err"; then
+    aws cloudformation wait stack-update-complete --region "$COLVENNA_REGION" --stack-name "$stack" \
+      || { echo "$stack: the maintenance function's update did not complete: $(stack_status "$stack")" >&2; return 1; }
+    echo "  $maintenance as this version makes it; nothing else of $stack changed"
+  elif grep -q "No updates are to be performed" "$err"; then
+    echo "  $maintenance already as this version makes it"
+  else
+    cat "$err" >&2
+    return 1
+  fi
 }
 
 # sl_database: the catalog's database user and database, and the authorizer's read-only user, made or
@@ -458,8 +536,10 @@ sl_smoke() {
 }
 
 # install_serverless: install.sh's steps for the serverless form, after the tools and, for --release,
-# the candidate's checks. An upgrade migrates first: the maintenance function takes the new image while
-# the server keeps the one it runs, then the server takes it.
+# the candidate's checks. An upgrade, or a way back to an older version, migrates first: only the
+# maintenance function takes this version's image (sl_maintenance_first), then migrate runs, and only
+# once it has succeeded does the whole stack take this version, the server's new version and the alias
+# live among it (#63). A migrate that refuses ends the run with the server as it was.
 install_serverless() {
   step "preflight"
   if [[ -n "$RELEASE_CANDIDATE" ]]; then
@@ -487,21 +567,25 @@ install_serverless() {
   running="$(cfn_output "$(stack_id Serverless)" ServerImage)"
 
   step "functions"
+  sl_synth_serverless "$image" "${common[@]}"
+  local upgrade=""
   if [[ -n "$running" && "$running" != "$image" ]]; then
-    echo "  the server keeps $running until the database is migrated"
-    sl_deploy_serverless "$running" "$image" "${common[@]}"
+    upgrade=1
+    echo "  the server keeps $running until the database is migrated: the maintenance function alone takes $image"
+    sl_maintenance_first
   else
-    sl_deploy_serverless "$image" "$image" "${common[@]}"
+    sl_deploy_serverless
   fi
   step "database"
   sl_database
   step "migrate"
   sl_maintenance migrate
-  sl_grants
-  if [[ -n "$running" && "$running" != "$image" ]]; then
+  if [[ -n "$upgrade" ]]; then
     step "server"
-    sl_deploy_serverless "$image" "$image" "${common[@]}"
+    sl_deploy_serverless
   fi
+  # The grants of this version's ops function, once it is deployed.
+  sl_grants
   step "admin"
   ensure_admin sl_
   step "smoke"

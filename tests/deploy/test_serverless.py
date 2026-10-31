@@ -1,6 +1,7 @@
 """The serverless form's installer (deploy/lib/serverless.sh, and its configuration in config.sh): with
 stub commands for AWS, and the steps that invoke Lambda functions replaced by recorders."""
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -567,6 +568,160 @@ lambda_invoke() {
         self.assertIn("the API is not private", out.stderr)
 
 
+def lambda_function(name, image, sha="a" * 40, database="db.example.com"):
+    return {"Type": "AWS::Lambda::Function", "DependsOn": [f"{name}RoleDefaultPolicy", f"{name}Role"], "Properties": {
+        "FunctionName": f"colvenna-catalog-sl1-{name}", "Description": f"colvenna-catalog {sha}", "PackageType": "Image",
+        "Code": {"ImageUri": {"Fn::Join": ["", ["111122223333.dkr.ecr.us-west-2.", {"Ref": "AWS::URLSuffix"}, f"/repo@{image}"]]}},
+        "Environment": {"Variables": {"COLVENNA_JDBC_URL": f"jdbc:postgresql://{database}:5432/colvenna_catalog"}},
+        "LoggingConfig": {"LogGroup": {"Ref": f"{name}Logs"}}, "Role": {"Fn::GetAtt": [f"{name}Role", "Arn"]}}}
+
+
+def role_policy(name, resource_id="db-OLD"):
+    return {"Type": "AWS::IAM::Policy", "Properties": {"PolicyName": f"{name}RoleDefaultPolicy", "Roles": [{"Ref": f"{name}Role"}],
+                                                        "PolicyDocument": {"Statement": [{"Action": "rds-db:connect", "Effect": "Allow",
+                                                                                          "Resource": f"dbuser:{resource_id}/u"}]}}}
+
+
+def serverless_template(image, sha="a" * 40, database="db.example.com", resource_id="db-OLD"):
+    """A serverless stack's template, as far as sl_maintenance_first reads it."""
+    resources = {}
+    for name in ("server", "maintenance", "purge"):
+        resources[name] = lambda_function(name, image, sha, database)
+        resources[f"{name}Role"] = {"Type": "AWS::IAM::Role", "Properties": {"RoleName": f"colvenna-catalog-sl1-{name}"}}
+        resources[f"{name}RoleDefaultPolicy"] = role_policy(name, resource_id)
+        resources[f"{name}Logs"] = {"Type": "AWS::Logs::LogGroup", "Properties": {"LogGroupName": f"/aws/lambda/colvenna-catalog-sl1-{name}"}}
+    resources["serverCurrentVersion" + sha[:8]] = {"Type": "AWS::Lambda::Version", "Properties": {"FunctionName": {"Ref": "server"}}}
+    resources["serverLive"] = {"Type": "AWS::Lambda::Alias", "Properties": {
+        "Name": "live", "FunctionName": {"Ref": "server"}, "FunctionVersion": {"Fn::GetAtt": ["serverCurrentVersion" + sha[:8], "Version"]}}}
+    return {"Parameters": {"BootstrapVersion": {"Type": "AWS::SSM::Parameter::Value<String>", "Default": "/cdk-bootstrap/hnb659fds/version"}},
+            "Resources": resources,
+            "Outputs": {"MaintenanceImage": {"Value": f"repo@{image}"}, "ServerImage": {"Value": f"repo@{image}"}}}
+
+
+DEPLOYED = serverless_template("sha256:old")
+# This version's, onto a restored instance (UAT-DEP-07's newer-schema branch): another image, commit and database.
+SYNTHESIZED = serverless_template("sha256:new", sha="b" * 40, database="restored.example.com", resource_id="db-NEW")
+SERVERLESS_STACK = "ColvennaCatalogSl1Serverless"
+
+
+class ServerlessTemplate(unittest.TestCase):
+    """deploy/lib/serverless_template.py: the deployed template with the maintenance function as this version makes it, and nothing
+    else changed (#63)."""
+
+    def change(self, deployed, synthesized=SYNTHESIZED, function="colvenna-catalog-sl1-maintenance", as_string=False):
+        work = Path(tempfile.mkdtemp())
+        write(work / "deployed.json", json.dumps(json.dumps(deployed) if as_string else deployed))
+        write(work / "synthesized.json", json.dumps(synthesized))
+        return subprocess.run([sys.executable, str(REPO / "deploy/lib/serverless_template.py"), "maintenance-first",
+                               str(work / "deployed.json"), str(work / "synthesized.json"), function], capture_output=True, text=True)
+
+    def test_the_maintenance_function_its_policy_and_its_output_are_this_version_s_and_nothing_else_changes(self):
+        for as_string in (False, True):
+            out = self.change(DEPLOYED, as_string=as_string)
+            self.assertEqual(out.returncode, 0, out.stderr)
+            changed = json.loads(out.stdout)
+            expected = json.loads(json.dumps(DEPLOYED))
+            expected["Resources"]["maintenance"]["Properties"] = SYNTHESIZED["Resources"]["maintenance"]["Properties"]
+            expected["Resources"]["maintenanceRoleDefaultPolicy"]["Properties"]["PolicyDocument"] = \
+                SYNTHESIZED["Resources"]["maintenanceRoleDefaultPolicy"]["Properties"]["PolicyDocument"]
+            expected["Outputs"]["MaintenanceImage"]["Value"] = "repo@sha256:new"
+            self.assertEqual(changed, expected)
+            # The server function, its version and the alias, the purge function: as deployed. The new database too.
+            for rid in ("server", "serverCurrentVersionaaaaaaaa", "serverLive", "purge", "purgeRoleDefaultPolicy", "serverRoleDefaultPolicy"):
+                self.assertEqual(changed["Resources"][rid], DEPLOYED["Resources"][rid], rid)
+            self.assertNotIn("serverCurrentVersionbbbbbbbb", changed["Resources"])
+            self.assertIn("restored.example.com", json.dumps(changed["Resources"]["maintenance"]))
+            self.assertNotIn("\n", out.stdout.strip(), "compact")
+
+    def test_a_template_without_that_one_function_is_refused(self):
+        out = self.change(DEPLOYED, function="colvenna-catalog-sl2-maintenance")
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("the deployed template has 0 functions named colvenna-catalog-sl2-maintenance", out.stderr)
+        twice = json.loads(json.dumps(DEPLOYED))
+        twice["Resources"]["maintenance2"] = twice["Resources"]["maintenance"]
+        self.assertIn("2 functions named", self.change(twice).stderr)
+
+    def test_what_the_deployed_stack_lacks_is_refused(self):
+        newer = json.loads(json.dumps(SYNTHESIZED))
+        newer["Resources"]["maintenance"]["Properties"]["LoggingConfig"] = {"LogGroup": {"Ref": "MaintenanceLogsRenamed"}}
+        out = self.change(DEPLOYED, synthesized=newer)
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("refers to ['MaintenanceLogsRenamed'], which the deployed stack does not have", out.stderr)
+        other_role = json.loads(json.dumps(SYNTHESIZED))
+        other_role["Resources"]["maintenance"]["Properties"]["Role"] = {"Fn::GetAtt": ["otherRole", "Arn"]}
+        self.assertIn("role is otherRole in the synthesized template", self.change(DEPLOYED, synthesized=other_role).stderr)
+
+
+class MaintenanceFirst(unittest.TestCase):
+    """sl_maintenance_first: CloudFormation updates the deployed template so changed; no CDK, no other change."""
+
+    def run_step(self, update=None, wait=None, statuses=("UPDATE_COMPLETE",), deployed=None):
+        outputs = stack_outputs(SERVERLESS_STACK, MaintenanceFunctionName="colvenna-catalog-sl1-maintenance",
+                                OpsFunctionName="colvenna-catalog-sl1-ops")
+        describe = f"cloudformation describe-stacks --region us-west-2 --stack-name {SERVERLESS_STACK}"
+        aws = {
+            **outputs,
+            f"{describe} --query Stacks[0].StackStatus": [{"stdout": f"{s}\n"} for s in statuses],
+            f"{describe} --query Stacks[0].Parameters[].ParameterKey": {"stdout": "BootstrapVersion\n"},
+            "cloudformation get-template": {"stdout": deployed if deployed is not None else DEPLOYED},
+            "cloudformation update-stack": update or {"stdout": "{}"},
+            "cloudformation wait stack-update-complete": wait or {"stdout": ""},
+        }
+        work, state = tempfile.mkdtemp(), Path(tempfile.mkdtemp())
+        (state / "cdk.out").mkdir()
+        write(state / "cdk.out" / f"{SERVERLESS_STACK}.template.json", json.dumps(SYNTHESIZED))
+        out, stubs = stubbed('sl_stack_settled() { echo UPDATE_COMPLETE; }; sl_maintenance_first;'
+                             ' echo "functions $MAINTENANCE_FUNCTION $OPS_FUNCTION"', aws=aws, env={"WORK": work, "STATE_DIR": str(state)})
+        return out, stubs, Path(work)
+
+    def test_the_deployed_template_with_the_maintenance_function_as_this_version_makes_it(self):
+        out, stubs, work = self.run_step()
+        self.assertEqual(out.returncode, 0, out.stderr)
+        calls = stubs.calls()
+        update = next(c for c in calls if " update-stack " in c)
+        self.assertIn(f"--stack-name {SERVERLESS_STACK} --template-body file://{work}/serverless-template.json", update)
+        self.assertIn("--parameters ParameterKey=BootstrapVersion,UsePreviousValue=true", update)
+        self.assertIn("--capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND", update)
+        # The stack's own role and tags: none given, so CloudFormation keeps them.
+        self.assertNotIn("--role-arn", update)
+        self.assertNotIn("--tags", update)
+        sent = json.loads((work / "serverless-template.json").read_text())
+        self.assertEqual(sent["Resources"]["maintenance"]["Properties"], SYNTHESIZED["Resources"]["maintenance"]["Properties"])
+        self.assertEqual({k: v for k, v in sent["Resources"].items() if not k.startswith("maintenance")},
+                         {k: v for k, v in DEPLOYED["Resources"].items() if not k.startswith("maintenance")})
+        self.assertTrue(any(" wait stack-update-complete " in c for c in calls))
+        self.assertIn("functions colvenna-catalog-sl1-maintenance colvenna-catalog-sl1-ops", out.stdout)
+        # Never the CDK, which would deploy this version's whole stack.
+        self.assertEqual([c for c in calls if c.startswith("npx")], [])
+
+    def test_nothing_to_update_is_no_failure_and_a_failed_update_is(self):
+        out, *_ = self.run_step(update={"code": 254, "stderr": "An error occurred (ValidationError): No updates are to be performed.\n"})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("already as this version makes it", out.stdout)
+        out, *_ = self.run_step(update={"code": 254, "stderr": "An error occurred (AccessDenied): not allowed\n"})
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("not allowed", out.stderr)
+        out, *_ = self.run_step(wait={"code": 255, "stderr": "Waiter StackUpdateComplete failed\n"},
+                                statuses=("UPDATE_ROLLBACK_COMPLETE",))
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("did not complete: UPDATE_ROLLBACK_COMPLETE", out.stderr)
+
+    def test_a_template_too_large_for_the_request_is_refused_before_any_change(self):
+        big = json.loads(json.dumps(DEPLOYED))
+        big["Resources"]["server"]["Properties"]["Description"] = "x" * 52000
+        out, stubs, _ = self.run_step(deployed=big)
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("more than the 51200 CloudFormation takes", out.stderr)
+        self.assertEqual([c for c in stubs.calls() if " update-stack " in c], [])
+
+    def test_it_waits_for_an_operation_under_way(self):
+        out, _ = stubbed(f'sleep() {{ :; }}; sl_stack_settled {SERVERLESS_STACK}', aws={
+            f"cloudformation describe-stacks --region us-west-2 --stack-name {SERVERLESS_STACK} --query Stacks[0].StackStatus":
+                [{"stdout": "UPDATE_IN_PROGRESS\n"}, {"stdout": "UPDATE_ROLLBACK_IN_PROGRESS\n"}, {"stdout": "UPDATE_ROLLBACK_COMPLETE\n"}]})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.strip(), "UPDATE_ROLLBACK_COMPLETE")
+
+
 class Flow(unittest.TestCase):
     """install_serverless and uninstall_serverless, each step replaced by a recorder of its name."""
 
@@ -576,8 +731,10 @@ class Flow(unittest.TestCase):
 
     def run_flow(self, script, env=None, running=""):
         recorders = "; ".join(f'{name}() {{ echo "{name} $*" >>"$WORK/steps"; }}' for name in self.STEPS.split())
-        prelude = (f'{recorders}; sl_deploy_serverless() {{ echo "deploy $1 $2" >>"$WORK/steps"; API_URL=u ADMIN_TOKEN_SECRET_ARN=t; }};'
-                   ' sl_maintenance() { echo "maintenance $1" >>"$WORK/steps"; };'
+        prelude = (f'{recorders}; sl_synth_serverless() {{ echo "synth $1" >>"$WORK/steps"; }};'
+                   ' sl_deploy_serverless() { echo "deploy" >>"$WORK/steps"; API_URL=u ADMIN_TOKEN_SECRET_ARN=t; };'
+                   ' sl_maintenance_first() { echo "maintenance_first" >>"$WORK/steps"; };'
+                   ' sl_maintenance() { echo "maintenance $1" >>"$WORK/steps"; [[ -z "${MIGRATE_REFUSES:-}" ]]; };'
                    f' cfn_output() {{ echo "{running}"; }};'
                    ' build_image() { echo "build_image $1" >>"$WORK/steps"; IMAGE_REPOSITORY=repo IMAGE_DIGEST=sha256:new; };'
                    ' copy_release_image() { echo "copy_release_image $1" >>"$WORK/steps"; IMAGE_REPOSITORY=repo IMAGE_DIGEST=sha256:rel; };'
@@ -592,16 +749,32 @@ class Flow(unittest.TestCase):
         out, steps = self.run_flow("install_serverless")
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual([s.split()[0] for s in steps], ["preflight_serverless", "confirm_install", "cdk_dependencies", "sl_stacks",
-                                                         "build_image", "deploy", "sl_database", "maintenance", "sl_grants",
-                                                         "ensure_admin", "sl_smoke"])
-        self.assertIn("deploy repo@sha256:new repo@sha256:new", steps)
+                                                         "build_image", "synth", "deploy", "sl_database", "maintenance",
+                                                         "sl_grants", "ensure_admin", "sl_smoke"])
+        self.assertIn("synth repo@sha256:new", steps)
         self.assertIn("ensure_admin sl_", steps)
 
-    def test_an_upgrade_migrates_before_the_server_takes_the_new_image(self):
-        _, steps = self.run_flow("install_serverless", running="repo@sha256:old")
-        order = [s for s in steps if s.startswith(("deploy", "maintenance", "sl_database", "sl_grants"))]
-        self.assertEqual(order, ["deploy repo@sha256:old repo@sha256:new", "sl_database", "maintenance migrate", "sl_grants",
-                                 "deploy repo@sha256:new repo@sha256:new"])
+    def test_an_upgrade_migrates_before_anything_that_serves_changes(self):
+        # #63: the maintenance function alone takes the new image; the stack, the server's new version and the
+        # alias live among it, only once migrate has succeeded; then the grants of the new ops function.
+        out, steps = self.run_flow("install_serverless", running="repo@sha256:old")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        order = [s for s in steps if s.startswith(("synth", "deploy", "maintenance", "sl_database", "sl_grants"))]
+        self.assertEqual(order, ["synth repo@sha256:new", "maintenance_first", "sl_database", "maintenance migrate", "deploy", "sl_grants"])
+        self.assertIn("== server", out.stdout)
+
+    def test_a_migrate_that_refuses_leaves_the_stack_as_it_was(self):
+        # Going back onto a newer schema (UAT-DEP-07's newer-schema-refused): the run ends at migrate, and the
+        # serverless stack was never deployed, so the server function, its versions and the alias are as they were.
+        out, steps = self.run_flow("set -E; trap 'on_error install.sh' ERR; install_serverless", running="repo@sha256:newer",
+                                   env={"MIGRATE_REFUSES": "1"})
+        self.assertEqual(out.returncode, 1)
+        self.assertIn('failed at step "migrate"', out.stderr)
+        self.assertEqual([s for s in steps if s.startswith(("deploy", "maintenance"))], ["maintenance_first", "maintenance migrate"])
+        # A first install, or a run again of the same image, has nothing serving to keep: the stack goes first.
+        out, steps = self.run_flow("install_serverless", running="repo@sha256:new", env={"MIGRATE_REFUSES": "1"})
+        self.assertEqual(out.returncode, 1)
+        self.assertEqual([s for s in steps if s.startswith(("deploy", "maintenance"))], ["deploy", "maintenance migrate"])
 
     def test_a_release_checks_the_candidate_s_form_and_artifacts_first(self):
         _, steps = self.run_flow("install_serverless", env={"RELEASE_CANDIDATE": "v1.0.0-rc.1"})

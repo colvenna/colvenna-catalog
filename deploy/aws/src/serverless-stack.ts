@@ -73,14 +73,13 @@ export interface CatalogServerlessStackProps extends StackProps {
    * the API takes requests through these alone, and the ops function calls it through the first.
    */
   apiEndpointIds: string[];
-  /** The server's image: the images stack's repository, by digest. */
-  imageUri: string;
   /**
-   * The maintenance function's image, the server's unless given. An upgrade gives the new image here
-   * first, while the server keeps the old one, so that install.sh migrates the database before any new
-   * server runs on it (the LLD's "连接池").
+   * The image of the server, maintenance and purge functions: the images stack's repository, by digest.
+   * An upgrade does not deploy this stack before it migrates: install.sh changes only the maintenance
+   * function's image in the deployed template first (deploy/lib/serverless.sh, sl_maintenance_first;
+   * #63), so the output MaintenanceImage and the function's Code.ImageUri are what it changes.
    */
-  maintenanceImageUri?: string;
+  imageUri: string;
   bucketName: string;
   warehousePrefix: string;
   warehouseName: string;
@@ -137,10 +136,6 @@ export class CatalogServerlessStack extends Stack {
     this.zones = [...new Set(zones)];
     const endpointIds = vpcEndpointIds(props.apiEndpointIds.join(','), 'apiEndpointIds');
     const image = imageUri(props.imageUri, accountId, region);
-    const maintenanceImage = imageUri(props.maintenanceImageUri ?? props.imageUri, accountId, region);
-    if (maintenanceImage.repository !== image.repository) {
-      throw new Error('-c maintenanceImageUri: in the server image\'s repository');
-    }
     const bucket = s3.Bucket.fromBucketName(this, 'Warehouse', bucketName(props.bucketName));
     const prefix = warehousePrefix(props.warehousePrefix);
     const warehouse = warehouseName(props.warehouseName);
@@ -363,7 +358,7 @@ export class CatalogServerlessStack extends Stack {
       functionName: named('-maintenance'),
       description: `colvenna-catalog ${sha}: migrate and bootstrap-admin, for install.sh`,
       code: lambda.DockerImageCode.fromEcr(repository, {
-        tagOrDigest: maintenanceImage.digest,
+        tagOrDigest: image.digest,
         entrypoint: ['/opt/colvenna-catalog/lambda-maintenance.sh'],
       }),
       architecture: lambda.Architecture.X86_64,
@@ -386,13 +381,12 @@ export class CatalogServerlessStack extends Stack {
     // --- the purge function: the same image and loop, purge alone, on a schedule (#69) ----------------------
     // A drop records the table's files in the database (table_purges) in the transaction that removes the
     // table; each run deletes the recorded ones, idempotently, until a minute before its deadline, and
-    // keeps a failed one recorded for the next run. It takes the maintenance function's image, so on an
-    // upgrade the new one before the server (it does nothing while the schema is behind).
+    // keeps a failed one recorded for the next run. It does nothing while the schema is not its image's.
     const purge = new lambda.DockerImageFunction(this, 'Purge', {
       functionName: named('-purge'),
       description: `colvenna-catalog ${sha}: deletes the files of dropped tables, on its schedule`,
       code: lambda.DockerImageCode.fromEcr(repository, {
-        tagOrDigest: maintenanceImage.digest,
+        tagOrDigest: image.digest,
         entrypoint: ['/opt/colvenna-catalog/lambda-maintenance.sh'],
       }),
       architecture: lambda.Architecture.X86_64,
@@ -651,7 +645,7 @@ export class CatalogServerlessStack extends Stack {
     new CfnOutput(this, 'ServerFunctionName', { value: server.functionName });
     new CfnOutput(this, 'ServerVersion', { value: server.currentVersion.version });
     new CfnOutput(this, 'ServerImage', { value: props.imageUri });
-    new CfnOutput(this, 'MaintenanceImage', { value: props.maintenanceImageUri ?? props.imageUri });
+    new CfnOutput(this, 'MaintenanceImage', { value: props.imageUri });
     new CfnOutput(this, 'MaintenanceFunctionName', { value: maintenance.functionName });
     new CfnOutput(this, 'PurgeFunctionName', { value: purge.functionName });
     new CfnOutput(this, 'PurgeScheduleName', { value: purgeSchedule.scheduleName });

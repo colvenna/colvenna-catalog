@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 import test from 'node:test';
 import { App } from 'aws-cdk-lib';
 import { Annotations, Match, Template } from 'aws-cdk-lib/assertions';
@@ -381,15 +385,74 @@ test('SnapStart only when asked, on the published version the alias points at', 
   assert.deepEqual(alias.Properties.FunctionVersion, { 'Fn::GetAtt': [versionId, 'Version'] });
 });
 
-test('an upgrade migrates first: the maintenance function can take the new image while the server keeps the old', () => {
-  const next = `sha256:${'2'.repeat(64)}`;
-  const { template } = build({ maintenanceImageUri: props.imageUri.replace(DIGEST, next) });
-  assert.match(flat(fn(template, 'colvenna-catalog-uat-maintenance')[1].Properties.Code.ImageUri), new RegExp(`@${next}"`));
-  // The purge function too: it needs the new schema, and does nothing while it is behind.
-  assert.match(flat(fn(template, 'colvenna-catalog-uat-purge')[1].Properties.Code.ImageUri), new RegExp(`@${next}"`));
-  assert.match(flat(fn(template, 'colvenna-catalog-uat-server')[1].Properties.Code.ImageUri), new RegExp(`@${DIGEST}"`));
-  assert.equal(template.findOutputs('*').ServerImage.Value, props.imageUri);
-  assert.throws(() => build({ maintenanceImageUri: props.imageUri.replace('colvenna-catalog-uat/', 'other/') }), /-c maintenanceImageUri/);
+/** The deployed template as sl_maintenance_first changes it (deploy/lib/serverless_template.py) from the synthesized one. */
+function maintenanceFirst(deployed: object, synthesized: object): any {
+  const dir = mkdtempSync(path.join(tmpdir(), 'maintenance-first-'));
+  writeFileSync(path.join(dir, 'deployed.json'), JSON.stringify(deployed));
+  writeFileSync(path.join(dir, 'synthesized.json'), JSON.stringify(synthesized));
+  const run = spawnSync('python3', [path.join(__dirname, '..', '..', 'lib', 'serverless_template.py'), 'maintenance-first',
+    path.join(dir, 'deployed.json'), path.join(dir, 'synthesized.json'), 'colvenna-catalog-uat-maintenance'], { encoding: 'utf8' });
+  assert.equal(run.status, 0, run.stderr);
+  return JSON.parse(run.stdout);
+}
+
+/** The paths at which two JSON values differ. */
+function differences(a: any, b: any, at = ''): string[] {
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null || Array.isArray(a) !== Array.isArray(b)) {
+    return flat(a) === flat(b) ? [] : [at];
+  }
+  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])];
+  return keys.flatMap((k) => differences(a[k], b[k], `${at}/${k}`));
+}
+
+test('an upgrade migrates before anything that serves changes: the maintenance function alone takes the new version (#63)', () => {
+  // Why install.sh does not deploy the new version's stack before migrate: another commit alone (the server's
+  // description) makes another version of the server, which the alias live would move to.
+  const versionId = (template: Template) => resources(template, 'AWS::Lambda::Version').map(([id]) => id);
+  assert.notDeepEqual(versionId(build({ sourceSha: 'b'.repeat(40) }).template), versionId(defaults));
+  // What it does instead: the deployed template, with the maintenance function as the new version makes it. Here the
+  // new version also goes onto a restored instance (UAT-DEP-07's newer-schema branch): another image, commit and database.
+  const next = props.imageUri.replace(DIGEST, `sha256:${'2'.repeat(64)}`);
+  const restored = { ...props.database, endpoint: 'restored.abcdefghijkl.us-west-2.rds.amazonaws.com', resourceId: 'db-RESTOREDRESTOREDRESTORED00' };
+  const synthesized = build({ sourceSha: 'b'.repeat(40), imageUri: next, database: restored }).template.toJSON();
+  const deployed = defaults.toJSON();
+  const changed = maintenanceFirst(deployed, synthesized);
+  const [maintenanceId, maintenance] = fn(defaults, 'colvenna-catalog-uat-maintenance');
+  const policyId = resources(defaults, 'AWS::IAM::Policy')
+    .filter(([, p]) => p.Properties.Roles.some((r: any) => r.Ref === maintenance.Properties.Role['Fn::GetAtt'][0])).map(([id]) => id);
+  assert.equal(policyId.length, 1);
+  const where = differences(deployed, changed);
+  assert.ok(where.length > 0);
+  for (const at of where) {
+    assert.ok(at.startsWith(`/Resources/${maintenanceId}/Properties/`) || at.startsWith(`/Resources/${policyId[0]}/Properties/PolicyDocument/`)
+      || at === '/Outputs/MaintenanceImage/Value', at);
+  }
+  // It migrates the database the new configuration names, signing in to it.
+  assert.equal(flat(changed.Resources[maintenanceId].Properties), flat(fn(Template.fromJSON(synthesized), 'colvenna-catalog-uat-maintenance')[1].Properties));
+  assert.match(flat(changed.Resources[policyId[0]].Properties.PolicyDocument), /db-RESTOREDRESTOREDRESTORED00/);
+  assert.equal(changed.Outputs.MaintenanceImage.Value, next);
+  // So the server function, its one version and the alias live, the authorizer and the ops and purge functions are as
+  // deployed: CloudFormation publishes no version and moves no alias.
+  for (const name of ['server', 'authorizer', 'ops', 'purge']) {
+    const [id] = fn(defaults, `colvenna-catalog-uat-${name}`);
+    assert.deepEqual(changed.Resources[id], deployed.Resources[id], name);
+  }
+  for (const type of ['AWS::Lambda::Version', 'AWS::Lambda::Alias']) {
+    const ids = resources(defaults, type).map(([id]) => id);
+    assert.deepEqual(Object.keys(changed.Resources).filter((id) => changed.Resources[id].Type === type), ids, type);
+    for (const id of ids) {
+      assert.deepEqual(changed.Resources[id], deployed.Resources[id], id);
+    }
+  }
+});
+
+test('the template fits in a CloudFormation request, which sl_maintenance_first sends it in (#63)', () => {
+  // The largest the stack makes: SnapStart on, per-table credentials, two execute-api endpoints; with the
+  // metadata the CDK CLI adds to what it deploys.
+  const app = new App({ context: { 'aws:cdk:enable-path-metadata': true, 'aws:cdk:enable-asset-metadata': true } });
+  const stack = new CatalogServerlessStack(app, 'ColvennaCatalogUatServerless', { ...props, snapStart: true });
+  const bytes = Buffer.byteLength(JSON.stringify(Template.fromStack(stack).toJSON()));
+  assert.ok(bytes <= 51200, `${bytes} bytes`);
 });
 
 test('what the gateway answers itself is retryable: a database the authorizer cannot reach, a request over the concurrency', () => {
