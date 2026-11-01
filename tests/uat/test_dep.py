@@ -1085,10 +1085,12 @@ class Dep05And08And09And11(unittest.TestCase):
         self.assertFalse(self.d9.judge_nothing_left(0, "ok    stacks: none", ["the Helm release"])[0])
         marker = self.d9.marker_key("exw2", "u261030")
         kept = {marker: '"e0"'}
-        self.assertTrue(self.d9.judge_existing_kept(True, True, kept, dict(kept), marker)[0])
-        self.assertFalse(self.d9.judge_existing_kept(True, False, kept, dict(kept), marker)[0])  # the database gone
-        self.assertFalse(self.d9.judge_existing_kept(False, True, kept, dict(kept), marker)[0])  # the instance changed
-        ok, detail = self.d9.judge_existing_kept(True, True, None, None, None)
+        rec = {"instance": {"Engine": "postgres"}, "instanceStatus": "available"}
+        self.assertTrue(self.d9.judge_existing_kept(rec, dict(rec), True, kept, dict(kept), marker)[0])
+        self.assertFalse(self.d9.judge_existing_kept(rec, dict(rec), False, kept, dict(kept), marker)[0])  # the database gone
+        self.assertFalse(self.d9.judge_existing_kept(rec, dict(rec, instance={"Engine": "x"}), True, kept, dict(kept),
+                                                     marker)[0])  # the instance changed
+        ok, detail = self.d9.judge_existing_kept({}, {}, True, None, None, None)
         self.assertTrue(ok)
         self.assertIn("no bucket was given", detail)
 
@@ -1097,21 +1099,25 @@ class Dep05And08And09And11(unittest.TestCase):
         marker of its own under the prefix: the prefix is kept when the marker is still there, unchanged."""
         marker = self.d9.marker_key("exw2", "u261030")
         self.assertEqual(marker, "exw2/uat-dep09-u261030.marker")
-        judge = self.d9.judge_existing_kept
+        rec = {"instanceStatus": "available"}
+
+        def judge(present, before, after, marker):  # the existing instance as recorded throughout
+            return self.d9.judge_existing_kept(rec, rec, present, before, after, marker)
+
         # The prefix held nothing but the marker.
-        self.assertTrue(judge(True, True, {marker: '"e0"'}, {marker: '"e0"'}, marker)[0])
-        ok, detail = judge(True, True, {marker: '"e0"'}, {}, marker)
+        self.assertTrue(judge(True, {marker: '"e0"'}, {marker: '"e0"'}, marker)[0])
+        ok, detail = judge(True, {marker: '"e0"'}, {}, marker)
         self.assertFalse(ok)
         self.assertIn("the marker gone or changed", detail)
-        self.assertFalse(judge(True, True, {marker: '"e0"'}, {marker: '"e1"'}, marker)[0])
+        self.assertFalse(judge(True, {marker: '"e0"'}, {marker: '"e1"'}, marker)[0])
         # A dropped table's files the catalog was still deleting: reported, not a loss.
         before = {marker: '"e0"', "exw2/db.db/t/snapshot/snapshot-1": '"a1"'}
-        ok, detail = judge(True, True, before, {marker: '"e0"'}, marker)
+        ok, detail = judge(True, before, {marker: '"e0"'}, marker)
         self.assertTrue(ok)
         self.assertIn("of the 1 other objects recorded before the uninstall, 1 gone since", detail)
-        self.assertTrue(judge(True, True, before, dict(before, **{"exw2/new": '"n"'}), marker)[0])
+        self.assertTrue(judge(True, before, dict(before, **{"exw2/new": '"n"'}), marker)[0])
         # Without the marker recorded the check cannot see a prefix kept.
-        self.assertFalse(judge(True, True, {}, {marker: '"e0"'}, marker)[0])
+        self.assertFalse(judge(True, {}, {marker: '"e0"'}, marker)[0])
 
     def test_existing_kept_ignores_the_instances_status(self):
         # #98: RDS's automated backup in the instance's window turns its status to backing-up and back.
@@ -1119,7 +1125,12 @@ class Dep05And08And09And11(unittest.TestCase):
         same, note = self.d9.same_existing(before, dict(before, instanceStatus="backing-up"))
         self.assertTrue(same)
         self.assertIn("available -> backing-up", note)
-        self.assertIn("available -> backing-up", self.d9.judge_existing_kept(same, True, None, None, None, note)[1])
+        self.assertIn("available -> backing-up",
+                      self.d9.judge_existing_kept(before, dict(before, instanceStatus="backing-up"), True, None, None, None)[1])
+        self.assertTrue(self.d9.same_existing(dict(before, instanceStatus="backing-up"), before)[0])  # and back
+        # What a change asked with ApplyImmediately holds while it waits.
+        pending = dict(before, instance={"Engine": "postgres", "PendingModifiedValues": {"DBInstanceClass": "db.t4g.medium"}})
+        self.assertFalse(self.d9.same_existing(before, pending)[0])
         # A change asked of the instance is still a change: its status, or what it holds pending.
         self.assertFalse(self.d9.same_existing(before, dict(before, instanceStatus="modifying"))[0])
         self.assertFalse(self.d9.same_existing(before, dict(before, instance={"Engine": "other"}))[0])

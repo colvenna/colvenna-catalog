@@ -61,8 +61,9 @@ def judge_nothing_left(code, output, kube_left):
     return code == 0 and not left and not kube_left, f"verify-clean.sh exit {code}; left: {left + kube_left or 'nothing'}"
 
 
-def judge_existing_kept(same, present, before, after, marker, note=""):
-    """The existing instance and bucket as recorded, with the catalog's database, users and prefix in them.
+def judge_existing_kept(existing_before, existing_after, present, before, after, marker):
+    """The existing instance and bucket as recorded (record_existing before and after: same_existing), with
+    the catalog's database, users and prefix in them.
     The prefix is kept when the marker the case put there (#44) is still there, unchanged. Other objects
     recorded before the uninstall that are gone since are reported, not judged: the catalog may still be
     deleting the files of a table an earlier case dropped (the serverless form's purge function, the EKS
@@ -74,6 +75,7 @@ def judge_existing_kept(same, present, before, after, marker, note=""):
         gone = sorted(k for k in before if k != marker and k not in after)
         prefix = (f"the marker {'still there, unchanged' if kept else 'gone or changed'}; of the {len(before) - 1} "
                   f"other objects recorded before the uninstall, {len(gone)} gone since {gone[:3]}")
+    same, note = same_existing(existing_before, existing_after)
     return same and present and kept, (
         f"the existing instance and bucket {'as recorded' if same else 'changed'}{f' ({note})' if note else ''}; "
         f"the catalog's database and user "
@@ -82,8 +84,7 @@ def judge_existing_kept(same, present, before, after, marker, note=""):
 
 def same_existing(before, after):
     """(same, note): the existing instance and bucket as record_existing recorded them; the instance's
-    status the same, or changed only by RDS's own backup in its window (#98; deploy.instance_status), which
-    the note reports."""
+    status the same, or only being backed up and back (#98; deploy.instance_status), which the note reports."""
     def settled(record):
         return {k: v for k, v in record.items() if k != "instanceStatus"}
     status_same, note = deploy.instance_status(before.get("instanceStatus"), after.get("instanceStatus"))
@@ -254,7 +255,6 @@ def run(ctx):
 
     if instance or bucket:
         after_existing = record_existing(ctx, instance, bucket)
-        same, note = same_existing(before_existing, after_existing)
         ctx.keep("existing-before.json", before_existing)
         ctx.keep("existing-after.json", after_existing)
         db, user = inst.get("COLVENNA_DB_NAME"), inst.get("COLVENNA_DB_USER")
@@ -265,7 +265,8 @@ def run(ctx):
         prefix_after = prefix_objects(aws, bucket, inst.prefix) if bucket else {}
         if bucket:
             ctx.keep("prefix-after.json", prefix_after)
-        ctx.check("existing-kept", *judge_existing_kept(same, present, prefix_before, prefix_after, marker, note))
+        ctx.check("existing-kept", *judge_existing_kept(before_existing, after_existing, present, prefix_before,
+                                                        prefix_after, marker))
         if done.exit_code == 0 or (retry and retry.exit_code == 0):
             # As the deployment guide tells a user (section 8), once the install is gone: the catalog's
             # database, users and prefix in what it was given.
