@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "candidate": "v1.0.0-rc.4",
+  "source": {
+    "repository": "https://github.com/colvenna/colvenna-catalog",
+    "built_from": "77984fb24823acc53e4c1e2d00747d494961552d",
+    "tag": "v1.0.0-rc.4 points at built_from with release/v1.0.0-rc.4/ added, nothing else"
+  },
+  "generated": "2026-11-01T03:24:47Z",
+  "image": {
+    "repository": "colvenna-catalog-release/colvenna-catalog",
+    "tag": "v1.0.0-rc.4",
+    "digest": "sha256:47d8834d463ca4b75d82f2c4f1dbb4466fb04cd8fb07c682e1163b3cffcc4a68",
+    "platform": "linux/amd64"
+  },
+  "chart": {
+    "name": "colvenna-catalog",
+    "path": "deploy/helm/colvenna-catalog",
+    "tree": "f8d49690a9e0ae60e655d4f2a9167f19bef9ebc9",
+    "version": "1.0.0-rc.4",
+    "appVersion": "v1.0.0-rc.4",
+    "repository": "colvenna-catalog-release/charts/colvenna-catalog",
+    "digest": "sha256:06b5328572d2bc80069a0f7ebd164c5e01f331317d20cf6a376d05e4e53e4449"
+  },
+  "installer": {
+    "install": {
+      "path": "install.sh",
+      "blob": "97988627ab567cef3fc1ad3141f399776f6fddb9"
+    },
+    "uninstall": {
+      "path": "uninstall.sh",
+      "blob": "d261a4c28c3fa694c42d33b387915e762c4cc573"
+    },
+    "lib": {
+      "path": "deploy/lib",
+      "tree": "1cc61b3888718e35c4178896793bd7cef65dffc7"
+    }
+  },
+  "cdk": {
+    "path": "deploy/aws",
+    "tree": "7ae331a5c16aaef2cb17143a08b7abccd106f8e4"
+  },
+  "uat_cases": {
+    "path": "docs/uat/cases.md",
+    "status": "present",
+    "commit": "9dd5d05c1b729f30c445d83ec17dc4e168c7eaf2",
+    "blob": "00ccb1e17a671a3ebd093b54eea36a03d21c226b"
+  },
+  "required_cases": [
+    "UAT-CMP-01",
+    "UAT-CMP-02",
+    "UAT-CMP-03",
+    "UAT-CMP-04",
+    "UAT-CMP-05",
+    "UAT-CMP-06",
+    "UAT-CMP-07",
+    "UAT-CMP-08",
+    "UAT-CAT-01",
+    "UAT-CAT-02",
+    "UAT-CAT-03",
+    "UAT-CAT-04",
+    "UAT-CAT-05",
+    "UAT-CAT-06",
+    "UAT-CAT-07",
+    "UAT-CAT-08",
+    "UAT-SEC-01",
+    "UAT-SEC-02",
+    "UAT-SEC-03",
+    "UAT-SEC-04",
+    "UAT-DEP-01",
+    "UAT-DEP-02",
+    "UAT-DEP-03",
+    "UAT-DEP-04",
+    "UAT-DEP-05",
+    "UAT-DEP-06",
+    "UAT-DEP-07",
+    "UAT-DEP-08",
+    "UAT-DEP-09",
+    "UAT-DEP-10",
+    "UAT-DEP-11",
+    "UAT-FLT-01",
+    "UAT-FLT-02",
+    "UAT-FLT-03"
+  ],
+  "performance": {
+    "path": "docs/performance/terms.md",
+    "status": "present",
+    "commit": "606ced4ea93c50a8a3da710b329fbe5993c8b6a0",
+    "blob": "2ae4339058d459a8abe35bc7da62d0f9e8d334c0"
+  },
+  "configurations": {
+    "forms": [
+      "eks",
+      "serverless"
+    ],
+    "regions": [
+      "us-west-2",
+      "us-east-2"
+    ]
+  }
+}
