@@ -1,13 +1,13 @@
 ---
 title: "Colvenna Catalog performance acceptance: scenarios, method and targets"
 date: 2026-11-01
-status: confirmed, 需求方已于 2026-10-29 确认；P1b 的负载于 2026-11-01 由需求方确认修订，目标不变（#83；无服务器形态的 40 分钟窗口由发布协调方推出）
+status: confirmed, 需求方已于 2026-10-29 确认；P1b 的负载于 2026-11-01 由需求方确认修订，目标不变（#83；无服务器形态的 40 分钟窗口由发布协调方推出）；P5 的凭证未命中于 2026-11-01 由需求方确认改为只报告，其延迟由 P3 判定，目标不变（#91）
 issue: 19
 ---
 
 # Performance acceptance terms
 
-> **需求方已于 2026-10-29 确认 (confirmed by the requester on 2026-10-29); P1b 的负载于 2026-11-01 由需求方确认修订 (P1b's load revised, its targets unchanged, confirmed by the requester on 2026-11-01, #83; the serverless form's 40-minute window is the release coordinator's, section 4, P1).** The implementer proposed these terms and the requester confirmed them unchanged (design 9.3: "targets are proposed by the implementer and confirmed by the requester before they are written into the release manifest"). Each candidate's release manifest pins this document's version (`performance`), so the targets of section 4 are fixed for that candidate. A change to them is a change for the next candidate, and needs the requester's confirmation again. The performance acceptance runs in `us-west-2` only; UAT still runs in both Regions.
+> **需求方已于 2026-10-29 确认 (confirmed by the requester on 2026-10-29); P1b 的负载于 2026-11-01 由需求方确认修订 (P1b's load revised, its targets unchanged, confirmed by the requester on 2026-11-01, #83; the serverless form's 40-minute window is the release coordinator's, section 4, P1); P5 的凭证未命中只报告，由需求方 2026-11-01 确认 (P5's credential misses reported, not judged, their latency judged by P3, confirmed by the requester on 2026-11-01, #91; section 4, P5).** The implementer proposed these terms and the requester confirmed them unchanged (design 9.3: "targets are proposed by the implementer and confirmed by the requester before they are written into the release manifest"). Each candidate's release manifest pins this document's version (`performance`), so the targets of section 4 are fixed for that candidate. A change to them is a change for the next candidate, and needs the requester's confirmation again. The performance acceptance runs in `us-west-2` only; UAT still runs in both Regions.
 
 This document fixes, before any run, what the performance acceptance of a release candidate measures, how, and what it must meet: the scenarios of the [1.0 design](../design/v1.0-design.md) section 9.3, each with its environment, method, metrics and targets, and the reasons for each target. Each candidate's results go to `docs/performance/<candidate>.md` (#20), with the raw data and the limits, and give the candidate's performance verdict. Performance is not part of UAT ([UAT cases](../uat/cases.md), section 2): it is never counted in UAT's numbers or verdict, and taking it out of UAT does not waive it.
 
@@ -164,19 +164,22 @@ So the client waits 3 minutes, and a 2 to 6 s cold start is far inside that. The
 | Load | The same, at once, on both forms, in the same window: 4 writers on tables of their own committing every 2 s (2 commits per second); P2's read mix at 50 requests per second; credential requests at 2 per second (mostly hits, with 10 % misses); 30 minutes after warm-up |
 | Metrics | Per operation and form: p50, p95, p99, and the ratio of serverless to EKS (observed); errors; the serverless form's cold starts in the window (observed, their requests reported apart); the database's peak connections by user and its CPU (observed) |
 
-**Targets (confirmed 2026-10-29):**
+**Targets (confirmed 2026-10-29; the credential misses' row 2026-11-01):**
 
 | Metric | Target |
 | --- | --- |
 | Errors | 0 in both forms |
-| Each form's latencies at this load | Within that form's targets of P1a (commit request), P2 (reads) and P3 (credentials) |
+| Each form's latencies at this load | Within that form's targets of P1a (commit request), P2 (reads) and P3 (credential hits) |
+| The credential misses' latency | Reported, not judged: fewer than 1,000 at this load; P3 judges it |
 | The difference between the forms | Reported, not judged |
 
 **Why.** The two forms differ by design. Every serverless request crosses API Gateway, the authorizer and Lambda; every EKS request is a TLS call inside the cluster. So a target on the difference would only restate that. What is judged is that both carry the same moderate load with no error and within their own targets. The comparison serves the user manual and the cost estimate (#16), which cite it.
 
+**The credential misses, revised (需求方 2026-11-01 确认: reported, not judged; P3's targets and every other P5 target unchanged; #91).** At this load a form makes about 360 credential misses (10 % of 2 requests a second for 30 minutes; `v1.0.0-rc.2` measured 384 on the EKS form and 546 on the serverless form, whose execution environments each keep a cache of their own), fewer than the 1,000 samples a judged percentile needs (section 3). Judged, that row could only be `NOT_JUDGED`, and by section 1 no candidate's verdict could then be `PASS`. So the misses' latency is reported here and judged by P3, whose P3a makes 1,080 misses in each form. Every other part of P5 gives 1,000 samples or more at this load (about 3,600 commits, 3,240 credential hits, and of the reads 54,000 `getTable`, 27,000 snapshot loads and 9,000 `listTables` a form) and is judged by its form's targets as before, and "0 in both forms" counts every request, the misses among them.
+
 ## 5. What the manifest records
 
-Each candidate's release manifest pins this document as `performance`: its path, the commit that last changed it up to the commit the candidate is built from, and its blob (`scripts/release/manifest.py`, written by `make-manifest.sh`). A manifest whose `performance` is absent is valid, but not one for GO. The targets are the ones of section 4 at that version. The document carries no version number of its own: that commit and blob are its version, so a candidate built after the revision of 2026-11-01 (#83) pins the revised P1b, and `v1.0.0-rc.2`'s manifest still pins the terms it was judged by.
+Each candidate's release manifest pins this document as `performance`: its path, the commit that last changed it up to the commit the candidate is built from, and its blob (`scripts/release/manifest.py`, written by `make-manifest.sh`). A manifest whose `performance` is absent is valid, but not one for GO. The targets are the ones of section 4 at that version. The document carries no version number of its own: that commit and blob are its version, so a candidate built after the revisions of 2026-11-01 pins the revised P1b (#83) and P5 (#91), and `v1.0.0-rc.2`'s manifest still pins the terms it was judged by.
 
 ## 6. The evidence the targets rest on
 

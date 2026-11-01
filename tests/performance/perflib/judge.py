@@ -363,8 +363,10 @@ def p4(variant, rounds, server_envs, authorizer_envs, gateway, cold_rows, rest, 
 
 def p5(form, spec, commits, rest, reads, tokens, cold_ids=()):
     """P5's metrics on one form: no error, and each part within its form's targets (P1a's commit
-    request, P2's reads, P3's credentials). Requests served by a cold execution environment are
-    reported apart (cold_ids: their request ids)."""
+    request, P2's reads, P3's credential hits). The credential misses' latency is reported, not judged:
+    about 360 a form at this load, fewer than a judged percentile's 1,000, and P3 judges it (the
+    requester's decision of 2026-11-01, #91); a miss that failed is still an error. Requests served by
+    a cold execution environment are reported apart (cold_ids: their request ids)."""
     cold_ids = set(cold_ids)
     w = spec["writers"]
     window = commit_window(w)
@@ -394,9 +396,9 @@ def p5(form, spec, commits, rest, reads, tokens, cold_ids=()):
     metrics.append(latency_row("P5 credential hit p95 / p99 (P3's target)",
                                [ms(t["latUs"]) for t in tk if t.get("ok") and t.get("class") == "hit" and warm(t)],
                                terms.target("P3", "Hit p95 / p99").values[form]))
-    metrics.append(latency_row("P5 credential miss p95 / p99 (P3's target)",
+    metrics.append(latency_row("P5 credential miss latency (reported, not judged: P3 judges misses)",
                                [ms(t["latUs"]) for t in tk if t.get("ok") and t.get("class") == "miss" and warm(t)],
-                               terms.target("P3", "Miss p95 / p99").values[form]))
+                               judged=False))
     apart = [r for r in rd + tk if not warm(r)]
     metrics.append(latency_row("P5 requests served by a cold execution environment (apart)",
                                [ms(r["latUs"]) for r in apart], judged=False))
