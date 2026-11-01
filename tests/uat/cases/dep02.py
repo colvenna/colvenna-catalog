@@ -60,9 +60,12 @@ def record_existing(ctx):
     if inst.get("COLVENNA_DB") == "existing":
         instance = inst.get("COLVENNA_DB_ENDPOINT").split(".", 1)[0]
         d = aws("rds", "describe-db-instances", "--db-instance-identifier", instance)["DBInstances"][0]
-        out["database"] = {k: d.get(k) for k in ("DBInstanceStatus", "DBInstanceClass", "Engine", "EngineVersion",
+        out["database"] = {k: d.get(k) for k in ("DBInstanceClass", "Engine", "EngineVersion",
                                                  "DBParameterGroups", "VpcSecurityGroups", "IAMDatabaseAuthenticationEnabled",
-                                                 "PubliclyAccessible", "MultiAZ", "BackupRetentionPeriod", "DBSubnetGroup")}
+                                                 "PubliclyAccessible", "MultiAZ", "BackupRetentionPeriod", "DBSubnetGroup",
+                                                 "PendingModifiedValues")}
+        # Judged on its own (#98): RDS's own backup in the instance's window changes it (deploy.instance_status).
+        out["databaseStatus"] = d.get("DBInstanceStatus")
         out["securityGroups"] = aws("ec2", "describe-security-groups", "--group-ids",
                                     *[g["VpcSecurityGroupId"] for g in d["VpcSecurityGroups"]])["SecurityGroups"]
     bucket = inst.get("COLVENNA_BUCKET")
@@ -154,13 +157,17 @@ def judge_existing_untouched(before, after, made, own, alongside=None):
     install's own (own: the same keys), or the names of the installs alongside (alongside: the same
     keys but stacks), which added theirs meanwhile (#43)."""
     alongside = alongside or {}
-    changed = sorted(k for k in before if before[k] != after.get(k))
+    changed = sorted(k for k in before if k != "databaseStatus" and before[k] != after.get(k))
+    status_same, status = deploy.instance_status(before.get("databaseStatus"), after.get("databaseStatus"))
+    if not status_same:
+        changed.append("databaseStatus")
     theirs = {k: sorted(set(v) & alongside.get(k, set()) - own.get(k, set())) for k, v in made.items()}
     theirs = {k: v for k, v in theirs.items() if v}
     foreign = {k: sorted(set(v) - own.get(k, set()) - alongside.get(k, set())) for k, v in made.items()}
     foreign = {k: v for k, v in foreign.items() if v}
     hint = "" if not foreign or alongside else " (another install into them at the same time? name it with --alongside)"
-    return not changed and not foreign, (f"{'as recorded' if not changed else f'changed: {changed}'}; added and deployed: "
+    return not changed and not foreign, (f"{'as recorded' if not changed else f'changed: {changed}'}"
+                                         f"{f' ({status})' if status else ''}; added and deployed: "
                                          f"{made}; added by the installs alongside: {theirs or 'none'}; "
                                          f"not the install's: {foreign or 'none'}{hint}")
 
