@@ -1,6 +1,17 @@
 # Trivy findings that are false positives here, each with its reason (#18); trivy.yaml names this file.
 # Only verified false positives belong here: a real finding is fixed, or stays visible and is handled
 # in docs/security/scans.md. Each entry is pinned to the rule and the file.
+vulnerabilities:
+  # --- the CDK app's lockfile (deploy/aws/package-lock.json) -----------------------------------------
+  - id: CVE-2026-118764
+    paths:
+      - deploy/aws/package-lock.json
+    statement: >-
+      GHSA-g3hv-75wg-m249, minimatch 10.2.6: the copy aws-cdk-lib 2.274.0 bundles (its latest, 2.275.0,
+      too), the lockfile's only one. Its amplification runs only with optimizationLevel 2 or more, which
+      none of aws-cdk-lib's callers sets; the patterns are this repository's CDK code and the operator's
+      context, at synthesis on the operator's host, and nothing of aws-cdk-lib ships in the image or the
+      chart (docs/security/scans.md, section 5.3)
 misconfigurations:
   # --- the chart (deploy/helm/colvenna-catalog) ------------------------------------------------------
   - id: KSV-0109

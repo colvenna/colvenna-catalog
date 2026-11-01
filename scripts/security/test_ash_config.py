@@ -2,6 +2,7 @@
 line, which would stop matching when the code moves; the entries that suppress a rule for a whole file
 hold for the whole file; and every mark on a line says why. docs/security/scans.md, section 3, has the
 procedure."""
+import json
 import os
 import re
 import subprocess
@@ -90,6 +91,27 @@ class Suppressions(unittest.TestCase):
         for where in arrays:
             with self.subTest(where="/".join(map(str, where))):
                 self.assertEqual(where[1:3], ("get", "responses"))
+
+    def test_the_one_minimatch_is_aws_cdk_libs_bundled_copy(self):
+        # GHSA-g3hv-75wg-m249 (CVE-2026-118764, #85) is suppressed for the CDK app's lockfile and the packages npm
+        # audit names after it. Its premise: the lockfile's one minimatch is the copy aws-cdk-lib 2.274.0 bundles,
+        # whose callers were read and never set optimizationLevel (scans.md, section 5.3). Another copy, or another
+        # aws-cdk-lib, needs that read again; the five entries come and go together.
+        lock = json.loads(read("deploy/aws/package-lock.json"))["packages"]
+        copies = [k for k in lock if k == "node_modules/minimatch" or k.endswith("/node_modules/minimatch")]
+        self.assertEqual(copies, ["node_modules/aws-cdk-lib/node_modules/minimatch"])
+        self.assertTrue(lock[copies[0]].get("inBundle"))
+        self.assertEqual(lock["node_modules/aws-cdk-lib"]["version"], "2.274.0")
+        advisory = {("GHSA-g3hv-75wg-m249", "node_modules/aws-cdk-lib/minimatch/package.json"),
+                    ("GHSA-g3hv-75wg-m249-minimatch", "deploy/aws/package-lock.json")}
+        repeats = {(r, p) for r, p in suppressed() if r.startswith("npm-audit-transitive-")}
+        self.assertLessEqual(advisory, set(suppressed()))
+        self.assertEqual({r for r, _ in repeats}, {"npm-audit-transitive-aws-cdk-lib", "npm-audit-transitive-cdk-nag",
+                                                   "npm-audit-transitive-@aws-cdk/lambda-layer-kubectl-v36"})
+        # Trivy's entry for it names the same advisory and the same file.
+        ignored = [{k: v for k, v in e.items() if k != "statement"}
+                   for e in yaml.safe_load(read(".trivyignore.yaml")).get("vulnerabilities", [])]
+        self.assertIn({"id": "CVE-2026-118764", "paths": ["deploy/aws/package-lock.json"]}, ignored)
 
     def test_every_mark_on_a_line_says_why(self):
         tracked = subprocess.run(["git", "-C", REPO, "ls-files"], check=True, capture_output=True,

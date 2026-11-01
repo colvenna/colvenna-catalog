@@ -11,7 +11,7 @@
 #     the line's comment (a line that has the same value again needs its own);
 #   - bandit: "# nosec <rule> - <reason>".
 # A real secret written on another line is still reported. scripts/security/test_ash_config.py checks
-# that no entry names a line, and that the premises of the whole-file checkov entries hold.
+# that no entry names a line, and that the premises of the whole-file checkov and dependency entries hold.
 project_name: colvenna-catalog
 fail_on_findings: true
 global_settings:
@@ -44,3 +44,19 @@ global_settings:
     - rule_id: CKV_OPENAPI_21
       path: docs/api/admin-v1.yaml
       reason: "checkov judges the paths block as a whole, at its first array without maxItems. The arrays there are the GET listings' responses (principals, tokens, grants, audit events, purges), which the server writes, not input it reads; only an admin principal may call them, and the audit listing returns at most 1000 events. test_ash_config.py holds every array under paths to a GET response"
+    # --- npm-audit and grype: the minimatch aws-cdk-lib bundles (#85) ----------------------------------
+    - rule_id: GHSA-g3hv-75wg-m249
+      path: node_modules/aws-cdk-lib/minimatch/package.json
+      reason: "minimatch 10.2.6, bundled in aws-cdk-lib 2.274.0 (its latest, 2.275.0, bundles ^10.2.6 too; an npm override cannot reach a bundled package). The advisory's amplification runs only with optimizationLevel 2 or more; aws-cdk-lib's three callers (Stack's bundling-stacks match, IgnoreStrategy.glob, the construct selectors) never set it, so minimatch's default 1 applies. The patterns are this repository's own CDK code and the operator's context, at synthesis on the operator's host; nothing of aws-cdk-lib is in the image or the chart (docs/security/scans.md, section 5.3). test_ash_config.py holds the lockfile to that one bundled copy and to aws-cdk-lib 2.274.0"
+    - rule_id: GHSA-g3hv-75wg-m249-minimatch
+      path: deploy/aws/package-lock.json
+      reason: "grype's match of the same advisory in the CDK app's lockfile, on the one minimatch it holds: aws-cdk-lib's bundled 10.2.6, unreachable as the entry for npm-audit says. test_ash_config.py holds the lockfile to that one copy"
+    - rule_id: npm-audit-transitive-aws-cdk-lib
+      path: node_modules/aws-cdk-lib/package.json
+      reason: "npm audit names a package again, under this package-wide id, for any advisory of what it depends on (now the bundled minimatch's GHSA-g3hv-75wg-m249). The advisory itself is reported under its own id at the package that has it, and judged there; this entry hides the repeat only. It goes with GHSA-g3hv-75wg-m249's entries (test_ash_config.py)"
+    - rule_id: npm-audit-transitive-cdk-nag
+      path: node_modules/cdk-nag/package.json
+      reason: "As npm-audit-transitive-aws-cdk-lib: cdk-nag is named again for what it depends on (now aws-cdk-lib's bundled minimatch), whose advisories are reported and judged under their own ids where they are"
+    - rule_id: npm-audit-transitive-@aws-cdk/lambda-layer-kubectl-v36
+      path: node_modules/@aws-cdk/lambda-layer-kubectl-v36/package.json
+      reason: "As npm-audit-transitive-aws-cdk-lib: the kubectl layer is named again for what it depends on (now aws-cdk-lib's bundled minimatch), whose advisories are reported and judged under their own ids where they are"
