@@ -314,6 +314,20 @@ class Judges(unittest.TestCase):
         ok, detail = deploy.others_untouched(before, dict(updated, buckets=before["buckets"][:1]), "fx6x", "ColvennaCatalogTestFx6")
         self.assertFalse(ok)
         self.assertIn("colvennacatalogtestr2w2-existingdatabucket-b2", detail)
+        # A stack nested in it gone while its own stack was updated is its update: never its data.
+        regrown = dict(before, stacks=dict({k: v for k, v in stacks.items() if k != nested},
+                                           ColvennaCatalogTestR2w2=["UPDATE_COMPLETE", "t9", theirs[2]]))
+        ok, detail = deploy.others_untouched(before, dict(regrown, roles=before["roles"][1:]), "fx6x", "ColvennaCatalogTestFx6")
+        self.assertTrue(ok, detail)
+        self.assertIn("test environments updated meanwhile by their own runs: ['r2w2']", detail)
+        ok, detail = deploy.others_untouched(before, dict(regrown, buckets=before["buckets"][:1]), "fx6x", "ColvennaCatalogTestFx6")
+        self.assertFalse(ok)
+        self.assertIn("colvennacatalogtestr2w2-existingdatabucket-b2", detail)
+        # A stack left DELETE_FAILED as it was did nothing meanwhile: what its environment lost was touched.
+        failed = dict(before, stacks=dict(stacks, ColvennaCatalogTestR2w2=["DELETE_FAILED", "t2", theirs[2]]))
+        ok, detail = deploy.others_untouched(failed, dict(failed, buckets=before["buckets"][:1]), "fx6x", "ColvennaCatalogTestFx6")
+        self.assertFalse(ok)
+        self.assertIn("colvennacatalogtestr2w2-existingdatabucket-b2", detail)
         # The case's own scripts naming its stack are no excuse.
         ok, detail = deploy.others_untouched(before, gone, "fx6x", "ColvennaCatalogTestFx6", said="deleting ColvennaCatalogTestR2w2")
         self.assertFalse(ok)
@@ -361,9 +375,11 @@ class Judges(unittest.TestCase):
         u1 = {"ColvennaCatalogTestU1": ["UPDATE_COMPLETE", "t1"]}
         pfek = {"ColvennaCatalogPfekStorage": ["CREATE_COMPLETE", "t2"], "ColvennaCatalogPfekEks": ["CREATE_COMPLETE", "t2"]}
         data = {"buckets": ["colvennacatalogpfekstorage-accesslogs-a1", "colvennacatalogpfekstorage-warehouse-a2"],
+                "databases": ["colvennacatalogpfekstorage-database-a1 available"],
                 "logGroups": ["/aws/rds/instance/colvennacatalogpfekstorage-database-a1/postgresql"]}
         before = dict(data, stacks=dict(u1, **pfek))
-        ok, detail = deploy.others_untouched(before, {"stacks": u1, "buckets": [], "logGroups": []}, "sxe2", "ColvennaCatalogTestU1")
+        ok, detail = deploy.others_untouched(before, {"stacks": u1, "buckets": [], "databases": [], "logGroups": []}, "sxe2",
+                                             "ColvennaCatalogTestU1")
         self.assertTrue(ok, detail)
         self.assertIn("uninstalled meanwhile by their own runs: ['pfek']", detail)
         # Without pfek's stacks in the records (left by an install gone before), its names still read as pfek's.
@@ -426,6 +442,19 @@ class Judges(unittest.TestCase):
         # A name both could have: the stacks in the records decide.
         self.assertEqual(deploy.owner_of("colvennacatalogtestestorage-b1", ["ColvennaCatalogTesteStorage"]), ("install", "teste"))
         self.assertEqual(deploy.owner_of("colvennacatalogtestestorage-b1", ["ColvennaCatalogTestEstorage"]), ("test", "estorage"))
+        # A lowercased cut two recorded stacks share (stacks.sh: a and aserverl) is no one's; one of them alone decides.
+        both = ["ColvennaCatalogAServerless", "ColvennaCatalogAserverlStorage"]
+        self.assertIsNone(deploy.owner_of("colvennacatalogaserverl-bucket-x1", both))
+        self.assertEqual(deploy.owner_of("colvennacatalogaserverl-bucket-x1", both[1:]), ("install", "aserverl"))
+        # of_install reads names as owner_of does: an install's test driver's generated names are the install's.
+        self.assertTrue(deploy.of_install("ColvennaCatalogTestFx6sDriver-LogRetention-x4", "fx6s"))
+        self.assertEqual(deploy.owner_of("ColvennaCatalogTestPf2").label, "the test environment pf2")
+        self.assertTrue(deploy.owner_of("ColvennaCatalogTestPf2").named_in("deleting ColvennaCatalogTestPf2-nested"))
+        self.assertFalse(deploy.owner_of("ColvennaCatalogTestFx6").named_in("ColvennaCatalogTestFx6sDriver"))
+        self.assertFalse(deploy.owner_of("ColvennaCatalogFx6Eks").named_in("ColvennaCatalogFx6sStorage"))
+        # A test environment's name that is a cut of another's (abcdef, abcdefgh), both in the records: no one's.
+        self.assertIsNone(deploy.owner_of("ColvennaCatalogTestAbcdef-ClusterRole-x1",
+                                          ["ColvennaCatalogTestAbcdef", "ColvennaCatalogTestAbcdefgh"]))
         # A test environment's name of 8 characters, which CloudFormation cut in the names it made: the stack decides.
         self.assertEqual(deploy.owner_of("ColvennaCatalogTestAbcdef-ClusterRole-x1", ["ColvennaCatalogTestAbcdefgh"]),
                          ("test", "abcdefgh"))
