@@ -79,6 +79,14 @@ def judge_existing_kept(same, present, before, after, marker):
         f"{'still there' if present else 'gone'}; its prefix: {prefix}")
 
 
+def same_existing(before, after):
+    """The existing instance and bucket as record_existing recorded them, but the instance's status, which
+    RDS's own automated backup in its window or its maintenance changes (#98)."""
+    def settled(record):
+        return {k: v for k, v in record.items() if k != "instanceStatus"}
+    return settled(before) == settled(after)
+
+
 def marker_key(prefix, run):
     """The object the case puts under the catalog's prefix before the uninstall (#44). The cases before it
     drop their tables, whose files the catalog deletes, so the prefix may otherwise hold nothing to keep."""
@@ -147,8 +155,10 @@ def record_existing(ctx, instance, bucket):
     out = {}
     if instance:
         d = ctx.aws("rds", "describe-db-instances", "--db-instance-identifier", instance)["DBInstances"][0]
-        out["instance"] = {k: d.get(k) for k in ("DBInstanceStatus", "DBParameterGroups", "VpcSecurityGroups",
+        out["instance"] = {k: d.get(k) for k in ("DBParameterGroups", "VpcSecurityGroups",
                                                  "IAMDatabaseAuthenticationEnabled", "DBInstanceClass", "Engine")}
+        # Reported, not compared (#98): RDS's own automated backup in the instance's window changes it.
+        out["instanceStatus"] = d.get("DBInstanceStatus")
     if bucket:
         out["bucket"] = {"policy": ctx.aws.raw("s3api", "get-bucket-policy", "--bucket", bucket, "--query", "Policy",
                                                "--output", "text", check=False).stdout.strip(),
@@ -240,7 +250,7 @@ def run(ctx):
 
     if instance or bucket:
         after_existing = record_existing(ctx, instance, bucket)
-        same = after_existing == before_existing
+        same = same_existing(before_existing, after_existing)
         db, user = inst.get("COLVENNA_DB_NAME"), inst.get("COLVENNA_DB_USER")
         code, out = deploy.existing_psql(ctx, inst, f"SELECT datname FROM pg_database WHERE datname = '{db}';\n"  # nosec B608 - the harness's own names, no outside input
                                                     f"SELECT rolname FROM pg_roles WHERE rolname LIKE '{user}%' ORDER BY 1;\n"

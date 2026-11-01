@@ -795,6 +795,13 @@ class Dep01And02(unittest.TestCase):
         made = {"databases": ["cat"], "roles": ["cat"], "prefixes": ["wh/"], "stacks": ["ColvennaCatalogEx1Eks"]}
         self.assertTrue(self.d2.judge_existing_untouched({"vpc": 1, "database": 2}, {"vpc": 1, "database": 2}, made, own)[0])
         self.assertFalse(self.d2.judge_existing_untouched({"vpc": 1, "database": 2}, {"vpc": 1, "database": 3}, made, own)[0])
+        # #98: RDS's automated backup in the instance's window: its status changes, nothing of the install's doing.
+        ok, detail = self.d2.judge_existing_untouched({"database": 2, "databaseStatus": "available"},
+                                                      {"database": 2, "databaseStatus": "backing-up"}, made, own)
+        self.assertTrue(ok)
+        self.assertIn("available -> backing-up", detail)
+        self.assertFalse(self.d2.judge_existing_untouched({"database": 2, "databaseStatus": "available"},
+                                                       {"database": 3, "databaseStatus": "available"}, made, own)[0])
         self.assertFalse(self.d2.judge_existing_untouched({"vpc": 1}, {"vpc": 1}, dict(made, roles=["cat", "other"]), own)[0])
         self.assertFalse(self.d2.judge_existing_untouched({"vpc": 1}, {"vpc": 1}, dict(made, stacks=["ColvennaCatalogX"]), own)[0])
         # #43: another install into the same instance at the same time (E3 and S3 in one step) adds its own; named
@@ -1100,6 +1107,13 @@ class Dep05And08And09And11(unittest.TestCase):
         self.assertTrue(judge(True, True, before, dict(before, **{"exw2/new": '"n"'}), marker)[0])
         # Without the marker recorded the check cannot see a prefix kept.
         self.assertFalse(judge(True, True, {}, {marker: '"e0"'}, marker)[0])
+
+    def test_existing_kept_ignores_the_instances_status(self):
+        # #98: RDS's automated backup in the instance's window turns its status to backing-up and back.
+        before = {"instance": {"Engine": "postgres"}, "instanceStatus": "available", "bucket": {"policy": "p"}}
+        self.assertTrue(self.d9.same_existing(before, dict(before, instanceStatus="backing-up")))
+        self.assertFalse(self.d9.same_existing(before, dict(before, instance={"Engine": "other"})))
+        self.assertFalse(self.d9.same_existing(before, dict(before, bucket={"policy": "q"})))
 
     def test_the_prefix_objects(self):
         class Aws:
