@@ -151,12 +151,12 @@ The client's timeouts (section 2) against these: the client waits 3 minutes; the
 | EKS | Commit request | | | | | | P1a's | |
 | EKS | `getTable`, snapshot, `listTables` | | | | | | P2's | |
 | EKS | Credential hits | | | | | | P3's | |
-| EKS | Credential misses (reported) | | | | | | reported, not judged (P3 judges misses) | `OBSERVED` |
+| EKS | Credential misses | | | | | | observed (P3 judges misses) | |
 | Serverless | Errors | | | | | | 0 | |
 | Serverless | Commit request | | | | | | P1a's | |
 | Serverless | `getTable`, snapshot, `listTables` | | | | | | P2's | |
 | Serverless | Credential hits | | | | | | P3's | |
-| Serverless | Credential misses (reported) | | | | | | reported, not judged (P3 judges misses) | `OBSERVED` |
+| Serverless | Credential misses | | | | | | observed (P3 judges misses) | |
 
 The difference between the forms (reported, not judged): serverless / EKS of each p50, p95 and p99 (`result.json`, `extra.ratios`); the serverless form's cold starts in the window and their requests, apart; each database's peak connections by user and its CPU.
 

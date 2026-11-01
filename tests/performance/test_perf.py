@@ -380,7 +380,11 @@ class P4Test(unittest.TestCase):
 
 
 class P5Test(unittest.TestCase):
-    def test_both_parts_judged_cold_ones_apart(self):
+    MISS = "P5 credential miss latency (reported, not judged: P3 judges misses)"
+
+    def run_p5(self, tokens, cold_ids=()):
+        """judge.p5 on the EKS form at the terms' load: 4 writers every 2 s, reads at 50 a second and the
+        given credential requests over 30 minutes after 2 of warm-up; {metric name: metric}."""
         start, warmup, duration = T0, 120, 1800
         spec = {"writers": {"start": start, "warmup": warmup, "duration": duration, "interval": 2000, "writers": 4},
                 "reads": {"rate": 50, "duration": duration}, "tokens": {"rate": 2, "duration": duration}}
@@ -388,55 +392,42 @@ class P5Test(unittest.TestCase):
         rest = [{"t": start + warmup * 1000 + i * 500, "thread": "w", "id": f"c{i}", "kind": "commit", "ms": 150}
                 for i in range(3600)]
         rd = [dict(r, attempts=[{"id": f"r{i}"}]) for i, r in enumerate(reads(50, duration, "window", 10))]
-        rd[0]["latUs"] = 3_000_000  # served by a new execution environment
-        tk = [{"step": "window", "ok": True, "latUs": 20_000, "class": "hit" if i % 10 else "miss",
-               "attempts": [{"id": f"t{i}"}]} for i in range(3600)]
-        m = {x["metric"]: x for x in judge.p5("eks", spec, cs, rest, rd, tk, cold_ids={"r0"})}
+        rd[0]["latUs"] = 3_000_000  # served by a new execution environment when cold_ids names r0
+        return {x["metric"]: x for x in judge.p5("eks", spec, cs, rest, rd, tokens, cold_ids=set(cold_ids))}
+
+    @staticmethod
+    def tokens(miss_every=10, miss_us=20_000):
+        return [{"step": "window", "ok": True, "latUs": 20_000 if i % miss_every else miss_us,
+                 "class": "hit" if i % miss_every else "miss", "attempts": [{"id": f"t{i}"}]} for i in range(3600)]
+
+    def test_both_parts_judged_cold_ones_apart(self):
+        m = self.run_p5(self.tokens(), cold_ids={"r0"})
         self.assertEqual(m["P5 errors"]["verdict"], stats.PASS)
         self.assertEqual(m["P5 commit request p95 / p99 (P1a's target)"]["verdict"], stats.PASS)
         self.assertEqual(m["P5 getTable p95 / p99 (P2's target)"]["verdict"], stats.PASS)
         self.assertEqual(m["P5 requests served by a cold execution environment (apart)"]["measured"]["n"], 1)
         # Fewer than 1,000 misses at 10 % of 2 a second for 30 minutes: reported, not judged (#91), so the
         # form's verdict comes from the parts that have their 1,000 samples.
-        miss = m["P5 credential miss p95 / p99 (reported, not judged: P3 judges misses)"]
-        self.assertEqual(miss["verdict"], stats.OBSERVED)
-        self.assertEqual(miss["measured"]["n"], 360)
+        self.assertEqual(m[self.MISS]["verdict"], stats.OBSERVED)
+        self.assertEqual(m[self.MISS]["measured"]["n"], 360)
         self.assertEqual(m["P5 credential hit p95 / p99 (P3's target)"]["verdict"], stats.PASS)
         self.assertEqual(stats.verdict(list(m.values())), stats.PASS)
 
     def test_misses_are_not_judged_but_a_failed_miss_is_an_error(self):
-        start, warmup, duration = T0, 120, 1800
-        spec = {"writers": {"start": start, "warmup": warmup, "duration": duration, "interval": 2000, "writers": 4},
-                "reads": {"rate": 50, "duration": duration}, "tokens": {"rate": 2, "duration": duration}}
-        cs = commits(4, 960, 2000, start, warmup)
-        rest = [{"t": start + warmup * 1000 + i * 500, "thread": "w", "id": f"c{i}", "kind": "commit", "ms": 150}
-                for i in range(3600)]
-        rd = [dict(r, attempts=[{"id": f"r{i}"}]) for i, r in enumerate(reads(50, duration, "window", 10))]
         # Misses far over P3's targets (5 s): reported, never a FAIL of P5's latency.
-        tk = [{"step": "window", "ok": True, "latUs": 20_000 if i % 10 else 5_000_000,
-               "class": "hit" if i % 10 else "miss", "attempts": [{"id": f"t{i}"}]} for i in range(3600)]
-        m = {x["metric"]: x for x in judge.p5("eks", spec, cs, rest, rd, tk)}
-        self.assertEqual(m["P5 credential miss p95 / p99 (reported, not judged: P3 judges misses)"]["verdict"],
-                         stats.OBSERVED)
+        tk = self.tokens(miss_us=5_000_000)
+        m = self.run_p5(tk)
+        self.assertEqual(m[self.MISS]["verdict"], stats.OBSERVED)
         self.assertEqual(stats.verdict(list(m.values())), stats.PASS)
         # A miss that failed is one of P5's errors, judged as before.
         tk[0] = dict(tk[0], ok=False)
-        m = {x["metric"]: x for x in judge.p5("eks", spec, cs, rest, rd, tk)}
+        m = self.run_p5(tk)
         self.assertEqual(m["P5 errors"]["verdict"], stats.FAIL)
         self.assertEqual(stats.verdict(list(m.values())), stats.FAIL)
 
     def test_hits_still_need_their_samples(self):
         # The rule names the misses only: a part with too few samples otherwise stays NOT_JUDGED.
-        start, warmup, duration = T0, 120, 1800
-        spec = {"writers": {"start": start, "warmup": warmup, "duration": duration, "interval": 2000, "writers": 4},
-                "reads": {"rate": 50, "duration": duration}, "tokens": {"rate": 2, "duration": duration}}
-        cs = commits(4, 960, 2000, start, warmup)
-        rest = [{"t": start + warmup * 1000 + i * 500, "thread": "w", "id": f"c{i}", "kind": "commit", "ms": 150}
-                for i in range(3600)]
-        rd = [dict(r, attempts=[{"id": f"r{i}"}]) for i, r in enumerate(reads(50, duration, "window", 10))]
-        tk = [{"step": "window", "ok": True, "latUs": 20_000, "class": "hit" if i % 4 == 0 else "miss",
-               "attempts": [{"id": f"t{i}"}]} for i in range(3600)]
-        m = {x["metric"]: x for x in judge.p5("eks", spec, cs, rest, rd, tk)}
+        m = self.run_p5([dict(t, **{"class": "miss" if t["class"] == "hit" else "hit"}) for t in self.tokens(miss_every=4)])
         self.assertEqual(m["P5 credential hit p95 / p99 (P3's target)"]["verdict"], stats.NOT_JUDGED)
         self.assertEqual(stats.verdict(list(m.values())), stats.NOT_JUDGED)
 

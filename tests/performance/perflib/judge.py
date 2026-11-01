@@ -396,7 +396,7 @@ def p5(form, spec, commits, rest, reads, tokens, cold_ids=()):
     metrics.append(latency_row("P5 credential hit p95 / p99 (P3's target)",
                                [ms(t["latUs"]) for t in tk if t.get("ok") and t.get("class") == "hit" and warm(t)],
                                terms.target("P3", "Hit p95 / p99").values[form]))
-    metrics.append(latency_row("P5 credential miss p95 / p99 (reported, not judged: P3 judges misses)",
+    metrics.append(latency_row("P5 credential miss latency (reported, not judged: P3 judges misses)",
                                [ms(t["latUs"]) for t in tk if t.get("ok") and t.get("class") == "miss" and warm(t)],
                                judged=False))
     apart = [r for r in rd + tk if not warm(r)]
