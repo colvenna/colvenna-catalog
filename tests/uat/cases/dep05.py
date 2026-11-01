@@ -200,17 +200,49 @@ class Checkouts:
 
 def base_config(ctx, name, form):
     """A configuration of the case's own environment, right in every key: the test environment's
-    cluster (EKS), its VPC, subnets and execute-api endpoint (serverless), E1's account and region."""
+    cluster (EKS), its VPC, subnets and execute-api endpoint (serverless), E1's account and region.
+    In the EKS form its Kubernetes names are the case's own too (#95): with the defaults, which E1
+    keeps, a refusal that did not refuse would install over E1's Helm release."""
     inst, env = ctx.install, ctx.testenv
     keys = {"COLVENNA_ENV": name, "COLVENNA_ACCOUNT": inst.get("COLVENNA_ACCOUNT"), "COLVENNA_REGION": inst.region,
             "COLVENNA_FORM": form, "COLVENNA_DATA_TOKENS": "aws-sts",
             "COLVENNA_RELEASE_REGISTRY": inst.get("COLVENNA_RELEASE_REGISTRY")}
     if form == "eks":
-        keys["COLVENNA_EKS_CLUSTER"] = env.cluster
+        keys.update(own_kubernetes_names(name), COLVENNA_EKS_CLUSTER=env.cluster)
     else:
         keys.update(COLVENNA_NETWORK="existing", COLVENNA_VPC_ID=env.output("VpcId"),
                     COLVENNA_SUBNET_IDS=env.output("PrivateSubnetIds"), COLVENNA_API_ENDPOINT_IDS=env.output("ApiEndpointId"))
     return keys
+
+
+def own_kubernetes_names(name):
+    """The EKS form's names of an install called name, none of them E1's (which keeps the defaults)."""
+    own = f"colvenna-catalog-{name}"
+    return {"COLVENNA_NAMESPACE": own, "COLVENNA_RELEASE_NAME": own, "COLVENNA_SERVICE_ACCOUNT": own,
+            "COLVENNA_CLIENT_NAMESPACE_LABEL": f"colvenna-catalog/client-{name}=true"}
+
+
+def git_tree(repo, ref):
+    p = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", f"{ref}^{{tree}}"],
+                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
+    return p.stdout.strip() if p.returncode == 0 else None
+
+
+def not_the_tag(candidate_checkout):
+    """The checkout of main that release-not-the-tag runs from, which must not be the candidate's (#95):
+    (ref, note), or (None, why) when there is none. It is origin/main; but right after the candidate's
+    tag nothing may have merged into main yet, and main is then the candidate's commit itself, from which
+    install.sh --release installs instead of refusing. Then it is main as it was before that commit, the
+    commit's first parent (B, which has no release/<candidate>/). A ref whose tree is the candidate's is
+    never given."""
+    head = git_tree(candidate_checkout, "HEAD")
+    for ref, note in (("origin/main", "origin/main"),
+                      ("HEAD^1", "origin/main is the candidate's commit (nothing merged since its tag): main as it "
+                                 "was before it, the commit's first parent")):
+        tree = git_tree(candidate_checkout, ref)
+        if tree and tree != head:
+            return ref, note
+    return None, "neither origin/main nor the candidate's first parent differs from the candidate's tree"
 
 
 def run(ctx):
@@ -282,7 +314,11 @@ def run(ctx):
             cfg=config("release-no-registry", COLVENNA_RELEASE_REGISTRY=None))
     with ctx.preparing("checkouts that are not the candidate's: main, a dirty one, a commit on top") as notes:
         checkouts = Checkouts(ctx, checkout)
-        main = checkouts.worktree("main", "origin/main")
+        ref, why = not_the_tag(checkout)
+        if ref is None:
+            raise RuntimeError(f"no checkout of main that is not the candidate's: {why}")
+        main = checkouts.worktree("main", ref)
+        notes.append(f"main: {why}")
         dirty = checkouts.worktree("dirty", "HEAD")
         (dirty / "uat-dirty.txt").write_text("an uncommitted change\n")
         on_top = checkouts.worktree("on-top", "HEAD")
@@ -492,7 +528,9 @@ def eks_only_candidate(args, release, checkout):
 def form_not_accepted(ctx, config, candidate, where):
     """A serverless install of a candidate whose manifest does not name serverless."""
     env = ctx.testenv
-    cfg = config("release-form-not-accepted", COLVENNA_FORM="serverless", COLVENNA_EKS_CLUSTER=None,
+    # The EKS form's keys out (a key of the other form would be refused first, with 2).
+    eks_only_keys = dict.fromkeys(own_kubernetes_names(""), None)
+    cfg = config("release-form-not-accepted", COLVENNA_FORM="serverless", COLVENNA_EKS_CLUSTER=None, **eks_only_keys,
                  COLVENNA_NETWORK="existing", COLVENNA_VPC_ID=env.output("VpcId"),
                  COLVENNA_SUBNET_IDS=env.output("PrivateSubnetIds"), COLVENNA_API_ENDPOINT_IDS=env.output("ApiEndpointId"))
     r = deploy.Installer(ctx, where, cfg).run("install.sh", "--release", candidate, "--yes", keep="refusal-release-form-not-accepted")
