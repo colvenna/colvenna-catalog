@@ -130,6 +130,29 @@ class Judges(unittest.TestCase):
                     "functions": ["colvenna-catalog-sl2-server"]}
         meanwhile = {"stacks": dict(both["stacks"], ColvennaCatalogSl2Serverless=["DELETE_IN_PROGRESS", "t5"]), "functions": []}
         self.assertTrue(deploy.others_untouched(deleting, meanwhile, "ek1", "ColvennaCatalogTestU1")[0])
+        # #100: the after inventory read the stacks before another install's uninstall began, and its resources
+        # after: judged by the stacks read again at its end, that uninstall is that run's.
+        raced = {"stacks": both["stacks"], "functions": ["colvenna-catalog-sl3-server"],
+                 "stacksAtEnd": dict(both["stacks"], ColvennaCatalogSl2Serverless=["DELETE_IN_PROGRESS", "t7"])}
+        self.assertTrue(deploy.others_untouched(both, raced, "ek1", "ColvennaCatalogTestU1")[0])
+        self.assertFalse(deploy.others_untouched(both, dict(raced, stacksAtEnd=both["stacks"]), "ek1",
+                                                 "ColvennaCatalogTestU1")[0])  # its stacks as they were: touched
+        # An empty later reading is a reading: every other region's stacks gone by the end (their install removed).
+        far = {"stacks": both["stacks"], "stacksElsewhere": {"ColvennaCatalogEk9Eks": ["CREATE_COMPLETE", "t1"]},
+               "roles": ["colvenna-catalog-ek9-data"]}
+        far_after = dict(far, roles=[], stacksAtEnd=both["stacks"], stacksElsewhereAtEnd={})
+        self.assertTrue(deploy.others_untouched(far, far_after, "ek1", "ColvennaCatalogTestU1")[0])
+        # A stack made while the before inventory was read and removed by the end of the after one: that
+        # install's own run, and the second readings are never entries of the inventory themselves.
+        made = dict(both, stacksAtEnd=dict(both["stacks"], ColvennaCatalogZ9Serverless=["CREATE_COMPLETE", "t9"]),
+                    functions=both["functions"] + ["colvenna-catalog-z9-server"])
+        gone_again = dict(raced, stacksAtEnd=raced["stacksAtEnd"])
+        ok, detail = deploy.others_untouched(made, gone_again, "ek1", "ColvennaCatalogTestU1")
+        self.assertTrue(ok, detail)
+        self.assertNotIn("stacksAtEnd gone", detail)
+        # The test environment's and the registry's stacks are judged by the later reading too.
+        moved = dict(raced, stacksAtEnd=dict(raced["stacksAtEnd"], ColvennaCatalogTestU1=["UPDATE_COMPLETE", "t8"]))
+        self.assertFalse(deploy.others_untouched(both, moved, "ek1", "ColvennaCatalogTestU1")[0])
         changed = dict(after, stacks=dict(after["stacks"], ColvennaCatalogTestU1=["UPDATE_COMPLETE", "t8"]))
         self.assertFalse(deploy.others_untouched(before, changed, "ek1", "ColvennaCatalogTestU1")[0])
         # An install removed meanwhile is not excused when the case's own scripts named its stacks.

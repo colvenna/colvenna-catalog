@@ -644,7 +644,10 @@ def account_inventory(aws, elsewhere=True):
     repositories, log groups and VPC endpoints of the catalog's installs, test environments and
     release registry. elsewhere: also every ColvennaCatalog stack of the other regions
     (stacksElsewhere): the account lists its roles and buckets whatever the region, so an install of
-    another region is in this inventory by them, and its stacks say whether its own run removed it (#46)."""
+    another region is in this inventory by them, and its stacks say whether its own run removed it (#46).
+    The stacks are read again once the resources are (stacksAtEnd, stacksElsewhereAtEnd): an inventory takes a
+    minute or more, and an install whose uninstall begins meanwhile has its resources going while its stacks,
+    read first, still look as they were (#100); others_untouched judges by the later reading."""
     out = {"stacks": account_stacks(aws)}
     if elsewhere:
         out["stacksElsewhere"] = stacks_elsewhere(aws)
@@ -673,6 +676,9 @@ def account_inventory(aws, elsewhere=True):
         f"{next((t['Value'] for t in e.get('Tags', []) if t['Key'] == 'aws:cloudformation:stack-name'), '-')}/{e['VpcEndpointId']}"
         for e in aws("ec2", "describe-vpc-endpoints", "--filters", "Name=tag:Project,Values=colvenna-catalog",
                      "--query", "VpcEndpoints[?State!='deleted']") or [])
+    out["stacksAtEnd"] = account_stacks(aws)
+    if elsewhere:
+        out["stacksElsewhereAtEnd"] = stacks_elsewhere(aws)
     return out
 
 
@@ -702,10 +708,16 @@ def of_install(item, env):
     return owner_of(item) == ("install", env)
 
 
+# An inventory's second readings of the stacks, which say what happened to them, not what the account holds (#100).
+READINGS = ("stacksAtEnd", "stacksElsewhereAtEnd")
+
+
 def _entries(inventory, env, mine):
     """The inventory's entries that are the install's (mine) or not."""
     out = {}
     for key, value in inventory.items():
+        if key in READINGS:  # a second reading of the stacks, not more entries (#100)
+            continue
         if isinstance(value, dict):
             out[key] = {k: v for k, v in value.items() if of_install(k, env) == mine}
         else:
@@ -726,7 +738,7 @@ def own(inventory, env):
 def differences(before, after):
     """[what differs] between two inventories."""
     out = []
-    for key in sorted(set(before) | set(after)):
+    for key in sorted((set(before) | set(after)) - set(READINGS)):
         b, a = before.get(key), after.get(key)
         if isinstance(b, dict) and isinstance(a, dict):
             for k in sorted(set(b) | set(a)):
@@ -887,6 +899,18 @@ def instance_status(before, after):
 DATA_KEYS = ("buckets", "databases")  # the inventory's data of an install, which no update of it removes (#52)
 
 
+def stacks_between(before, after):
+    """(before, after): every stack of the two inventories, this region's and the others', as the window between
+    them has them (#100). Before: as first read, or, for a stack made while the before inventory was read, as
+    read at its end. After: as read at the after inventory's end, once its resources were. A record without
+    the second reading has its first."""
+    def reading(record, key):
+        return record[key + "AtEnd"] if key + "AtEnd" in record else (record.get(key) or {})
+    first = dict(before.get("stacksElsewhere") or {}, **before["stacks"])
+    at_end = dict(reading(before, "stacksElsewhere"), **reading(before, "stacks"))
+    return dict(at_end, **first), dict(reading(after, "stacksElsewhere"), **reading(after, "stacks"))
+
+
 def others_untouched(before, after, env, test_stack, said=""):
     """(ok, detail): what is not the install's is as recorded: the test environment's stack and the
     release registry as they were, and nothing of another's gone that the install's run could have
@@ -903,11 +927,10 @@ def others_untouched(before, after, env, test_stack, said=""):
     test environment, the release registry, and an entry of no install, test environment or the registry
     (owner_of None: the inventory lists the catalog's names and tags alone, so it is no other project's)."""
     problems = []
+    stacks_before, stacks_after = stacks_between(before, after)
     for stack in (test_stack, "ColvennaCatalogRelease"):
-        if before["stacks"].get(stack) != after["stacks"].get(stack):
-            problems.append(f"{stack}: {before['stacks'].get(stack)} -> {after['stacks'].get(stack)}")
-    stacks_before = dict(before.get("stacksElsewhere") or {}, **before["stacks"])
-    stacks_after = dict(after.get("stacksElsewhere") or {}, **after["stacks"])
+        if stacks_before.get(stack) != stacks_after.get(stack):
+            problems.append(f"{stack}: {stacks_before.get(stack)} -> {stacks_after.get(stack)}")
     known = sorted(set(stacks_before) | set(stacks_after))
 
     def owner(item):
