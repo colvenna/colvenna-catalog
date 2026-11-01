@@ -254,7 +254,7 @@ class Scenario:
 
 # --- P1a, P1b, P1c ----------------------------------------------------------------------------------------
 
-def p1(sc, variant):
+def p1(sc, variant, judged):
     t = sc.run.targets[0]
     p = terms.LOAD[variant]
     sc.owner(t)
@@ -281,8 +281,7 @@ def p1(sc, variant):
     rest = raw.rest_lines(files.get("rest.log", ""))
     window = judge.commit_window(spec)
     n_conflicts = judge.conflicts(data.get("audit", []), window)
-    fn = {"P1a": judge.p1a, "P1b": judge.p1b, "P1c": judge.p1c}[variant]
-    metrics = fn(t.form, spec, commits, rest, data["access"], conflicts=n_conflicts)
+    metrics = judged(t.form, spec, commits, rest, data["access"], conflicts=n_conflicts)
     metrics += counters + sc.database_rows(t, data) + sc.function_rows(t, data)
     sc.results[t.form] = metrics
     sc.extra["window"] = {"start": iso(dt(window[0])), "end": iso(dt(window[1]))}
@@ -710,14 +709,14 @@ def conditions(scenario, record):
 
 # --- one run -------------------------------------------------------------------------------------------------
 
-RUNNERS = {"P1a": lambda sc: p1(sc, "P1a"), "P1b": lambda sc: p1(sc, "P1b"), "P1c": lambda sc: p1(sc, "P1c"), "P2": p2, "P3": p3,
+RUNNERS = {"P1a": lambda sc: p1(sc, "P1a", judge.p1a), "P1b": lambda sc: p1(sc, "P1b", judge.p1b),
+           "P1c": lambda sc: p1(sc, "P1c", judge.p1c), "P2": p2, "P3": p3,
            "P4a": lambda sc: p4(sc, "P4a"), "P4b": lambda sc: p4(sc, "P4b"), "P5": p5}
 
 
 def execute(scenario, args):
     """Runs the scenario; returns the process's exit status (0 when its verdict is PASS, or OBSERVED for a
-    scenario that is never judged). A signal
-    (Ctrl-C, SIGTERM, SIGHUP) stops the scenario; its clean-up and result still run, then it is
+    scenario that is never judged). A signal (Ctrl-C, SIGTERM, SIGHUP) stops the scenario; its clean-up and result still run, then it is
     raised again. The clean-up runs whatever happens before it (it notes, and does not obey, a
     signal while it runs)."""
     run = Run(scenario, args)

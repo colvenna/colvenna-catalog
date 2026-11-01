@@ -100,8 +100,9 @@ def target(section, row):
 # form is a {form: value} (per_form).
 LOAD = {
     "P1a": {"writers": 8, "rows": 100, "interval": 0, "shared": False, "warmup": 60, "duration": 600},
-    # P1b as the requester confirmed it on 2026-11-01 (#83): within one table's capacity, 1,200 commits offered
-    # in each form's window, so that the whole commit's percentiles are judged (1,000 samples).
+    # P1b as revised on 2026-11-01 (#83): the requester's load (within one table's capacity) and EKS's 20 minutes;
+    # the serverless form's 40 minutes the release coordinator's, so that each window offers 1,200 commits and
+    # the whole commit's percentiles are judged (1,000 samples). terms.md, P1.
     "P1b": {"writers": 4, "rows": 100, "interval": {"eks": 4000, "serverless": 8000}, "shared": True, "warmup": 60,
             "duration": {"eks": 1200, "serverless": 2400}},
     # P1c: P1b's earlier load, about one table's capacity: observed only.

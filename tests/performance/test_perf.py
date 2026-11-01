@@ -188,9 +188,9 @@ class P1Test(unittest.TestCase):
         self.assertEqual(m["P1b commits done of those offered"]["verdict"], stats.FAIL)
 
     def test_p1b_load_of_the_terms(self):
-        """#83: P1b at the load the requester confirmed on 2026-11-01: 4 writers on one table every 4 s on the EKS form
-        (1 commit/s) for 20 minutes, every 8 s on the serverless form (0.5/s) for 40 minutes, so that each window
-        offers at least the 1,000 commits a judged percentile needs; the targets unchanged."""
+        """#83: P1b as revised on 2026-11-01: 4 writers on one table every 4 s on the EKS form (1 commit/s) for 20
+        minutes, every 8 s on the serverless form (0.5/s) for 40 minutes (the release coordinator's, terms.md), so
+        that each window offers at least the 1,000 commits a judged percentile needs; the targets unchanged."""
         p = terms.LOAD["P1b"]
         self.assertEqual((p["writers"], p["shared"], p["warmup"]), (4, True, 60))
         self.assertEqual(p["interval"], {"eks": 4000, "serverless": 8000})
@@ -232,7 +232,7 @@ class P1Test(unittest.TestCase):
         self.assertIn("whole commit (the commit call)", m)
         self.assertEqual(stats.verdict(metrics), stats.FAIL)  # nothing judged: never a PASS by itself
 
-    def test_an_observed_scenario_s_result(self):
+    def test_the_result_of_a_scenario_that_judges_nothing(self):
         """#83: P1c's result is OBSERVED when it ran and cleaned up, FAIL when it did not complete or left something."""
         class Sc:
             results = {"eks": [stats.observed("x", {"value": 1})]}
