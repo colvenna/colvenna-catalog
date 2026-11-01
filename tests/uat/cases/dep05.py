@@ -200,17 +200,68 @@ class Checkouts:
 
 def base_config(ctx, name, form):
     """A configuration of the case's own environment, right in every key: the test environment's
-    cluster (EKS), its VPC, subnets and execute-api endpoint (serverless), E1's account and region."""
+    cluster (EKS), its VPC, subnets and execute-api endpoint (serverless), E1's account and region.
+    In the EKS form its Kubernetes names are the case's own too (#95): with the defaults, which E1
+    keeps, a refusal that did not refuse would install over E1's Helm release."""
     inst, env = ctx.install, ctx.testenv
     keys = {"COLVENNA_ENV": name, "COLVENNA_ACCOUNT": inst.get("COLVENNA_ACCOUNT"), "COLVENNA_REGION": inst.region,
             "COLVENNA_FORM": form, "COLVENNA_DATA_TOKENS": "aws-sts",
             "COLVENNA_RELEASE_REGISTRY": inst.get("COLVENNA_RELEASE_REGISTRY")}
     if form == "eks":
-        keys["COLVENNA_EKS_CLUSTER"] = env.cluster
+        keys.update(own_kubernetes_names(name), COLVENNA_EKS_CLUSTER=env.cluster)
     else:
         keys.update(COLVENNA_NETWORK="existing", COLVENNA_VPC_ID=env.output("VpcId"),
                     COLVENNA_SUBNET_IDS=env.output("PrivateSubnetIds"), COLVENNA_API_ENDPOINT_IDS=env.output("ApiEndpointId"))
     return keys
+
+
+# The EKS form's Kubernetes names that an install keeps apart from E1's (which keeps their defaults).
+KUBERNETES_KEYS = ("COLVENNA_NAMESPACE", "COLVENNA_RELEASE_NAME", "COLVENNA_SERVICE_ACCOUNT",
+                   "COLVENNA_CLIENT_NAMESPACE_LABEL")
+
+
+def own_kubernetes_names(name):
+    """KUBERNETES_KEYS for an install called name: its namespace, Helm release and service account
+    colvenna-catalog-<name>, its client label colvenna-catalog/client-<name>=true."""
+    own = f"colvenna-catalog-{name}"
+    return dict(zip(KUBERNETES_KEYS, (own, own, own, f"colvenna-catalog/client-{name}=true")))
+
+
+def git_sha(repo, ref):
+    p = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
+    return p.stdout.strip() if p.returncode == 0 else None
+
+
+def release_refuses(repo, sha, candidate, built_from):
+    """Whether install.sh --release <candidate> refuses a checkout of sha before anything else
+    (deploy/lib/release.sh, release_checkout): it has no release/<candidate>/manifest.json, or it differs
+    from built_from outside release/<candidate>/, what the candidate's tag adds."""
+    has_manifest = subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{sha}:release/{candidate}/manifest.json"],
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    if not has_manifest:
+        return True
+    same = subprocess.run(["git", "-C", str(repo), "diff", "--quiet", "--no-renames", built_from, sha, "--", ".",
+                           f":(exclude)release/{candidate}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return same.returncode == 1
+
+
+def not_the_tag(checkout, candidate, built_from):
+    """The commit of main that release-not-the-tag runs from, which install.sh --release must refuse (#95):
+    (sha, note), or (None, why) when there is none. It is origin/main's. But right after the candidate's
+    tag nothing may have merged into main yet, so that main is the tag's own commit; and what merges first
+    may change only release/<candidate>/ (its notes), which install.sh --release takes as the tag too. Then
+    it is main as it was before the candidate's commit (the tag's commit's first parent: B, without
+    release/<candidate>/). A commit install.sh would install from is never given."""
+    tagged = git_sha(checkout, candidate) or git_sha(checkout, "HEAD")
+    for ref, note in (("origin/main", "origin/main"),
+                      (f"{tagged}^1", "main as it was before the candidate's commit (its first parent): origin/main "
+                                      "is a commit install.sh --release takes as the candidate")):
+        sha = git_sha(checkout, ref)
+        if sha and release_refuses(checkout, sha, candidate, built_from):
+            return sha, f"{note} ({sha[:12]})"
+    return None, ("install.sh --release would install from origin/main and from the candidate's first parent "
+                  "alike: no checkout of main to refuse")
 
 
 def run(ctx):
@@ -282,7 +333,11 @@ def run(ctx):
             cfg=config("release-no-registry", COLVENNA_RELEASE_REGISTRY=None))
     with ctx.preparing("checkouts that are not the candidate's: main, a dirty one, a commit on top") as notes:
         checkouts = Checkouts(ctx, checkout)
-        main = checkouts.worktree("main", "origin/main")
+        sha, note = not_the_tag(checkout, args.release, release["source"]["built_from"])
+        if sha is None:
+            raise RuntimeError(f"no checkout of main that is not the candidate's: {note}")
+        main = checkouts.worktree("main", sha)
+        notes.append(f"main: {note}")
         dirty = checkouts.worktree("dirty", "HEAD")
         (dirty / "uat-dirty.txt").write_text("an uncommitted change\n")
         on_top = checkouts.worktree("on-top", "HEAD")
@@ -492,7 +547,9 @@ def eks_only_candidate(args, release, checkout):
 def form_not_accepted(ctx, config, candidate, where):
     """A serverless install of a candidate whose manifest does not name serverless."""
     env = ctx.testenv
+    # The EKS form's keys out (a key of the other form would be refused first, with 2).
     cfg = config("release-form-not-accepted", COLVENNA_FORM="serverless", COLVENNA_EKS_CLUSTER=None,
+                 **dict.fromkeys(KUBERNETES_KEYS, None),
                  COLVENNA_NETWORK="existing", COLVENNA_VPC_ID=env.output("VpcId"),
                  COLVENNA_SUBNET_IDS=env.output("PrivateSubnetIds"), COLVENNA_API_ENDPOINT_IDS=env.output("ApiEndpointId"))
     r = deploy.Installer(ctx, where, cfg).run("install.sh", "--release", candidate, "--yes", keep="refusal-release-form-not-accepted")

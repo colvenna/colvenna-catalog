@@ -1,6 +1,7 @@
 """The deployment cases' judges and their runner of install.sh, offline: a stand-in install.sh
 that prints what the real one prints, and records of stacks and inventories as the AWS CLI gives them."""
 
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -848,6 +849,128 @@ class Dep04(unittest.TestCase):
 
 class Dep05And08And09And11(unittest.TestCase):
     from cases import dep05 as d5, dep08 as d8, dep09 as d9, dep11 as d11
+
+    def git(self, repo, *args):
+        return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@example.com",
+                               "-c", "commit.gpgsign=false", *args], check=True, stdout=subprocess.PIPE,
+                              universal_newlines=True).stdout.strip()
+
+    CANDIDATE = "v9.9.9-rc.1"
+
+    def commit(self, repo, message, files=(), allow_empty=False):
+        for name, text in files:
+            path = repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+            self.git(repo, "add", name)
+        self.git(repo, "commit", "-q", "-m", message, *(["--allow-empty"] if allow_empty else []))
+        return self.git(repo, "rev-parse", "HEAD")
+
+    def repo_with_a_candidate(self):
+        """B; the candidate's commit C adding release/<candidate>/, tagged; origin/main at C, the checkout
+        at the tag."""
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, repo, True)
+        self.git(repo, "init", "-q")
+        b = self.commit(repo, "B", [("a.txt", "B\n")])
+        c = self.commit(repo, "C", [(f"release/{self.CANDIDATE}/manifest.json", "{}\n")])
+        self.git(repo, "tag", self.CANDIDATE, c)
+        self.git(repo, "update-ref", "refs/remotes/origin/main", c)
+        self.git(repo, "checkout", "-q", "--detach", self.CANDIDATE)
+        return repo, b, c
+
+    def test_not_the_tag_while_main_is_the_candidate_is_its_first_parent(self):
+        # #95: right after the tag, origin/main is the candidate's commit; install.sh --release would install.
+        repo, b, _ = self.repo_with_a_candidate()
+        sha, note = self.d5.not_the_tag(repo, self.CANDIDATE, b)
+        self.assertEqual(sha, b)
+        self.assertIn("first parent", note)
+
+    def test_not_the_tag_is_main_once_main_changed_more_than_the_release(self):
+        repo, b, c = self.repo_with_a_candidate()
+        self.git(repo, "checkout", "-q", "-b", "later")
+        later = self.commit(repo, "a fix", [("b.txt", "later\n")])
+        self.git(repo, "update-ref", "refs/remotes/origin/main", later)
+        self.git(repo, "checkout", "-q", "--detach", self.CANDIDATE)
+        self.assertEqual(self.d5.not_the_tag(repo, self.CANDIDATE, b), (later, f"origin/main ({later[:12]})"))
+
+    def test_not_the_tag_is_not_main_when_main_changed_only_the_release(self):
+        # The records merged after the tag change only release/<candidate>/: install.sh --release takes that
+        # commit as the candidate too.
+        repo, b, _ = self.repo_with_a_candidate()
+        self.git(repo, "checkout", "-q", "-b", "later")
+        notes = self.commit(repo, "the records", [(f"release/{self.CANDIDATE}/notes.md", "GO?\n")])
+        self.git(repo, "update-ref", "refs/remotes/origin/main", notes)
+        self.git(repo, "checkout", "-q", "--detach", self.CANDIDATE)
+        sha, _ = self.d5.not_the_tag(repo, self.CANDIDATE, b)
+        self.assertEqual(sha, b)
+
+    def test_not_the_tag_anchors_on_the_tag_not_on_head(self):
+        # The harness run from a later checkout (HEAD past the tag): still the tag's first parent, never the tag.
+        repo, b, c = self.repo_with_a_candidate()
+        self.git(repo, "checkout", "-q", "-b", "later")
+        notes = self.commit(repo, "the records", [(f"release/{self.CANDIDATE}/notes.md", "GO?\n")])
+        self.git(repo, "update-ref", "refs/remotes/origin/main", notes)
+        sha, _ = self.d5.not_the_tag(repo, self.CANDIDATE, b)
+        self.assertEqual(sha, b)
+        self.assertNotEqual(sha, c)
+
+    def test_not_the_tag_is_none_when_install_sh_takes_both(self):
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, repo, True)
+        self.git(repo, "init", "-q")
+        b = self.commit(repo, "B", [("a.txt", "B\n")])
+        self.commit(repo, "the release", [(f"release/{self.CANDIDATE}/manifest.json", "{}\n")])
+        c = self.commit(repo, "C", allow_empty=True)
+        self.git(repo, "tag", self.CANDIDATE, c)
+        self.git(repo, "update-ref", "refs/remotes/origin/main", c)
+        sha, why = self.d5.not_the_tag(repo, self.CANDIDATE, b)
+        self.assertIsNone(sha)
+        self.assertIn("no checkout of main", why)
+
+    def test_release_refuses(self):
+        repo, b, c = self.repo_with_a_candidate()
+        self.assertTrue(self.d5.release_refuses(repo, b, self.CANDIDATE, b))      # no release/<candidate>/
+        self.assertFalse(self.d5.release_refuses(repo, c, self.CANDIDATE, b))     # the tag itself
+
+    def test_the_form_not_accepted_refusal_has_no_eks_key(self):
+        # Its configuration is the EKS run's base turned serverless: with an EKS key left, install.sh would
+        # refuse it with 2 (a key of the other form) before the release check this refusal is about.
+        base = dict(self.d5.own_kubernetes_names("rf1"), COLVENNA_ENV="rf1", COLVENNA_FORM="eks", COLVENNA_EKS_CLUSTER="c")
+        made = {}
+
+        def config(label, **changes):
+            made.update({k: v for k, v in dict(base, **changes).items() if v is not None})
+            return Path("/nonexistent") / f"{label}.env"
+
+        class Installer:
+            def __init__(self, ctx, where, cfg):
+                pass
+
+            def run(self, *args, keep=None):
+                return run_of("preflight: v0.0.0-rc.1 is accepted in the form(s) eks, not serverless", 3)
+
+        ctx = types.SimpleNamespace(testenv=types.SimpleNamespace(output=lambda key: key.lower()),
+                                    check=lambda *a: made.setdefault("check", a))
+        real, self.d5.deploy.Installer = self.d5.deploy.Installer, Installer
+        try:
+            self.d5.form_not_accepted(ctx, config, "v0.0.0-rc.1", Path("/nonexistent"))
+        finally:
+            self.d5.deploy.Installer = real
+        self.assertEqual(made["COLVENNA_FORM"], "serverless")
+        for key in ("COLVENNA_EKS_CLUSTER", *self.d5.own_kubernetes_names("rf1")):
+            self.assertNotIn(key, made)
+        self.assertTrue(made["check"][1])
+
+    def test_refusals_never_take_e1s_kubernetes_names(self):
+        # #95: E1 keeps the defaults (colvenna-catalog); a refusal that did not refuse would install over it.
+        inst = types.SimpleNamespace(region="us-west-2", get={"COLVENNA_ACCOUNT": "123456789012",
+                                                              "COLVENNA_RELEASE_REGISTRY": "r"}.get)
+        ctx = types.SimpleNamespace(install=inst, testenv=types.SimpleNamespace(cluster="c"))
+        keys = self.d5.base_config(ctx, "rf123456", "eks")
+        for key in ("COLVENNA_NAMESPACE", "COLVENNA_RELEASE_NAME", "COLVENNA_SERVICE_ACCOUNT"):
+            self.assertEqual(keys[key], "colvenna-catalog-rf123456")
+        self.assertEqual(keys["COLVENNA_CLIENT_NAMESPACE_LABEL"], "colvenna-catalog/client-rf123456=true")
 
     def test_nothing_made(self):
         self.assertTrue(self.d5.judge_nothing_made({}, ["UPDATE_COMPLETE", "t"], ["UPDATE_COMPLETE", "t"], True)[0])
