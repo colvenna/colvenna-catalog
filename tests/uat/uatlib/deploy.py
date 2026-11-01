@@ -718,7 +718,9 @@ def of_install(item, env):
             return item[len(prefix):][:1] in ("", "-", "/")
     for prefix in (lower, "/aws/rds/instance/" + lower):
         if item.startswith(prefix):
-            return item[len(prefix):].startswith(tuple(p.lower()[:5] for p in PARTS))
+            # Its component, or a cut of it, then a hyphen: pfek's colvennacatalogpfekstorage-... is not pf's (#67).
+            head = lower + item[len(prefix):].partition("-")[0]
+            return _lowercase_owner(head) == ("install", env)
     return False
 
 
@@ -759,33 +761,121 @@ def differences(before, after):
     return out
 
 
-ENV_OF = (re.compile(r"ColvennaCatalog([A-Z][a-z0-9]{0,7}?)(?=Storage|Eks|Network|Images|Serverless|Stora|Serve|Netwo|Image)"),
-          re.compile(r"colvenna-catalog-([a-z][a-z0-9]{0,7})(?=[-/]|$)"),
-          re.compile(r"colvennacatalog([a-z][a-z0-9]{0,7}?)(?=storage|eks|network|images|serverless|stora|serve)"))
+# --- whose an entry is (#84) ---------------------------------------------------------------------------
+# Every entry of an inventory is an install's, a test environment's or the release registry's, by its name:
+# its stack's (a stack's name says whose it is), or one CloudFormation generated for a resource of a stack
+# (its first part, up to its first hyphen, the stack's name, lowercased in a bucket's or a database's, or a
+# cut of it, stacks.sh's STACK_CUT_MIN), or one the code gives (colvenna-catalog-<env>..., the test
+# environments' colvenna-catalog-test-<name>..., the registry's colvenna-catalog-release...), or, for a VPC
+# endpoint, the stack its aws:cloudformation:stack-name tag names. Names are 1 to 8 lowercase letters and
+# digits, the first a letter (config.sh, tests/environment/lib.sh); an install may not be named test.
 
-
+REGISTRY = ("registry", "release")
 DRIVER_STACK = re.compile(r"^ColvennaCatalogTest([A-Z][a-z0-9]{0,7})Driver$")
+# A test environment's stack, ColvennaCatalogTest<Name>, and the stacks nested in it (ColvennaCatalogTest<Name>-...).
+TEST_STACK = re.compile(r"^ColvennaCatalogTest([A-Z][a-z0-9]{0,7})(?:-|$)")
+INSTALL_STACK = re.compile(r"^ColvennaCatalog([A-Z][a-z0-9]{0,7})(?:" + "|".join(PARTS) + r")$")
 # A name CloudFormation generated: ColvennaCatalog<Env> and a cut of a component, then a hyphen.
-GENERATED = re.compile(r"^(?:/aws/lambda/)?ColvennaCatalog([A-Z][a-z0-9]{0,7})[A-Za-z]*-")
+GENERATED = re.compile(r"^ColvennaCatalog([A-Z][a-z0-9]{0,7})[A-Za-z]*-")
+# The names the code gives, in order: a test environment's, the registry's, an install's.
+GIVEN = ((re.compile(r"^colvenna-catalog-test-([a-z][a-z0-9]{0,7})(?=[-/]|$)"), "test"),
+         (re.compile(r"^colvenna-catalog-(release)(?=[-/]|$)"), "registry"),
+         (re.compile(r"^colvenna-catalog-([a-z][a-z0-9]{0,7})(?=[-/]|$)"), "install"))
+LOG_PREFIXES = ("/aws/lambda/", "/aws/rds/instance/", "/aws/apigateway/", "/aws/eks/")
+ENV_NAME = re.compile(r"[a-z][a-z0-9]{0,7}")
+
+
+def stack_owner(stack):
+    """("install", env), ("test", name) or REGISTRY whose stack this is (an install's test driver's is the
+    install's), or None."""
+    if stack == "ColvennaCatalogRelease" or stack.startswith("ColvennaCatalogRelease-"):
+        return REGISTRY
+    for pattern, kind in ((DRIVER_STACK, "install"), (TEST_STACK, "test"), (INSTALL_STACK, "install")):
+        m = pattern.match(stack)
+        if m:
+            return kind, m.group(1).lower()
+    return None
+
+
+def _lowercase_owner(head):
+    """Whose a lowercased stack name, or a cut of one, is (a bucket's or a database instance's first part):
+    colvennacatalog<env><component>, colvennacatalogtest<name>, colvennacatalogrelease. Its components end it,
+    as the case of the letters no longer says where the name ends (#67: pfekstorage is pfek's, not pf's)."""
+    if not head.startswith("colvennacatalog"):
+        return None
+    rest = head[len("colvennacatalog"):]
+    if rest == "release":
+        return REGISTRY
+    for part in (p.lower() for p in PARTS):
+        if rest.endswith(part) and ENV_NAME.fullmatch(rest[:-len(part)]):
+            return "install", rest[:-len(part)]
+    if len(head) >= STACK_CUT_MIN:
+        cuts = {rest[:k] for k in range(1, 9) if ENV_NAME.fullmatch(rest[:k]) and rest[k:]
+                and any(p.lower().startswith(rest[k:]) for p in PARTS)}
+        if len(cuts) == 1:
+            return "install", cuts.pop()
+    if rest.startswith("test") and ENV_NAME.fullmatch(rest[len("test"):]):
+        return "test", rest[len("test"):]
+    return None
+
+
+def owner_of(item, stacks=()):
+    """("install", env), ("test", name) or REGISTRY whose an inventory entry is, or None (no catalog install's,
+    test environment's or the registry's). stacks: the stacks of the records; a name CloudFormation generated
+    for one of them is that stack's, which settles a name two owners could have."""
+    name = item.split(" ")[0]
+    stack, slash, rest = name.partition("/")
+    if slash and rest.startswith("vpce-"):
+        return stack_owner(stack)  # a VPC endpoint, of the stack its tag names ("-": none)
+    if name in stacks:
+        return stack_owner(name)
+    bare = next((name[len(p):] for p in LOG_PREFIXES if name.startswith(p)), name)
+    head, hyphen, _ = bare.partition("-")
+    if hyphen:
+        exact = {stack_owner(s) for s in stacks if head in (s, s.lower())} - {None}
+        cut = {stack_owner(s) for s in stacks if len(head) >= STACK_CUT_MIN
+               and (s.startswith(head) or s.lower().startswith(head))} - {None}
+        for found in (exact, cut):
+            if len(found) == 1:
+                return found.pop()
+    owner = stack_owner(name)
+    if owner:
+        return owner
+    for pattern, kind in GIVEN:
+        m = pattern.match(bare)
+        if m:
+            return REGISTRY if kind == "registry" else (kind, m.group(1))
+    if hyphen:
+        owner = stack_owner(head)
+        if owner:
+            return owner
+        m = GENERATED.match(bare)
+        if m and named_after_stacks(bare, [f"ColvennaCatalog{m.group(1)}{p}" for p in PARTS]):
+            return "install", m.group(1).lower()
+        return _lowercase_owner(head)
+    return None
 
 
 def env_of(item):
-    """The environment whose name an inventory entry carries (its test driver's stack too), or None
-    (the test environment's, the release registry's, or no catalog's)."""
-    m = DRIVER_STACK.match(item)
-    if m:
-        return m.group(1).lower()
-    if item.startswith(("ColvennaCatalogTest", "ColvennaCatalogRelease", "colvenna-catalog-test-",
-                        "colvenna-catalog-release")):
-        return None
-    m = GENERATED.match(item)
-    if m and named_after_stacks(_function(item), [f"ColvennaCatalog{m.group(1)}{p}" for p in PARTS]):
-        return m.group(1).lower()
-    for pattern in ENV_OF:
-        m = pattern.search(item)
-        if m:
-            return m.group(1).lower()
-    return None
+    """The install whose an inventory entry is (its test driver's too), or None (a test environment's, the
+    release registry's, or no catalog's)."""
+    owner = owner_of(item)
+    return owner[1] if owner and owner[0] == "install" else None
+
+
+def _label(owner):
+    return owner[1] if owner[0] == "install" else f"{'the test environment' if owner[0] == 'test' else 'the'} {owner[1]}"
+
+
+def _named(owner, said):
+    """Whether the case's own scripts' output names one of the owner's stacks: ColvennaCatalog<Env> then a
+    component, or ColvennaCatalogTest<Name> alone or before a hyphen (not an install's test driver)."""
+    kind, name = owner
+    if kind == "install":
+        return re.search(rf"ColvennaCatalog{re.escape(stack_suffix(name))}(?![a-z0-9])", said) is not None
+    if kind == "test":
+        return re.search(rf"ColvennaCatalogTest{re.escape(stack_suffix(name))}(?![A-Za-z0-9])", said) is not None
+    return False
 
 
 DATA_KEYS = ("buckets", "databases")  # the inventory's data of an install, which no update of it removes (#52)
@@ -793,32 +883,42 @@ DATA_KEYS = ("buckets", "databases")  # the inventory's data of an install, whic
 
 def others_untouched(before, after, env, test_stack, said=""):
     """(ok, detail): what is not the install's is as recorded: the test environment's stack and the
-    release registry as they were, and nothing of another install gone. The account is shared while
-    a case runs: what others add or change meanwhile is not judged, and an install another run
-    removes (one of its stacks, or its test driver's, deleted or being deleted meanwhile, in this
-    region or another, #46; or deleted and made again under the same name, its stack's id another, #62)
-    takes its own resources with it; one another run updates (one of its
-    stacks changed meanwhile: UAT-DEP-06's upgrade, UAT-DEP-07's way back, which may remove what one
-    version has and the other not, #52; its test driver's stack does not count) may lose its functions,
-    roles and the like, never its data (DATA_KEYS: its buckets and database instances). Either, unless the output of the case's own
-    scripts (said) names that install's stacks."""
+    release registry as they were, and nothing of another's gone that the install's run could have
+    touched. The account is shared while a case runs, and each entry is judged by whose it is (owner_of,
+    #84): an install's, a test environment's, the registry's. What others add or change meanwhile is not
+    judged. An install or a test environment another run removes (one of its stacks, its test driver's
+    or one nested in it, deleted or being deleted meanwhile, in this region or another, #46; or deleted
+    and made again under the same name, its stack's id another, #62; a test environment taken down by
+    its own session, #84) takes its own resources with it; one another run updates (one of its stacks
+    changed meanwhile: UAT-DEP-06's upgrade, UAT-DEP-07's way back, which may remove what one version has
+    and the other not, #52; up.sh again; its test driver's stack does not count) may lose its functions,
+    roles and the like, never its data (DATA_KEYS: its buckets and database instances). Either, unless
+    the output of the case's own scripts (said) names that owner's stacks. Never excused: the case's own
+    test environment, the release registry, and an entry of no install, test environment or the registry
+    (owner_of None: the inventory lists the catalog's names and tags alone, so it is no other project's)."""
     problems = []
     for stack in (test_stack, "ColvennaCatalogRelease"):
         if before["stacks"].get(stack) != after["stacks"].get(stack):
             problems.append(f"{stack}: {before['stacks'].get(stack)} -> {after['stacks'].get(stack)}")
     stacks_before = dict(before.get("stacksElsewhere") or {}, **before["stacks"])
     stacks_after = dict(after.get("stacksElsewhere") or {}, **after["stacks"])
-    deleting = {env_of(s) for s, v in stacks_after.items() if str(v[0]).startswith("DELETE_")}
+    known = sorted(set(stacks_before) | set(stacks_after))
+
+    def owner(item):
+        return owner_of(item, known)
+
+    fixed = {None, ("install", env), stack_owner(test_stack), REGISTRY}
+    deleting = {owner(s) for s, v in stacks_after.items() if str(v[0]).startswith("DELETE_")}
     # Deleted and made again meanwhile (#62): uninstalled by its own run, then installed again.
     # Its test driver's stack does not count, as for an update (#52).
-    remade = {env_of(s) for s, v in stacks_after.items() if s in stacks_before and not DRIVER_STACK.match(s)
+    remade = {owner(s) for s, v in stacks_after.items() if s in stacks_before and not DRIVER_STACK.match(s)
               and None not in (stack_uuid(v), stack_uuid(stacks_before[s])) and stack_uuid(v) != stack_uuid(stacks_before[s])}
-    removed = ({env_of(s) for s in stacks_before if s not in stacks_after} | deleting | remade) - {None, env}
-    updated = {env_of(s) for s, v in stacks_after.items()
-               if s in stacks_before and v[:2] != stacks_before[s][:2] and not DRIVER_STACK.match(s)} - {None, env} - removed
-    named = sorted(e for e in removed | updated if names_of(e)[0] in said)
+    removed = ({owner(s) for s in stacks_before if s not in stacks_after} | deleting | remade) - fixed
+    updated = {owner(s) for s, v in stacks_after.items()
+               if s in stacks_before and v[:2] != stacks_before[s][:2] and not DRIVER_STACK.match(s)} - fixed - removed
+    named = sorted(o for o in removed | updated if _named(o, said))
     if named:
-        problems.append(f"the case's own scripts named the stacks of {named}, removed or updated meanwhile")
+        problems.append(f"the case's own scripts named the stacks of {[_label(o) for o in named]}, removed or updated meanwhile")
     removed -= set(named)
     updated -= set(named)
     b, a = others(before, env), others(after, env)
@@ -826,16 +926,24 @@ def others_untouched(before, after, env, test_stack, said=""):
         old = {x.split(" ")[0] for x in b[key]}
         new = {x.split(" ")[0] for x in a.get(key, [])}
         gone = sorted(x for x in old - new
-                      if env_of(x) not in removed and (key in DATA_KEYS or env_of(x) not in updated))
+                      if owner(x) not in removed and (key in DATA_KEYS or owner(x) not in updated))
         if gone:
             problems.append(f"{key} gone: {gone}")
     detail = "; ".join(problems) or "the test environment and the release registry as recorded; nothing of the others gone"
-    if removed:
-        detail += f" (uninstalled meanwhile by their own runs: {sorted(removed)})"
-    if removed & remade:
-        detail += f" (of them installed again under the same names: {sorted(removed & remade)})"
-    if updated:
-        detail += f" (updated meanwhile by their own runs: {sorted(updated)})"
+
+    def of(kind, owners):
+        return sorted(name for k, name in owners if k == kind)
+
+    if of("install", removed):
+        detail += f" (uninstalled meanwhile by their own runs: {of('install', removed)})"
+    if of("install", removed & remade):
+        detail += f" (of them installed again under the same names: {of('install', removed & remade)})"
+    if of("install", updated):
+        detail += f" (updated meanwhile by their own runs: {of('install', updated)})"
+    if of("test", removed):
+        detail += f" (test environments taken down meanwhile by their own runs: {of('test', removed)})"
+    if of("test", updated):
+        detail += f" (test environments updated meanwhile by their own runs: {of('test', updated)})"
     return not problems, detail
 
 
