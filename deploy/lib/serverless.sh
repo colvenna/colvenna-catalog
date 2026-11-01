@@ -191,10 +191,11 @@ preflight_serverless() {
 
 # lambda_invoke <function> <payload file> <answer file>: an IAM-authenticated Invoke of the function,
 # waiting for it to finish; fails when the function did, printing its error (never the payload). The
-# CLI's attempts are its default (aws.sh's AWS_CLI_ATTEMPTS), as before #94: an Invoke runs the function.
+# CLI's default attempts (aws.sh's AWS_CLI_DEFAULT_ATTEMPTS), not the run's (#94): an Invoke runs the
+# function, and is no control-plane call.
 lambda_invoke() {
   local failed
-  failed="$(AWS_MAX_ATTEMPTS="$AWS_CLI_ATTEMPTS" aws lambda invoke --region "$COLVENNA_REGION" --function-name "$1" \
+  failed="$(AWS_MAX_ATTEMPTS="$AWS_CLI_DEFAULT_ATTEMPTS" aws lambda invoke --region "$COLVENNA_REGION" --function-name "$1" \
     --cli-read-timeout 900 --payload "fileb://$2" "$3" --query FunctionError --output text)" || return 1
   if [[ -n "$failed" && "$failed" != None ]]; then
     echo "$1 failed ($failed): $(jq -r '.errorMessage // .' "$3" 2>/dev/null | head -c 2000)" >&2
@@ -434,8 +435,8 @@ sl_deploy_serverless() {
 # request 503). So once the stack is deployed, a new deployment of the API, marked as this function's by
 # its description, is the stage's, and every other deployment so marked is deleted; CloudFormation's and
 # any other stay. The stage's deployment is then not the one the stack records. API Gateway takes one
-# CreateDeployment every 5 seconds per account and Region, CloudFormation's and another install's among
-# them: each call is tried again while throttled (aws_retry, #94), and any other failure ends the step.
+# CreateDeployment every 5 seconds per account and Region, another install's among them: each call is
+# tried again while throttled (aws_retry, #94), and any other failure ends the step.
 sl_redeploy_stage() {
   local deployed listed old
   deployed="$(aws_retry apigateway create-deployment --region "$COLVENNA_REGION" --rest-api-id "$API_ID" --stage-name catalog \

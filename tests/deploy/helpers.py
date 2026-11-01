@@ -29,6 +29,12 @@ def slept(stubs):
     return [int(s) for s in path.read_text().split()] if path.exists() else []
 
 
+def throttled(code, operation):
+    """A stub's answer (aws) for a throttled call, as the CLI prints it once its own attempts are spent (#94)."""
+    return {"stderr": f"aws: [ERROR]: An error occurred ({code}) when calling the {operation} operation "
+                      "(reached max retries: 2): Rate exceeded\n", "code": 254}
+
+
 def write(path, text):
     path.write_text(text)
     return path

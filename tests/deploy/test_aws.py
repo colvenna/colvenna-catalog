@@ -4,15 +4,14 @@ the CLI's own retries for a run of install.sh or uninstall.sh. The waits are CLO
 import unittest
 
 from helpers import CLOCK, REPO, run_bash, slept
+from helpers import throttled as throttled_call
 from stubs import Stubs
 
 CALL = "apigateway create-deployment --region us-west-2 --rest-api-id abc --stage-name catalog"
 
 
-def throttled(code="TooManyRequestsException", operation="CreateDeployment"):
-    """A throttled call's answer, as the CLI prints it once its own attempts are spent."""
-    return {"stderr": f"aws: [ERROR]: An error occurred ({code}) when calling the {operation} operation "
-                      "(reached max retries: 2): Too Many Requests\n", "code": 254}
+def throttled(code="TooManyRequestsException"):
+    return throttled_call(code, "CreateDeployment")
 
 
 def failed(code):
@@ -44,7 +43,7 @@ class Retry(unittest.TestCase):
             f"  aws apigateway create-deployment: throttled (TooManyRequestsException); trying again in {waits[0]} s (attempt 2)",
             f"  aws apigateway create-deployment: throttled (TooManyRequestsException); trying again in {waits[1]} s (attempt 3)"])
         # What the throttled attempts printed is not passed on: the call succeeded.
-        self.assertNotIn("Too Many Requests", out.stderr)
+        self.assertNotIn("Rate exceeded", out.stderr)
 
     def test_throttled_throughout_fails_once_the_time_is_spent(self):
         out, calls, waits = retried(throttled())

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from helpers import CLOCK, REPO, parameters, run_bash, slept, stack_outputs, write
+from helpers import CLOCK, REPO, parameters, run_bash, slept, stack_outputs, throttled, write
 from stubs import Stubs
 
 sys.path.insert(0, str(REPO / "scripts" / "release"))
@@ -752,11 +752,10 @@ class MaintenanceFirst(unittest.TestCase):
 
     def test_a_throttled_read_does_not_end_the_wait(self):
         # #94: CloudFormation's own polls and another install's draw on the same quota.
-        throttled = {"stderr": "An error occurred (Throttling) when calling the DescribeStacks operation (reached max retries: 2):"
-                               " Rate exceeded\n", "code": 254}
+        busy = throttled("Throttling", "DescribeStacks")
         out, stubs = stubbed(f'{CLOCK} stack_settled {SERVERLESS_STACK}', aws={
             f"cloudformation describe-stacks --region us-west-2 --stack-name {SERVERLESS_STACK} --query Stacks[0].StackStatus":
-                [{"stdout": "UPDATE_IN_PROGRESS\n"}, throttled, throttled, {"stdout": "UPDATE_COMPLETE\n"}]})
+                [{"stdout": "UPDATE_IN_PROGRESS\n"}, busy, busy, {"stdout": "UPDATE_COMPLETE\n"}]})
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(out.stdout.strip(), "UPDATE_COMPLETE")
         self.assertEqual(len(stubs.calls()), 4)
@@ -874,24 +873,19 @@ class RedeployStage(unittest.TestCase):
     """sl_redeploy_stage (#34): once the stack is deployed, the stage serves a new deployment of the API as it is, since a
     gateway response the stack dropped is deleted only after CloudFormation's own new deployment, which keeps it."""
 
-    CREATE = "apigateway create-deployment --region us-west-2 --rest-api-id abc --stage-name catalog"
-    LIST = "apigateway get-deployments --region us-west-2 --rest-api-id abc"
-    DELETE = "apigateway delete-deployment"
-
-    @staticmethod
-    def throttled(operation):
-        return {"stderr": f"aws: [ERROR]: An error occurred (TooManyRequestsException) when calling the {operation} "
-                          "operation (reached max retries: 2): Too Many Requests\n", "code": 254}
-
-    def run_step(self, marked="None", **answers):
-        aws = {self.CREATE: {"stdout": "new1\n"}, self.LIST: {"stdout": f"{marked}\n"}, self.DELETE: {"stdout": "{}"},
-               **{getattr(self, key.upper()): answer for key, answer in answers.items()}}
+    def run_step(self, marked="None", create=None, listing=None, delete=None):
+        """The step, the stub answering each call so (a list: one answer per call, the last again); the calls and
+        the waits it made."""
+        aws = {
+            "apigateway create-deployment --region us-west-2 --rest-api-id abc --stage-name catalog": create or {"stdout": "new1\n"},
+            "apigateway get-deployments --region us-west-2 --rest-api-id abc": listing or {"stdout": f"{marked}\n"},
+            "apigateway delete-deployment": delete or {"stdout": "{}"},
+        }
         out, stubs = stubbed(CLOCK + "sl_redeploy_stage", aws=aws, env={"API_ID": "abc", "SOURCE_SHA": "b" * 40})
-        self.slept = slept(stubs)
-        return out, stubs.calls()
+        return out, stubs.calls(), slept(stubs)
 
     def test_the_stage_takes_a_new_deployment_and_only_install_sh_s_others_go(self):
-        out, calls = self.run_step(marked="mine0\tmine1")
+        out, calls, _ = self.run_step(marked="mine0\tmine1")
         self.assertEqual(out.returncode, 0, out.stderr)
         create = next(c for c in calls if " create-deployment " in c)
         self.assertIn("--description install.sh (" + "b" * 40 + "): the API as its stack left it", create)
@@ -904,40 +898,42 @@ class RedeployStage(unittest.TestCase):
         self.assertIn("serves the API as its stack left it (deployment new1)", out.stdout)
 
     def test_none_marked(self):
-        out, calls = self.run_step(marked="None")
+        out, calls, _ = self.run_step(marked="None")
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual([c for c in calls if " delete-deployment " in c], [])
 
     def test_throttled_calls_are_made_again_once_api_gateway_takes_them(self):
         # #94: two installs in one Region at once; API Gateway takes one CreateDeployment every 5 seconds per account.
-        out, calls = self.run_step(marked="mine0\tmine1", create=[self.throttled("CreateDeployment")] * 2 + [{"stdout": "new1\n"}],
-                                   list=[self.throttled("GetDeployments"), {"stdout": "mine0\tmine1\n"}],
-                                   delete=[self.throttled("DeleteDeployment"), {"stdout": "{}"}])
+        busy = "TooManyRequestsException"
+        out, calls, waits = self.run_step(
+            create=[throttled(busy, "CreateDeployment")] * 2 + [{"stdout": "new1\n"}],
+            listing=[throttled(busy, "GetDeployments"), {"stdout": "mine0\tmine1\n"}],
+            delete=[throttled(busy, "DeleteDeployment"), {"stdout": "{}"}])
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual([c.split()[2] for c in calls], ["create-deployment"] * 3 + ["get-deployments"] * 2 + ["delete-deployment"] * 3)
         self.assertEqual([c.split("--deployment-id ")[1] for c in calls if " delete-deployment " in c], ["mine0", "mine0", "mine1"])
-        self.assertEqual(len(self.slept), 4)
+        self.assertEqual(len(waits), 4)
         self.assertEqual(len([line for line in out.stderr.splitlines() if "throttled (TooManyRequestsException); trying again" in line]), 4)
-        self.assertNotIn("Too Many Requests", out.stderr)
+        self.assertNotIn("Rate exceeded", out.stderr)
         self.assertIn("serves the API as its stack left it (deployment new1)", out.stdout)
 
     def test_throttled_throughout_the_step_fails_and_deletes_nothing(self):
-        out, calls = self.run_step(marked="mine0", create=self.throttled("CreateDeployment"))
+        out, calls, waits = self.run_step(marked="mine0", create=throttled("TooManyRequestsException", "CreateDeployment"))
         self.assertEqual(out.returncode, 254, out.stderr)
         self.assertEqual({c.split()[2] for c in calls}, {"create-deployment"})
         self.assertGreater(len(calls), 3)
-        self.assertLessEqual(sum(self.slept), 180)
+        self.assertLessEqual(sum(waits), 180)
         self.assertIn("not tried again", out.stderr)
         self.assertIn("An error occurred (TooManyRequestsException) when calling the CreateDeployment operation", out.stderr)
         self.assertNotIn("serves the API", out.stdout)
 
     def test_any_other_failure_ends_the_step_at_once(self):
         denied = {"stderr": "An error occurred (UnauthorizedException) when calling the operation: no\n", "code": 254}
-        out, calls = self.run_step(marked="mine0", create=denied)
-        self.assertEqual((out.returncode, len(calls), self.slept), (254, 1, []), out.stderr)
+        out, calls, waits = self.run_step(marked="mine0", create=denied)
+        self.assertEqual((out.returncode, len(calls), waits), (254, 1, []), out.stderr)
         # A listing that fails is no proof that none is marked: the step fails, and deletes nothing.
-        out, calls = self.run_step(marked="mine0", list=denied)
-        self.assertEqual((out.returncode, self.slept), (254, []), out.stderr)
+        out, calls, waits = self.run_step(marked="mine0", listing=denied)
+        self.assertEqual((out.returncode, waits), (254, []), out.stderr)
         self.assertEqual([c.split()[2] for c in calls], ["create-deployment", "get-deployments"])
 
     def test_the_stack_s_deploy_ends_with_it(self):
@@ -952,11 +948,9 @@ class RedeployStage(unittest.TestCase):
 class WaitInterfaces(unittest.TestCase):
     def test_a_throttled_read_does_not_end_the_wait(self):
         # uninstall.sh waits up to 45 minutes for Lambda to release the functions' interfaces (#94).
-        throttled = {"stderr": "An error occurred (RequestLimitExceeded) when calling the DescribeNetworkInterfaces operation"
-                               " (reached max retries: 2): Request limit exceeded.\n", "code": 254}
         out, stubs = stubbed(f"{CLOCK} sl_wait_interfaces sg-0000000a", aws={
             "ec2 describe-network-interfaces --region us-west-2 --filters Name=group-id,Values=sg-0000000a":
-                [{"stdout": "2\n"}, throttled, {"stdout": "0\n"}]})
+                [{"stdout": "2\n"}, throttled("RequestLimitExceeded", "DescribeNetworkInterfaces"), {"stdout": "0\n"}]})
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(len(stubs.calls()), 3)
         waits = slept(stubs)

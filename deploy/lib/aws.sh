@@ -1,22 +1,28 @@
 # shellcheck shell=bash
 # The AWS CLI as the entry points call it, throttled (#94). AWS limits each account's calls to each API in
-# each Region, and whatever else runs there draws on the same quota: another install, CloudFormation and
-# CDK themselves. API Gateway takes CreateDeployment once every 5 seconds per account, a quota that
-# cannot be raised (https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html), and two
-# installs in one Region at once had one of them fail on it.
-
+# each Region, every caller's counting, another install's among them: API Gateway takes CreateDeployment
+# once every 5 seconds per account, a quota that cannot be raised
+# (https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html), and two installs in one
+# Region at once had one of them fail on it.
+#
 # The CLI's standard retry mode tries a throttled call again, and a transient error (a 5xx, a lost
-# connection), with exponential backoff, at most 20 seconds a wait, 3 attempts in all unless configured,
-# and fails at once on any other error (https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-retries.html).
-AWS_CLI_ATTEMPTS=3
-# aws_cli_retries: install.sh and uninstall.sh run every aws command in the standard mode with
-# AWS_RUN_ATTEMPTS attempts, unless the environment sets AWS_RETRY_MODE or AWS_MAX_ATTEMPTS. Not the
-# adaptive mode: the CLI calls it experimental, and what it adds, a rate limit of the client's own, would
-# last one command, each aws command being a client of its own. These retries are silent. The calls API
-# Gateway limits hardest, and the reads a wait polls, where one failure would end a long wait, go by
-# aws_retry, which says each retry and waits longer. A Lambda Invoke (lambda_invoke) keeps the CLI's
-# AWS_CLI_ATTEMPTS, as before #94: it runs a function, and is no control-plane call.
+# connection), with exponential backoff, at most 20 seconds a wait, and fails at once on any other error
+# (https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-retries.html). Its retries are silent.
+# The calls API Gateway limits hardest, and the reads the scripts' own waits poll, where one failure would
+# end a long wait, go by aws_retry as well, which says each retry and waits longer. The CLI's own waiters
+# (aws cloudformation wait, aws rds wait) poll within one aws command, each poll with the run's attempts.
+
+# The standard mode's attempts when nothing configures them (the page above). Each of aws_retry's attempts
+# makes this many, and so does a Lambda Invoke (lambda_invoke), whatever the environment sets.
+AWS_CLI_DEFAULT_ATTEMPTS=3
+
+# The attempts of every other aws command of a run of install.sh or uninstall.sh (aws_cli_retries).
 AWS_RUN_ATTEMPTS=10
+
+# aws_cli_retries: the run's aws commands in the standard mode with AWS_RUN_ATTEMPTS attempts, unless the
+# environment sets AWS_RETRY_MODE or AWS_MAX_ATTEMPTS. Exported, the variables reach every command the
+# run starts, CDK's among them. Not the adaptive mode: the CLI calls it experimental, and what it adds, a
+# rate limit of the client's own, would last one command, each aws command being a client of its own.
 aws_cli_retries() {
   export AWS_RETRY_MODE="${AWS_RETRY_MODE:-standard}" AWS_MAX_ATTEMPTS="${AWS_MAX_ATTEMPTS:-$AWS_RUN_ATTEMPTS}"
 }
@@ -36,7 +42,7 @@ THROTTLE_SECONDS=180
 
 # aws_retry [--errors <file>] <aws arguments...>: aws <arguments>, tried again while AWS throttles it (its
 # error names one of THROTTLE_CODES), waiting as above, each retry said on stderr; any other failure
-# returns at once. Each attempt is the CLI's AWS_CLI_ATTEMPTS, so that a throttle of a second or two
+# returns at once. Each attempt is AWS_CLI_DEFAULT_ATTEMPTS of the CLI's, so that a throttle of a second or two
 # passes within it and the long waits are these, said and bounded: THROTTLE_SECONDS, and one attempt.
 # Prints the last attempt's output and returns its status; its errors (the CLI's, never the retries')
 # go to stderr, or into <file>, for a caller that reads them.
@@ -50,7 +56,7 @@ aws_retry() {
   out="$(mktemp)" err="$(mktemp)"
   while :; do
     status=0
-    AWS_MAX_ATTEMPTS="$AWS_CLI_ATTEMPTS" aws "$@" >"$out" 2>"$err" || status=$?
+    AWS_MAX_ATTEMPTS="$AWS_CLI_DEFAULT_ATTEMPTS" aws "$@" >"$out" 2>"$err" || status=$?
     # The CLI names the error's code in parentheses: "An error occurred (<code>) when calling ...".
     if ((status == 0)) || ! [[ "$(<"$err")" =~ $throttled ]]; then
       break

@@ -1,7 +1,7 @@
 import subprocess
 import unittest
 
-from helpers import CLOCK, REPO, run_bash, slept
+from helpers import CLOCK, REPO, run_bash, slept, throttled
 from stubs import Stubs
 
 HELM = REPO / ".tools/helm"
@@ -163,27 +163,26 @@ class NlbTargets(unittest.TestCase):
                                "elbv2 describe-target-health": health or {"stdout": "0\n"}}})
         out = run_bash(CLOCK + "nlb_targets_healthy", env={**stubs.env, "COLVENNA_REGION": "us-west-2",
                                                            "NLB_ARN": "arn:aws:elasticloadbalancing:x"}, path_prepend=stubs.bin)
-        self.slept = slept(stubs)
-        return out, [c for c in stubs.calls() if "describe-target-health" in c]
+        return out, [c for c in stubs.calls() if "describe-target-health" in c], slept(stubs)
 
     def test_every_target_group_healthy(self):
-        out, checked = self.targets({"stdout": "arn:tg-1\tarn:tg-2\n"})
+        out, checked, _ = self.targets({"stdout": "arn:tg-1\tarn:tg-2\n"})
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(len(checked), 2)
 
     def test_a_throttled_read_does_not_end_the_wait(self):
         # #94: ELB answers Throttling; the read is made again, and the wait goes on.
-        throttled = {"stderr": "An error occurred (Throttling) when calling the DescribeTargetHealth operation: Rate exceeded\n",
-                     "code": 254}
-        out, checked = self.targets({"stdout": "arn:tg-1\n"}, [{"stdout": "1\n"}, throttled, {"stdout": "0\n"}])
+        out, checked, waits = self.targets({"stdout": "arn:tg-1\n"}, [
+            {"stdout": "1\n"}, throttled("Throttling", "DescribeTargetHealth"), {"stdout": "0\n"}])
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(len(checked), 3)
-        self.assertTrue(len(self.slept) == 2 and self.slept[0] == 10 and 3 <= self.slept[1] <= 5, self.slept)
+        # The poll's own 10 s, then aws_retry's.
+        self.assertTrue(len(waits) == 2 and waits[0] == 10 and 3 <= waits[1] <= 5, waits)
 
     def test_an_unreadable_target_list_is_a_failure_not_health(self):
         for label, groups in [("error", {"stderr": "AccessDenied", "code": 254}), ("none", {"stdout": "\n"})]:
             with self.subTest(label):
-                out, checked = self.targets(groups)
+                out, checked, _ = self.targets(groups)
                 self.assertNotEqual(out.returncode, 0)
                 self.assertEqual(checked, [])
 
