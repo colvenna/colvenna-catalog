@@ -1,0 +1,124 @@
+{
+  "schema": 1,
+  "release": "v1.0.0",
+  "promotion": {
+    "candidate": "v1.0.0-rc.4",
+    "tag_commit": "5a11f1518cea38f61338f9d8891c29a4fc480533",
+    "manifest": {
+      "path": "release/v1.0.0-rc.4/manifest.json",
+      "blob": "f16e36416049717a888a44d742272c2e6ed44f37"
+    },
+    "acceptance": {
+      "path": "release/v1.0.0-rc.4/notes.md",
+      "commit": "7afb7ea0d79ef3a9472107a99a01f820e07a92f0",
+      "blob": "72df0e52b48e742da287de545c9f696b9c293bed",
+      "verdict": "GO"
+    },
+    "chart": {
+      "version": "1.0.0-rc.4",
+      "digest": "sha256:06b5328572d2bc80069a0f7ebd164c5e01f331317d20cf6a376d05e4e53e4449",
+      "changed": [
+        "version",
+        "appVersion"
+      ],
+      "files": 10
+    }
+  },
+  "source": {
+    "repository": "https://github.com/colvenna/colvenna-catalog",
+    "built_from": "77984fb24823acc53e4c1e2d00747d494961552d",
+    "tag": "v1.0.0 points at v1.0.0-rc.4's tag commit with release/v1.0.0/ added, nothing else"
+  },
+  "generated": "2026-11-01T19:34:37Z",
+  "image": {
+    "repository": "colvenna-catalog-release/colvenna-catalog",
+    "tag": "v1.0.0",
+    "digest": "sha256:47d8834d463ca4b75d82f2c4f1dbb4466fb04cd8fb07c682e1163b3cffcc4a68",
+    "platform": "linux/amd64"
+  },
+  "chart": {
+    "name": "colvenna-catalog",
+    "path": "deploy/helm/colvenna-catalog",
+    "tree": "f8d49690a9e0ae60e655d4f2a9167f19bef9ebc9",
+    "version": "1.0.0",
+    "appVersion": "1.0.0",
+    "repository": "colvenna-catalog-release/charts/colvenna-catalog",
+    "digest": "sha256:891ba0366a34b8523ee2eb54dfea1b6cd248e8509e700f983b0d5464dbdb1cbb"
+  },
+  "installer": {
+    "install": {
+      "path": "install.sh",
+      "blob": "97988627ab567cef3fc1ad3141f399776f6fddb9"
+    },
+    "uninstall": {
+      "path": "uninstall.sh",
+      "blob": "d261a4c28c3fa694c42d33b387915e762c4cc573"
+    },
+    "lib": {
+      "path": "deploy/lib",
+      "tree": "1cc61b3888718e35c4178896793bd7cef65dffc7"
+    }
+  },
+  "cdk": {
+    "path": "deploy/aws",
+    "tree": "7ae331a5c16aaef2cb17143a08b7abccd106f8e4"
+  },
+  "uat_cases": {
+    "path": "docs/uat/cases.md",
+    "status": "present",
+    "commit": "9dd5d05c1b729f30c445d83ec17dc4e168c7eaf2",
+    "blob": "00ccb1e17a671a3ebd093b54eea36a03d21c226b"
+  },
+  "required_cases": [
+    "UAT-CMP-01",
+    "UAT-CMP-02",
+    "UAT-CMP-03",
+    "UAT-CMP-04",
+    "UAT-CMP-05",
+    "UAT-CMP-06",
+    "UAT-CMP-07",
+    "UAT-CMP-08",
+    "UAT-CAT-01",
+    "UAT-CAT-02",
+    "UAT-CAT-03",
+    "UAT-CAT-04",
+    "UAT-CAT-05",
+    "UAT-CAT-06",
+    "UAT-CAT-07",
+    "UAT-CAT-08",
+    "UAT-SEC-01",
+    "UAT-SEC-02",
+    "UAT-SEC-03",
+    "UAT-SEC-04",
+    "UAT-DEP-01",
+    "UAT-DEP-02",
+    "UAT-DEP-03",
+    "UAT-DEP-04",
+    "UAT-DEP-05",
+    "UAT-DEP-06",
+    "UAT-DEP-07",
+    "UAT-DEP-08",
+    "UAT-DEP-09",
+    "UAT-DEP-10",
+    "UAT-DEP-11",
+    "UAT-FLT-01",
+    "UAT-FLT-02",
+    "UAT-FLT-03"
+  ],
+  "performance": {
+    "path": "docs/performance/terms.md",
+    "status": "present",
+    "commit": "606ced4ea93c50a8a3da710b329fbe5993c8b6a0",
+    "blob": "2ae4339058d459a8abe35bc7da62d0f9e8d334c0"
+  },
+  "configurations": {
+    "forms": [
+      "eks",
+      "serverless"
+    ],
+    "regions": [
+      "us-west-2",
+      "us-east-2"
+    ]
+  }
+}
