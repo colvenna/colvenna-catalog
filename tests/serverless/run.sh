@@ -53,7 +53,9 @@ work="$(mktemp -d)"
 chmod 700 "$work"
 trap 'rm -rf "$work"' EXIT
 
-# shellcheck source-path=SCRIPTDIR source=../../deploy/lib/stacks.sh
+# shellcheck source-path=SCRIPTDIR source=../../deploy/lib/aws.sh
+source "$here/../../deploy/lib/aws.sh"
+# shellcheck source=../../deploy/lib/stacks.sh
 source "$here/../../deploy/lib/stacks.sh"
 COLVENNA_REGION="$region"
 # output <stack> <key>: one of the stack's outputs, from CloudFormation (cfn_output). install.sh keeps a

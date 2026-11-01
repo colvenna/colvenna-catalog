@@ -364,14 +364,16 @@ nlb_hostname() {
     -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true
 }
 
-# nlb_arn <hostname>: the ARN of the load balancer with that DNS name, or None.
+# nlb_arn <hostname>: the ARN of the load balancer with that DNS name, or None; read again while
+# throttled (aws_retry), as uninstall.sh polls it until the load balancer is gone.
 nlb_arn() {
-  aws elbv2 describe-load-balancers --region "$COLVENNA_REGION" \
+  aws_retry elbv2 describe-load-balancers --region "$COLVENNA_REGION" \
     --query "LoadBalancers[?DNSName=='$1'].LoadBalancerArn | [0]" --output text
 }
 
 # nlb_addresses: waits for the internal NLB of <release>-nlb and its network interfaces, then sets
 # NLB_HOSTNAME, NLB_ARN and NLB_HEALTH_CHECK_CIDRS (each interface's address as a /32, comma-separated).
+# The reads it polls are tried again while throttled (aws_retry).
 nlb_addresses() {
   local arn name id ips=() listed
   NLB_HOSTNAME=""
@@ -390,7 +392,7 @@ nlb_addresses() {
   zones="$(aws elbv2 describe-load-balancers --region "$COLVENNA_REGION" --load-balancer-arns "$arn" \
     --query 'length(LoadBalancers[0].AvailabilityZones)' --output text)"
   for _ in $(seq 1 30); do
-    listed="$(aws ec2 describe-network-interfaces --region "$COLVENNA_REGION" \
+    listed="$(aws_retry ec2 describe-network-interfaces --region "$COLVENNA_REGION" \
       --filters "Name=description,Values=ELB net/$name/$id" --query 'NetworkInterfaces[].PrivateIpAddress' --output text)"
     ips=()
     [[ -z "$listed" ]] || read -ra ips <<<"$listed"
@@ -404,7 +406,8 @@ nlb_addresses() {
   export NLB_HOSTNAME NLB_ARN NLB_HEALTH_CHECK_CIDRS
 }
 
-# nlb_targets_healthy: every target of the internal NLB (NLB_ARN) is healthy (10 minutes at most).
+# nlb_targets_healthy: every target of the internal NLB (NLB_ARN) is healthy (10 minutes at most); the
+# reads it polls are tried again while throttled (aws_retry).
 nlb_targets_healthy() {
   local listed groups=() group unhealthy count
   listed="$(aws elbv2 describe-target-groups --region "$COLVENNA_REGION" --load-balancer-arn "$NLB_ARN" \
@@ -414,7 +417,7 @@ nlb_targets_healthy() {
   for _ in $(seq 1 60); do
     unhealthy=0
     for group in "${groups[@]}"; do
-      count="$(aws elbv2 describe-target-health --region "$COLVENNA_REGION" --target-group-arn "$group" \
+      count="$(aws_retry elbv2 describe-target-health --region "$COLVENNA_REGION" --target-group-arn "$group" \
         --query "length(TargetHealthDescriptions[?TargetHealth.State!='healthy'])" --output text)"
       unhealthy=$((unhealthy + count))
     done

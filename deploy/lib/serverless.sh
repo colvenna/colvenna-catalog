@@ -27,10 +27,12 @@ ENI_WAIT_MINUTES=45
 # --- preflight ---------------------------------------------------------------------------------------
 
 # sl_assert_api_logging: the stage writes access and error logs, which API Gateway does only once the
-# account's API Gateway settings name a CloudWatch Logs role. install.sh never changes them.
+# account's API Gateway settings name a CloudWatch Logs role. install.sh never changes them. Read again
+# while throttled (aws_retry), as every API Gateway call install.sh makes.
 sl_assert_api_logging() {
   local role
-  role="$(aws apigateway get-account --region "$COLVENNA_REGION" --query cloudwatchRoleArn --output text 2>/dev/null)" || role=""
+  role="$(aws_retry --errors /dev/null apigateway get-account --region "$COLVENNA_REGION" --query cloudwatchRoleArn \
+    --output text)" || role=""
   [[ -n "$role" && "$role" != None ]] || refuse "API Gateway in $COLVENNA_REGION has no CloudWatch Logs role (its account" \
     "settings), which the private API's logs need: create a role API Gateway may assume with the AWS managed policy" \
     "AmazonAPIGatewayPushToCloudWatchLogs, then: aws apigateway update-account --region $COLVENNA_REGION" \
@@ -188,11 +190,12 @@ preflight_serverless() {
 # --- invoking the form's functions -------------------------------------------------------------------
 
 # lambda_invoke <function> <payload file> <answer file>: an IAM-authenticated Invoke of the function,
-# waiting for it to finish; fails when the function did, printing its error (never the payload).
+# waiting for it to finish; fails when the function did, printing its error (never the payload). The
+# CLI's attempts are its default (aws.sh's AWS_CLI_ATTEMPTS), as before #94: an Invoke runs the function.
 lambda_invoke() {
   local failed
-  failed="$(aws lambda invoke --region "$COLVENNA_REGION" --function-name "$1" --cli-read-timeout 900 \
-    --payload "fileb://$2" "$3" --query FunctionError --output text)" || return 1
+  failed="$(AWS_MAX_ATTEMPTS="$AWS_CLI_ATTEMPTS" aws lambda invoke --region "$COLVENNA_REGION" --function-name "$1" \
+    --cli-read-timeout 900 --payload "fileb://$2" "$3" --query FunctionError --output text)" || return 1
   if [[ -n "$failed" && "$failed" != None ]]; then
     echo "$1 failed ($failed): $(jq -r '.errorMessage // .' "$3" 2>/dev/null | head -c 2000)" >&2
     return 1
@@ -430,14 +433,17 @@ sl_deploy_serverless() {
 # (measured: an upgrade from a version that set INTEGRATION_FAILURE to 503 went on answering an oversize
 # request 503). So once the stack is deployed, a new deployment of the API, marked as this function's by
 # its description, is the stage's, and every other deployment so marked is deleted; CloudFormation's and
-# any other stay. The stage's deployment is then not the one the stack records.
+# any other stay. The stage's deployment is then not the one the stack records. API Gateway takes one
+# CreateDeployment every 5 seconds per account and Region, CloudFormation's and another install's among
+# them: each call is tried again while throttled (aws_retry, #94), and any other failure ends the step.
 sl_redeploy_stage() {
-  local deployed old
-  deployed="$(aws apigateway create-deployment --region "$COLVENNA_REGION" --rest-api-id "$API_ID" --stage-name catalog \
+  local deployed listed old
+  deployed="$(aws_retry apigateway create-deployment --region "$COLVENNA_REGION" --rest-api-id "$API_ID" --stage-name catalog \
     --description "install.sh ($SOURCE_SHA): the API as its stack left it" --query id --output text)"
-  for old in $(aws apigateway get-deployments --region "$COLVENNA_REGION" --rest-api-id "$API_ID" \
-    --query "items[?starts_with(description || '', 'install.sh (') && id != '$deployed'].id" --output text); do
-    [[ "$old" == None ]] || aws apigateway delete-deployment --region "$COLVENNA_REGION" --rest-api-id "$API_ID" \
+  listed="$(aws_retry apigateway get-deployments --region "$COLVENNA_REGION" --rest-api-id "$API_ID" \
+    --query "items[?starts_with(description || '', 'install.sh (') && id != '$deployed'].id" --output text)"
+  for old in $listed; do
+    [[ "$old" == None ]] || aws_retry apigateway delete-deployment --region "$COLVENNA_REGION" --rest-api-id "$API_ID" \
       --deployment-id "$old" >/dev/null
   done
   echo "  the stage catalog serves the API as its stack left it (deployment $deployed)"
@@ -578,7 +584,7 @@ sl_smoke() {
       --query 'length(FunctionUrlConfigs)' --output text)"
     [[ "$urls" == 0 ]] || problems+=("$fn has $urls function URL(s)")
   done
-  api="$(aws apigateway get-rest-api --region "$COLVENNA_REGION" --rest-api-id "$API_ID" --output json)"
+  api="$(aws_retry apigateway get-rest-api --region "$COLVENNA_REGION" --rest-api-id "$API_ID" --output json)"
   [[ "$(jq -c .endpointConfiguration.types <<<"$api")" == '["PRIVATE"]' ]] || problems+=("the API is not private")
   jq -r '.policy // ""' <<<"$api" | sed 's/\\"/"/g' | grep -q '"StringNotEquals":{"aws:SourceVpce"' \
     || problems+=("the API's policy does not deny requests from elsewhere")
@@ -671,11 +677,12 @@ install_serverless() {
 # --- uninstalling ----------------------------------------------------------------------------------------
 
 # sl_wait_interfaces <security group>: until no network interface uses the group (Lambda releases a
-# function's some minutes after the function is gone), ENI_WAIT_MINUTES at most.
+# function's some minutes after the function is gone), ENI_WAIT_MINUTES at most; each read tried again
+# while throttled (aws_retry).
 sl_wait_interfaces() {
   local left
   for _ in $(seq 1 $((ENI_WAIT_MINUTES * 2))); do
-    left="$(aws ec2 describe-network-interfaces --region "$COLVENNA_REGION" --filters "Name=group-id,Values=$1" \
+    left="$(aws_retry ec2 describe-network-interfaces --region "$COLVENNA_REGION" --filters "Name=group-id,Values=$1" \
       --query 'length(NetworkInterfaces)' --output text)"
     [[ "$left" != 0 ]] || return 0
     sleep 30

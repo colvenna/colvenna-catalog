@@ -16,7 +16,9 @@
 set -Eeuo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source-path=SCRIPTDIR source=deploy/lib/config.sh
+# shellcheck source-path=SCRIPTDIR source=deploy/lib/aws.sh
+source "$REPO/deploy/lib/aws.sh"
+# shellcheck source=deploy/lib/config.sh
 source "$REPO/deploy/lib/config.sh"
 # shellcheck source=deploy/lib/preflight.sh
 source "$REPO/deploy/lib/preflight.sh"
@@ -356,6 +358,7 @@ print_given_leftovers() {
 }
 
 main() {
+  aws_cli_retries
   parse_args "$@"
   load_config "$CONFIG_FILE"
   STATE_DIR="$REPO/.state/$COLVENNA_ENV"

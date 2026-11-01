@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 # The CDK stacks of deploy/aws, as the entry points deploy, read and destroy them. Reads COLVENNA_ENV,
 # COLVENNA_REGION, REPO, STATE_DIR (the CDK output and the stacks' outputs) and EVIDENCE (cdk.log).
+# stack_status, cfn_output and stack_resources need aws.sh (aws_retry).
 
 # cdk_dependencies if-missing|exact: the CDK app's packages (deploy/aws/node_modules), from its
 # lockfile: if-missing installs them when they are not there; exact (install.sh --release) always
@@ -75,11 +76,12 @@ function_log_groups() {
 }
 
 # stack_status <stack>: the stack's status, or NONE when there is no such stack; fails on any other error.
+# Tried again while throttled (aws_retry), as stack_settled polls it.
 stack_status() {
   local err out
   err="$(mktemp)"
-  if out="$(aws cloudformation describe-stacks --region "$COLVENNA_REGION" --stack-name "$1" \
-    --query 'Stacks[0].StackStatus' --output text 2>"$err")"; then
+  if out="$(aws_retry --errors "$err" cloudformation describe-stacks --region "$COLVENNA_REGION" --stack-name "$1" \
+    --query 'Stacks[0].StackStatus' --output text)"; then
     printf '%s\n' "$out"
   elif grep -q "does not exist" "$err"; then
     echo NONE
@@ -135,11 +137,12 @@ deploy_assembly() {
 
 # cfn_output <stack> <key>: an output of a deployed stack, read from CloudFormation; empty when there
 # is no such stack or output; fails when CloudFormation cannot be read, which is no proof of either.
+# Tried again while throttled (aws_retry), as stack_status is.
 cfn_output() {
   local err out
   err="$(mktemp)"
-  if out="$(aws cloudformation describe-stacks --region "$COLVENNA_REGION" --stack-name "$1" \
-    --query "Stacks[0].Outputs[?OutputKey=='$2'].OutputValue | [0]" --output text 2>"$err")"; then
+  if out="$(aws_retry --errors "$err" cloudformation describe-stacks --region "$COLVENNA_REGION" --stack-name "$1" \
+    --query "Stacks[0].Outputs[?OutputKey=='$2'].OutputValue | [0]" --output text)"; then
     [[ "$out" == None ]] || printf '%s\n' "$out"
   elif ! grep -q "does not exist" "$err"; then
     echo "Cannot read the stack $1: $(tr '\n' ' ' <"$err")" >&2
@@ -160,10 +163,11 @@ destroy_stack() {
     --output "$STATE_DIR/cdk.out" "${@:2}") >>"$EVIDENCE/cdk.log" 2>&1 || { tail -30 "$EVIDENCE/cdk.log" >&2; return 1; }
 }
 
-# stack_resources <stack> <type>: the physical IDs of the stack's resources of that type, one per line.
+# stack_resources <stack> <type>: the physical IDs of the stack's resources of that type, one per line;
+# tried again while throttled (aws_retry), as stack_status is.
 stack_resources() {
   local out
-  out="$(aws cloudformation describe-stack-resources --region "$COLVENNA_REGION" --stack-name "$1" \
+  out="$(aws_retry cloudformation describe-stack-resources --region "$COLVENNA_REGION" --stack-name "$1" \
     --query "StackResources[?ResourceType=='$2'].PhysicalResourceId" --output text)"
   [[ -z "$out" || "$out" == None ]] || tr '\t' '\n' <<<"$out"
 }
