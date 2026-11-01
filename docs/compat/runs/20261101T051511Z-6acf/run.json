@@ -1,0 +1,63 @@
+{
+  "run": "20261101T051511Z-6acf",
+  "form": "serverless",
+  "backend": "kubernetes",
+  "region": "us-west-2",
+  "catalog": "v1.0.0-rc.4 (built from 77984fb24823), install.sh --release, serverless",
+  "started": "2026-11-01T05:15:11.220361+00:00",
+  "finished": "2026-11-01T05:40:03.961603+00:00",
+  "matrixCommit": "5a11f1518cea38f61338f9d8891c29a4fc480533",
+  "matrixTreeDirty": false,
+  "cellsSha256": "64d158a1b00642589bbbf60c1fdfe89ba5af66e9223f3e3610b10084e08d923f",
+  "declaredSha256": "7670382967c139fe903a7405c44275268cdd16053e87ededed00963b2f9d0418",
+  "dataTokens": true,
+  "databasePrefix": "compat_20261101051511_6acf_",
+  "serverLog": "command",
+  "cells": [
+    "flink-1.20-paimon-2.0.0",
+    "flink-1.20-paimon-2.1.0",
+    "flink-2.2-paimon-2.1.0",
+    "spark-3.5-paimon-2.0.0",
+    "spark-3.5-paimon-2.1.0",
+    "spark-4.1-paimon-2.1.0",
+    "doris-4.1.5",
+    "starrocks-4.1.6"
+  ],
+  "engineIdentity": "pods of the namespace's default service account (no IRSA role, no service account token): the node's own role is all they could reach",
+  "fixture": {
+    "writer": "flink-1.20-paimon-2.1.0",
+    "database": "compat_20261101051511_6acf_fixture",
+    "tables": [
+      "pk",
+      "pk-dv",
+      "append"
+    ],
+    "writes": {
+      "pk": "3 writes committed (insert ids 1..100, upsert ids 91..110, delete ids 1..5); 3 snapshots",
+      "pk-dv": "4 writes committed (insert ids 1..100, upsert ids 91..110, delete ids 1..5, insert ids 111..120, left uncompacted); 7 snapshots; 2 deletion vector index files, 2 level-0 files",
+      "append": "2 writes committed (insert ids 1..100, insert ids 91..110); 2 snapshots"
+    },
+    "ownIdentityProbe": {
+      "pk": [
+        "PASS",
+        "the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"
+      ],
+      "pk-dv": [
+        "PASS",
+        "the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"
+      ],
+      "append": [
+        "PASS",
+        "the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"
+      ]
+    }
+  },
+  "cleanup": {
+    "status": "PASS",
+    "dropped": [
+      "compat_20261101051511_6acf_fixture"
+    ],
+    "remaining": []
+  },
+  "completed": true
+}
