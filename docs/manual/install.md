@@ -33,7 +33,8 @@ What has run live, in this repository's own test environments, and what only off
 | Serverless form from source, `COLVENNA_NETWORK=create`, `COLVENNA_DB=create`; run again and upgraded; uninstalled keeping the data, then with `--delete-data` | us-west-2 | |
 | Serverless form with `COLVENNA_NETWORK=create`, pointed at a database restored from a snapshot (`COLVENNA_DB=existing`, [user manual](user.md#62-restoring) 6.2); the refusals of `COLVENNA_DB=existing` without `COLVENNA_BUCKET`, of `COLVENNA_DB=create` after the move, and of `--delete-data` while the restored instance is there | us-west-2 | |
 | Serverless form from a release candidate (`--release`) | us-west-2, us-east-2 (`v1.0.0-rc.2`'s UAT) | |
-| Either form from a release promoted from a GO candidate (`--release v1.0.0`) | | yes |
+| EKS form from a release promoted from a GO candidate (`--release v1.0.0`), uninstalled with `--delete-data` | us-west-2 (the release's smoke install, 2026-11-01) | |
+| Serverless form from a release promoted from a GO candidate (`--release v1.0.0`) | | yes |
 | EKS form pointed at a database restored from a snapshot | us-west-2, us-east-2 (`v1.0.0-rc.2`'s UAT-DEP-10) | |
 | Serverless form with `COLVENNA_NETWORK=existing` and `COLVENNA_DB=existing` | us-west-2, us-east-2 (`v1.0.0-rc.2`'s UAT-DEP-02) | |
 | Serverless form with `COLVENNA_NETWORK=existing` and `COLVENNA_DB=create` | | yes |
@@ -217,7 +218,7 @@ Its manifest, `release/v1.0.0/manifest.json`, is the candidate's under the relea
 - the candidate's manifest there is the one recorded (`promotion.manifest`), and the release's manifest is that one under the release's names: the same image digest, commit, pinned files, UAT cases, performance terms, forms and Regions;
 - the commit whose release notes recorded the candidate's verdict when it was promoted (`promotion.acceptance`; `promote.sh` reads them on `origin/main` unless told otherwise) is in the clone and has the candidate's tag commit, and its `release/<candidate>/notes.md` is the recorded file and gives the release verdict `GO`, beside the same manifest. A clone that lacks that commit, a shallow or single-branch one say, is refused: fetch it (`git fetch origin`).
 
-The image is the candidate's, by the same digest, tagged `v1.0.0` in the environment's repository. The chart, pulled by its own digest, must be version `1.0.0` (appVersion `1.0.0`) and otherwise the candidate's: the chart directory of the commit the candidate was built from, annotated with that commit. The pods carry `colvenna-catalog/release: v1.0.0`. `scripts/release/verify-artifacts.sh v1.0.0` makes the same checks. A release's install has run only in offline tests: no release has been promoted yet.
+The image is the candidate's, by the same digest, tagged `v1.0.0` in the environment's repository. The chart, pulled by its own digest, must be version `1.0.0` (appVersion `1.0.0`) and otherwise the candidate's: the chart directory of the commit the candidate was built from, annotated with that commit. The pods carry `colvenna-catalog/release: v1.0.0`. `scripts/release/verify-artifacts.sh v1.0.0` makes the same checks. A release's install has run live once, the EKS form in `us-west-2` (`v1.0.0`'s smoke install, 2026-11-01); the serverless form's only in offline tests.
 
 ### 4.4 Example configurations
 
