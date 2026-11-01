@@ -38,11 +38,33 @@ def parse(t):
 
 # --- the record ------------------------------------------------------------------------------------
 
+# A read of the state whose tool broke off (#64: the kubectl exec's stream lost, toolExit 1, the output cut short
+# after some snapshot) is read again, this many times in all, REREAD_PAUSE seconds apart. The breaks seen were
+# a host's connection to the cluster, minutes long at worst (rc.2: 03:19 to 03:36): three reads half a minute
+# apart outlast a short one; a longer one leaves the record incomplete, which the case then says.
+READS = 3
+REREAD_PAUSE = 30
+
+
+def finished(code, facts):
+    """Whether the state tool's read ended as the tool ends: exit 0 and its done line (Tool.java)."""
+    return code == 0 and any(f.get("kind") == "done" and f.get("tool") == "state" for f in facts)
+
+
 def record(ctx, tools, token_key, db, tables, principals):
-    """The install's state as the case sees it."""
+    """The install's state as the case sees it. The tables' part is the state tool's read, taken again while it
+    did not finish (READS in all); a record none of whose reads finished says so (incomplete), and no judge
+    compares it (#64)."""
     out = {"time": time.time()}
     out["schema"] = [tuple(r) for r in Sql(ctx).query("SELECT version, script FROM colvenna_schema_version ORDER BY version")]
-    code, facts = tools.run(token_key, "state", db, ",".join(tables), keep="state.log")
+    for n in range(1, READS + 1):
+        code, facts = tools.run(token_key, "state", db, ",".join(tables), keep="state.log")
+        if finished(code, facts) or n == READS:
+            break
+        time.sleep(REREAD_PAUSE)
+    out["reads"] = n
+    out["incomplete"] = None if finished(code, facts) else (
+        f"the state tool's output ended without its done line (exit {code}), {n} reads")
     out["listing"] = next((f.get("tables") for f in facts if f.get("kind") == "listing"), None)
     out["tables"] = {f["table"]: {k: f.get(k) for k in ("exists", "latestSnapshot", "earliestSnapshot", "schemaId", "tags",
                                                          "branches", "rows", "checksum", "error")}
@@ -93,8 +115,32 @@ def same_snapshot(a, b):
     return True
 
 
+def why_incomplete(r):
+    """Why a record is incomplete, or None: its reads did not finish (record), or, in a record kept before
+    record() said so (UAT-DEP-07 loads UAT-DEP-06's from its evidence), its tool's exit was not 0."""
+    if not r:
+        return None
+    if r.get("incomplete"):
+        return r["incomplete"]
+    return f"the state tool exited {r['toolExit']}" if r.get("toolExit") not in (0, None) else None
+
+
+def incomplete(before, after):
+    """["<which>: <why>"] of the two records that are incomplete, [] when both are whole."""
+    return [f"{which}: {why_incomplete(r)}" for which, r in (("before", before), ("after", after)) if why_incomplete(r)]
+
+
+def not_compared(before, after):
+    """Why two records are not compared (one of them incomplete, #64), or None."""
+    missing = incomplete(before, after)
+    return f"not compared, a record is incomplete ({'; '.join(missing)}): nothing is taken for lost" if missing else None
+
+
 def same_snapshots(a, b, table):
-    """Whether two records hold the same snapshots of the table, each one as same_snapshot judges it."""
+    """Whether two records hold the same snapshots of the table, each one as same_snapshot judges it; never
+    when either record is incomplete (#64)."""
+    if incomplete(a, b):
+        return False
     sa, sb = a["snapshots"].get(table, {}), b["snapshots"].get(table, {})
     return bool(sa) and sa.keys() == sb.keys() and all(same_snapshot(sa[k], sb[k]) for k in sa)
 
@@ -121,7 +167,11 @@ def expired_snapshot_ids(before, now):
 
 def data_unchanged(before, after, writer_table=None, writer_user="uat-loop-writer"):
     """(ok, detail): every snapshot from before reads the same; the only new ones are the writer's; of
-    the writer's table, the earliest may have been expired by Paimon meanwhile (reported, not judged)."""
+    the writer's table, the earliest may have been expired by Paimon meanwhile (reported, not judged). An
+    incomplete record is not compared: the check fails for want of a record, not for data lost (#64)."""
+    reason = not_compared(before, after)
+    if reason:
+        return False, reason
     problems, gone = [], []
     for table, snaps in before["snapshots"].items():
         now = after["snapshots"].get(table, {})

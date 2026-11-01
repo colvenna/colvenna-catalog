@@ -74,6 +74,11 @@ class Judges(unittest.TestCase):
                                                                  "events": {1: {"plannedRows": 20}, 2: {"plannedRows": 30}}}}
         self.assertFalse(dep07.judge_as_at_snapshot(later, point, ["orders", "events"])[0])
         self.assertFalse(dep07.judge_as_at_snapshot(point, None, ["orders"])[0])
+        # #64: a record whose state tool broke off is not compared, and says so.
+        cut = dict(point, incomplete="the state tool's output ended without its done line (exit 1), 3 reads")
+        ok, detail = dep07.judge_as_at_snapshot(cut, point, ["orders", "events"])
+        self.assertFalse(ok)
+        self.assertIn("not compared", detail)
         ok = (True, "")
         self.assertTrue(dep07.judge_restored(0, ok, ok, ok, [True, True], 900)[0])
         self.assertFalse(dep07.judge_restored(0, ok, ok, ok, [True, False], 900)[0])

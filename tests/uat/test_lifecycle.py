@@ -99,6 +99,85 @@ class Records(unittest.TestCase):
         self.assertFalse(lifecycle.data_unchanged(b, later, writer_table=None)[0])  # no writer: nothing expires
         self.assertEqual(lifecycle.expired_snapshot_ids({1: snap}, {}), [])
 
+    def test_a_record_the_state_tool_did_not_finish_is_not_compared(self):
+        """#64: UAT-DEP-07 E2 us-east-2 (2026-10-31 03:37): the kubectl exec of the state tool broke off (toolExit 1)
+        after snapshot 421 of events, whose latest was 1,044; the comparison took 422 to 1,044 for lost. A record whose
+        read did not end with the tool's done line is incomplete: never compared, never taken for lost data."""
+        snap = {"plannedRows": 20, "commitUser": "w"}
+        b = self.rec([], {"events": {i: snap for i in range(1, 6)}})
+        cut = dict(self.rec([], {"events": {i: snap for i in range(1, 3)}}), toolExit=1,
+                   incomplete="the state tool's output ended without its done line (exit 1), 3 reads")
+        ok, detail = lifecycle.data_unchanged(b, cut, writer_table="events")
+        self.assertFalse(ok)
+        self.assertIn("not compared", detail)
+        self.assertIn("incomplete", detail)
+        self.assertNotIn("then None", detail)
+        # Nor when the earlier record is the incomplete one, even if both hold the same.
+        ok, detail = lifecycle.data_unchanged(cut, cut, writer_table="events")
+        self.assertFalse(ok)
+        self.assertIn("not compared", detail)
+        self.assertFalse(lifecycle.same_snapshots(cut, cut, "events"))
+        self.assertEqual(lifecycle.incomplete(b, cut), ["after: the state tool's output ended without its done line "
+                                                        "(exit 1), 3 reads"])
+        self.assertEqual(lifecycle.incomplete(b, b), [])
+        # A record kept before record() said so (UAT-DEP-07 loads UAT-DEP-06's from its evidence): its tool's exit.
+        old = dict(self.rec([], {"events": {i: snap for i in range(1, 6)}}), toolExit=1)
+        self.assertFalse(lifecycle.same_snapshots(old, old, "events"))
+        self.assertFalse(lifecycle.data_unchanged(old, old, writer_table="events")[0])
+        self.assertEqual(lifecycle.incomplete(old, dict(old, toolExit=0)), ["before: the state tool exited 1"])
+
+    def test_the_record_reads_again_until_the_tool_finishes(self):
+        """#64: record() reads the state again when the tool's read broke off, up to lifecycle.READS times; the record
+        says how many reads it took, and is incomplete when none finished."""
+        done = {"kind": "done", "tool": "state"}
+        state = [{"kind": "state", "table": "events", "exists": True, "latestSnapshot": 2},
+                 {"kind": "snapshot", "table": "events", "id": 1, "exists": True}, {"kind": "snapshot", "table": "events", "id": 2,
+                                                                                      "exists": True}]
+
+        class Tools:
+            def __init__(self, answers):
+                self.answers, self.calls = list(answers), 0
+
+            def run(self, *args, keep=None):
+                self.calls += 1
+                return self.answers.pop(0)
+
+        class Admin:
+            tokens = {}
+
+            def call(self, method, path):
+                return {"body": {"principals": [], "tokens": []}}
+
+            def grants(self, p):
+                return []
+
+            def audit(self, limit=1):
+                return []
+
+        class Ctx:
+            admin = Admin()
+
+            def keep(self, name, body):
+                pass
+
+        sql = type("Sql", (), {"query": lambda self, q: [("1", "V1")]})
+        original_sql, original_pause = lifecycle.Sql, lifecycle.REREAD_PAUSE
+        lifecycle.Sql, lifecycle.REREAD_PAUSE = (lambda ctx: sql()), 0
+        try:
+            tools = Tools([(1, state[:2]), (0, state + [done])])
+            rec = lifecycle.record(Ctx(), tools, "reader", "db", ["events"], [])
+            self.assertEqual((tools.calls, rec["reads"], rec["toolExit"], rec["incomplete"]), (2, 2, 0, None))
+            self.assertEqual(sorted(rec["snapshots"]["events"]), [1, 2])
+            broken = Tools([(1, state[:2])] * lifecycle.READS)
+            rec = lifecycle.record(Ctx(), broken, "reader", "db", ["events"], [])
+            self.assertEqual((broken.calls, rec["reads"], rec["toolExit"]), (lifecycle.READS, lifecycle.READS, 1))
+            self.assertIn("done line", rec["incomplete"])
+            # Exit 0 without the done line is no finished read either.
+            rec = lifecycle.record(Ctx(), Tools([(0, state)] * lifecycle.READS), "reader", "db", ["events"], [])
+            self.assertIsNotNone(rec["incomplete"])
+        finally:
+            lifecycle.Sql, lifecycle.REREAD_PAUSE = original_sql, original_pause
+
     def test_identities_with_a_new_token(self):
         b = self.rec([], {})
         a = self.rec([], {}, tokens={"p": [("t1", 1, None), ("t2", 2, None)]})
