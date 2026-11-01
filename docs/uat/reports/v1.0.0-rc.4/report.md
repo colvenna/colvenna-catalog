@@ -85,7 +85,7 @@ The order of cases.md section 3.2, in both Regions at once, with these differenc
 
 What happened in the execution that is not a result (each in the private ledger, `<evidence>/ledger.md`; none of them a run of a case):
 
-- 04:35 to 04:47 UTC: UAT-DEP-05's `release-not-the-tag` installed instead of refusing (#95): the operator stopped both installs in their stacks step (SIGTERM to their process groups) and removed what they had made with `uninstall.sh --delete-data` from clean checkouts of the tag, the refusal's configuration given Kubernetes names of its own so that it could not reach E1's (`verify-clean.sh`: nothing left).
+- 04:35 to 04:47 UTC: UAT-DEP-05's `release-not-the-tag` installed instead of refusing ([#95](https://github.com/colvenna/colvenna-catalog/issues/95)): the operator stopped both installs in their stacks step (SIGTERM to their process groups) and removed what they had made with `uninstall.sh --delete-data` from clean checkouts of the tag, the refusal's configuration given Kubernetes names of its own so that it could not reach E1's (`verify-clean.sh`: nothing left).
 - 10:28 UTC: a chain that was to start step 9 in `us-east-2` stopped at its own gate, which had read `deploy/config/example.env`; the gate was fixed and the chain started again at 10:32.
 - 14:51 UTC: S1's and S2's UAT-DEP-08 in `us-west-2` were waiting for the Region's install lock, held by P4b; the waits were stopped before either case started (two `NO-RESULT` lines in the private run log, not runs), and both ran outside the lock afterwards.
 
