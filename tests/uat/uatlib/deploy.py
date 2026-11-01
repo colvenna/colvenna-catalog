@@ -867,6 +867,23 @@ def env_of(item):
     return owner.name if owner and owner.kind == "install" else None
 
 
+# An RDS instance's statuses that its own activity sets, never a change asked of it (#98): "backing-up", "The DB
+# instance is currently being backed up" (https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/accessing-monitoring.html#Overview.DBInstance.Status),
+# as its automated backup in the instance's backup window does. Any other change of status (modifying, rebooting, ...)
+# is the instance changed.
+RDS_OWN_STATUSES = ("available", "backing-up")
+
+
+def instance_status(before, after):
+    """(same, note) of an existing RDS instance's status recorded before and after a case: the same, or only
+    what RDS's own backup does to it (RDS_OWN_STATUSES), which the note reports."""
+    if before == after:
+        return True, ""
+    if before in RDS_OWN_STATUSES and after in RDS_OWN_STATUSES:
+        return True, f"the instance's status {before} -> {after}: RDS's own backup, not compared"
+    return False, f"the instance's status {before} -> {after}"
+
+
 DATA_KEYS = ("buckets", "databases")  # the inventory's data of an install, which no update of it removes (#52)
 
 

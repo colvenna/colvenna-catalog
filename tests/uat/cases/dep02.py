@@ -62,8 +62,9 @@ def record_existing(ctx):
         d = aws("rds", "describe-db-instances", "--db-instance-identifier", instance)["DBInstances"][0]
         out["database"] = {k: d.get(k) for k in ("DBInstanceClass", "Engine", "EngineVersion",
                                                  "DBParameterGroups", "VpcSecurityGroups", "IAMDatabaseAuthenticationEnabled",
-                                                 "PubliclyAccessible", "MultiAZ", "BackupRetentionPeriod", "DBSubnetGroup")}
-        # Reported, not compared (#98): RDS's own activity, a backup in its window, changes it.
+                                                 "PubliclyAccessible", "MultiAZ", "BackupRetentionPeriod", "DBSubnetGroup",
+                                                 "PendingModifiedValues")}
+        # Judged on its own (#98): RDS's own backup in the instance's window changes it (deploy.instance_status).
         out["databaseStatus"] = d.get("DBInstanceStatus")
         out["securityGroups"] = aws("ec2", "describe-security-groups", "--group-ids",
                                     *[g["VpcSecurityGroupId"] for g in d["VpcSecurityGroups"]])["SecurityGroups"]
@@ -150,26 +151,23 @@ def _tag(resource, key):
 
 # --- judges ------------------------------------------------------------------------------------------
 
-# What record_existing keeps that the judge reports and does not compare: the instance's status, which RDS's
-# own automated backup in the instance's backup window turns to backing-up and back (#98), as maintenance does.
-REPORTED = ("databaseStatus",)
-
-
 def judge_existing_untouched(before, after, made, own, alongside=None):
     """The existing VPC, subnets, route tables, endpoints, database instance and bucket as recorded;
     what was added to them (made: databases, roles, prefixes) and the stacks the run deployed are the
     install's own (own: the same keys), or the names of the installs alongside (alongside: the same
     keys but stacks), which added theirs meanwhile (#43)."""
     alongside = alongside or {}
-    changed = sorted(k for k in before if k not in REPORTED and before[k] != after.get(k))
+    changed = sorted(k for k in before if k != "databaseStatus" and before[k] != after.get(k))
+    status_same, status = deploy.instance_status(before.get("databaseStatus"), after.get("databaseStatus"))
+    if not status_same:
+        changed.append("databaseStatus")
     theirs = {k: sorted(set(v) & alongside.get(k, set()) - own.get(k, set())) for k, v in made.items()}
     theirs = {k: v for k, v in theirs.items() if v}
     foreign = {k: sorted(set(v) - own.get(k, set()) - alongside.get(k, set())) for k, v in made.items()}
     foreign = {k: v for k, v in foreign.items() if v}
     hint = "" if not foreign or alongside else " (another install into them at the same time? name it with --alongside)"
-    status = ("" if before.get("databaseStatus") == after.get("databaseStatus")
-              else f" (the instance's status {before.get('databaseStatus')} -> {after.get('databaseStatus')}, RDS's own: not compared)")
-    return not changed and not foreign, (f"{'as recorded' if not changed else f'changed: {changed}'}{status}; added and deployed: "
+    return not changed and not foreign, (f"{'as recorded' if not changed else f'changed: {changed}'}"
+                                         f"{f' ({status})' if status else ''}; added and deployed: "
                                          f"{made}; added by the installs alongside: {theirs or 'none'}; "
                                          f"not the install's: {foreign or 'none'}{hint}")
 

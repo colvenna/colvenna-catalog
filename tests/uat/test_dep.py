@@ -802,6 +802,11 @@ class Dep01And02(unittest.TestCase):
         self.assertIn("available -> backing-up", detail)
         self.assertFalse(self.d2.judge_existing_untouched({"database": 2, "databaseStatus": "available"},
                                                        {"database": 3, "databaseStatus": "available"}, made, own)[0])
+        # A change asked of the instance (modifying) is a change, not RDS's own.
+        ok, detail = self.d2.judge_existing_untouched({"database": 2, "databaseStatus": "available"},
+                                                      {"database": 2, "databaseStatus": "modifying"}, made, own)
+        self.assertFalse(ok)
+        self.assertIn("databaseStatus", detail)
         self.assertFalse(self.d2.judge_existing_untouched({"vpc": 1}, {"vpc": 1}, dict(made, roles=["cat", "other"]), own)[0])
         self.assertFalse(self.d2.judge_existing_untouched({"vpc": 1}, {"vpc": 1}, dict(made, stacks=["ColvennaCatalogX"]), own)[0])
         # #43: another install into the same instance at the same time (E3 and S3 in one step) adds its own; named
@@ -1111,9 +1116,14 @@ class Dep05And08And09And11(unittest.TestCase):
     def test_existing_kept_ignores_the_instances_status(self):
         # #98: RDS's automated backup in the instance's window turns its status to backing-up and back.
         before = {"instance": {"Engine": "postgres"}, "instanceStatus": "available", "bucket": {"policy": "p"}}
-        self.assertTrue(self.d9.same_existing(before, dict(before, instanceStatus="backing-up")))
-        self.assertFalse(self.d9.same_existing(before, dict(before, instance={"Engine": "other"})))
-        self.assertFalse(self.d9.same_existing(before, dict(before, bucket={"policy": "q"})))
+        same, note = self.d9.same_existing(before, dict(before, instanceStatus="backing-up"))
+        self.assertTrue(same)
+        self.assertIn("available -> backing-up", note)
+        self.assertIn("available -> backing-up", self.d9.judge_existing_kept(same, True, None, None, None, note)[1])
+        # A change asked of the instance is still a change: its status, or what it holds pending.
+        self.assertFalse(self.d9.same_existing(before, dict(before, instanceStatus="modifying"))[0])
+        self.assertFalse(self.d9.same_existing(before, dict(before, instance={"Engine": "other"}))[0])
+        self.assertFalse(self.d9.same_existing(before, dict(before, bucket={"policy": "q"}))[0])
 
     def test_the_prefix_objects(self):
         class Aws:

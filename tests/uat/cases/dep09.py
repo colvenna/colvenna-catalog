@@ -61,7 +61,7 @@ def judge_nothing_left(code, output, kube_left):
     return code == 0 and not left and not kube_left, f"verify-clean.sh exit {code}; left: {left + kube_left or 'nothing'}"
 
 
-def judge_existing_kept(same, present, before, after, marker):
+def judge_existing_kept(same, present, before, after, marker, note=""):
     """The existing instance and bucket as recorded, with the catalog's database, users and prefix in them.
     The prefix is kept when the marker the case put there (#44) is still there, unchanged. Other objects
     recorded before the uninstall that are gone since are reported, not judged: the catalog may still be
@@ -75,16 +75,19 @@ def judge_existing_kept(same, present, before, after, marker):
         prefix = (f"the marker {'still there, unchanged' if kept else 'gone or changed'}; of the {len(before) - 1} "
                   f"other objects recorded before the uninstall, {len(gone)} gone since {gone[:3]}")
     return same and present and kept, (
-        f"the existing instance and bucket {'as recorded' if same else 'changed'}; the catalog's database and user "
+        f"the existing instance and bucket {'as recorded' if same else 'changed'}{f' ({note})' if note else ''}; "
+        f"the catalog's database and user "
         f"{'still there' if present else 'gone'}; its prefix: {prefix}")
 
 
 def same_existing(before, after):
-    """The existing instance and bucket as record_existing recorded them, but the instance's status, which
-    RDS's own automated backup in its window or its maintenance changes (#98)."""
+    """(same, note): the existing instance and bucket as record_existing recorded them; the instance's
+    status the same, or changed only by RDS's own backup in its window (#98; deploy.instance_status), which
+    the note reports."""
     def settled(record):
         return {k: v for k, v in record.items() if k != "instanceStatus"}
-    return settled(before) == settled(after)
+    status_same, note = deploy.instance_status(before.get("instanceStatus"), after.get("instanceStatus"))
+    return settled(before) == settled(after) and status_same, note
 
 
 def marker_key(prefix, run):
@@ -156,8 +159,9 @@ def record_existing(ctx, instance, bucket):
     if instance:
         d = ctx.aws("rds", "describe-db-instances", "--db-instance-identifier", instance)["DBInstances"][0]
         out["instance"] = {k: d.get(k) for k in ("DBParameterGroups", "VpcSecurityGroups",
-                                                 "IAMDatabaseAuthenticationEnabled", "DBInstanceClass", "Engine")}
-        # Reported, not compared (#98): RDS's own automated backup in the instance's window changes it.
+                                                 "IAMDatabaseAuthenticationEnabled", "DBInstanceClass", "Engine",
+                                                 "PendingModifiedValues")}
+        # Judged on its own (#98): RDS's own backup in the instance's window changes it (deploy.instance_status).
         out["instanceStatus"] = d.get("DBInstanceStatus")
     if bucket:
         out["bucket"] = {"policy": ctx.aws.raw("s3api", "get-bucket-policy", "--bucket", bucket, "--query", "Policy",
@@ -250,7 +254,9 @@ def run(ctx):
 
     if instance or bucket:
         after_existing = record_existing(ctx, instance, bucket)
-        same = same_existing(before_existing, after_existing)
+        same, note = same_existing(before_existing, after_existing)
+        ctx.keep("existing-before.json", before_existing)
+        ctx.keep("existing-after.json", after_existing)
         db, user = inst.get("COLVENNA_DB_NAME"), inst.get("COLVENNA_DB_USER")
         code, out = deploy.existing_psql(ctx, inst, f"SELECT datname FROM pg_database WHERE datname = '{db}';\n"  # nosec B608 - the harness's own names, no outside input
                                                     f"SELECT rolname FROM pg_roles WHERE rolname LIKE '{user}%' ORDER BY 1;\n"
@@ -259,7 +265,7 @@ def run(ctx):
         prefix_after = prefix_objects(aws, bucket, inst.prefix) if bucket else {}
         if bucket:
             ctx.keep("prefix-after.json", prefix_after)
-        ctx.check("existing-kept", *judge_existing_kept(same, present, prefix_before, prefix_after, marker))
+        ctx.check("existing-kept", *judge_existing_kept(same, present, prefix_before, prefix_after, marker, note))
         if done.exit_code == 0 or (retry and retry.exit_code == 0):
             # As the deployment guide tells a user (section 8), once the install is gone: the catalog's
             # database, users and prefix in what it was given.
