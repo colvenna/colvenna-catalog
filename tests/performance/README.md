@@ -52,7 +52,7 @@ As terms.md section 3 says, with these choices of the method:
 
 ### What the terms leave open, or cannot give as written
 
-- **P5's credential misses**: 10 % of 2 a second for 30 minutes is about 360 misses, fewer than the 1,000 a judged percentile needs (section 3). P5's miss latency is therefore observed only, its verdict `NOT_JUDGED`, and by section 1 the candidate's verdict can then be `NOT_JUDGED` at best, never `PASS`. The harness judges as the terms say; changing P5's load or the rule is the requester's to decide (for the next candidate).
+- **P5's credential misses**: 10 % of 2 a second for 30 minutes is about 360 misses, fewer than the 1,000 a judged percentile needs (section 3). Judged, that row could only be `NOT_JUDGED`, and the candidate's verdict never `PASS`. The requester decided on 2026-11-01 (#91; terms.md, P5) that P5 reports the misses' latency and does not judge it: P3 judges it, on P3a's 1,080 misses. Every other part of P5 gives 1,000 samples or more at this load and is judged by its form's targets; a miss that failed is still one of P5's errors.
 - **Choices the method makes where the terms are silent**: "sent on time" is within 100 ms of the due time; P3b's 20 tables are asked once each, then a minute of warm-up at the rate, before its window ("tables already issued"); P5's warm-up is 2 minutes (P2's).
 
 ## A run's evidence

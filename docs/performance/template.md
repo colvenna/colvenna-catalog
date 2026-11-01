@@ -50,7 +50,7 @@ As [terms.md](terms.md) section 4 fixes them; the harness ([`tests/performance/R
 - **Percentiles**: nearest rank over every sample of the window, warm-up excluded; 1,000 samples for a judged percentile (P4: 40).
 - **Open-loop percentiles** are of the requests answered; those that failed are errors, counted apart. The client's request line ends at the answer's headers, so for P2 and P3 it is reported beside the judged latency, which includes reading the answer.
 - **Choices the terms leave to the method**: P1b's whole commit is the `commit` call (conflict retries included); P3b's 20 tables are asked once each, then a minute of warm-up at the rate, before its window; P5's warm-up is 2 minutes; P5 reports apart the requests a serverless environment that started in the window served first.
-- **What the terms cannot give as written**: P5's credential misses (10 % of 2 a second for 30 minutes, about 360) are fewer than the 1,000 a judged percentile needs, so that row is `NOT_JUDGED` and the candidate's verdict cannot be `PASS` unless the terms change for it (the requester's decision). State here what was decided.
+- **P5's credential misses**: about 360 a form (10 % of 2 a second for 30 minutes), fewer than the 1,000 a judged percentile needs; by the requester's decision of 2026-11-01 (#91; terms.md, P5) their latency is reported, not judged, and P3 judges it. A miss that failed is still one of P5's errors.
 
 > Note here any difference from the terms' durations or loads, and why: a judged run has none (`result.json`, `reduced: false`, `official: true`).
 
@@ -150,11 +150,13 @@ The client's timeouts (section 2) against these: the client waits 3 minutes; the
 | EKS | Errors | | | | | | 0 | |
 | EKS | Commit request | | | | | | P1a's | |
 | EKS | `getTable`, snapshot, `listTables` | | | | | | P2's | |
-| EKS | Credential hits, misses | | | | | | P3's | |
+| EKS | Credential hits | | | | | | P3's | |
+| EKS | Credential misses (reported) | | | | | | reported, not judged (P3 judges misses) | `OBSERVED` |
 | Serverless | Errors | | | | | | 0 | |
 | Serverless | Commit request | | | | | | P1a's | |
 | Serverless | `getTable`, snapshot, `listTables` | | | | | | P2's | |
-| Serverless | Credential hits, misses | | | | | | P3's | |
+| Serverless | Credential hits | | | | | | P3's | |
+| Serverless | Credential misses (reported) | | | | | | reported, not judged (P3 judges misses) | `OBSERVED` |
 
 The difference between the forms (reported, not judged): serverless / EKS of each p50, p95 and p99 (`result.json`, `extra.ratios`); the serverless form's cold starts in the window and their requests, apart; each database's peak connections by user and its CPU.
 

@@ -86,7 +86,11 @@ TARGETS = {
     "P5": [
         Target("Errors", {"Target": "0 in both forms"}),
         Target("Each form's latencies at this load",
-               {"Target": "Within that form's targets of P1a (commit request), P2 (reads) and P3 (credentials)"}),
+               {"Target": "Within that form's targets of P1a (commit request), P2 (reads) and P3 (credential hits)"}),
+        # The requester's decision of 2026-11-01 (#91): about 360 misses a form at this load, fewer than the
+        # 1,000 a judged percentile needs; P3 judges the misses' latency.
+        Target("The credential misses' latency",
+               {"Target": "Reported, not judged: fewer than 1,000 at this load; P3 judges it"}),
         Target("The difference between the forms", {"Target": "Reported, not judged"}),
     ],
 }
