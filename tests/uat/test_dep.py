@@ -130,6 +130,16 @@ class Judges(unittest.TestCase):
                     "functions": ["colvenna-catalog-sl2-server"]}
         meanwhile = {"stacks": dict(both["stacks"], ColvennaCatalogSl2Serverless=["DELETE_IN_PROGRESS", "t5"]), "functions": []}
         self.assertTrue(deploy.others_untouched(deleting, meanwhile, "ek1", "ColvennaCatalogTestU1")[0])
+        # #100: the after inventory read the stacks before another install's uninstall began, and its resources
+        # after: judged by the stacks read again at its end, that uninstall is that run's.
+        raced = {"stacks": both["stacks"], "functions": ["colvenna-catalog-sl3-server"],
+                 "stacksAtEnd": dict(both["stacks"], ColvennaCatalogSl2Serverless=["DELETE_IN_PROGRESS", "t7"])}
+        self.assertTrue(deploy.others_untouched(both, raced, "ek1", "ColvennaCatalogTestU1")[0])
+        self.assertFalse(deploy.others_untouched(both, dict(raced, stacksAtEnd=both["stacks"]), "ek1",
+                                                 "ColvennaCatalogTestU1")[0])  # its stacks as they were: touched
+        # The test environment's and the registry's stacks are judged by the later reading too.
+        moved = dict(raced, stacksAtEnd=dict(raced["stacksAtEnd"], ColvennaCatalogTestU1=["UPDATE_COMPLETE", "t8"]))
+        self.assertFalse(deploy.others_untouched(both, moved, "ek1", "ColvennaCatalogTestU1")[0])
         changed = dict(after, stacks=dict(after["stacks"], ColvennaCatalogTestU1=["UPDATE_COMPLETE", "t8"]))
         self.assertFalse(deploy.others_untouched(before, changed, "ek1", "ColvennaCatalogTestU1")[0])
         # An install removed meanwhile is not excused when the case's own scripts named its stacks.

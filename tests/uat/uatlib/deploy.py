@@ -644,7 +644,10 @@ def account_inventory(aws, elsewhere=True):
     repositories, log groups and VPC endpoints of the catalog's installs, test environments and
     release registry. elsewhere: also every ColvennaCatalog stack of the other regions
     (stacksElsewhere): the account lists its roles and buckets whatever the region, so an install of
-    another region is in this inventory by them, and its stacks say whether its own run removed it (#46)."""
+    another region is in this inventory by them, and its stacks say whether its own run removed it (#46).
+    The stacks are read again once the resources are (stacksAtEnd, stacksElsewhereAtEnd): an inventory takes a
+    minute or more, and an install whose uninstall begins meanwhile has its resources going while its stacks,
+    read first, still look as they were (#100); others_untouched judges by the later reading."""
     out = {"stacks": account_stacks(aws)}
     if elsewhere:
         out["stacksElsewhere"] = stacks_elsewhere(aws)
@@ -673,6 +676,9 @@ def account_inventory(aws, elsewhere=True):
         f"{next((t['Value'] for t in e.get('Tags', []) if t['Key'] == 'aws:cloudformation:stack-name'), '-')}/{e['VpcEndpointId']}"
         for e in aws("ec2", "describe-vpc-endpoints", "--filters", "Name=tag:Project,Values=colvenna-catalog",
                      "--query", "VpcEndpoints[?State!='deleted']") or [])
+    out["stacksAtEnd"] = account_stacks(aws)
+    if elsewhere:
+        out["stacksElsewhereAtEnd"] = stacks_elsewhere(aws)
     return out
 
 
@@ -903,11 +909,14 @@ def others_untouched(before, after, env, test_stack, said=""):
     test environment, the release registry, and an entry of no install, test environment or the registry
     (owner_of None: the inventory lists the catalog's names and tags alone, so it is no other project's)."""
     problems = []
+    # What happened to the stacks meanwhile: before as first read, after as read last, once the after
+    # inventory's resources were (#100); a record without the later reading is judged by its first.
+    after_stacks = after.get("stacksAtEnd") or after["stacks"]
     for stack in (test_stack, "ColvennaCatalogRelease"):
-        if before["stacks"].get(stack) != after["stacks"].get(stack):
-            problems.append(f"{stack}: {before['stacks'].get(stack)} -> {after['stacks'].get(stack)}")
+        if before["stacks"].get(stack) != after_stacks.get(stack):
+            problems.append(f"{stack}: {before['stacks'].get(stack)} -> {after_stacks.get(stack)}")
     stacks_before = dict(before.get("stacksElsewhere") or {}, **before["stacks"])
-    stacks_after = dict(after.get("stacksElsewhere") or {}, **after["stacks"])
+    stacks_after = dict(after.get("stacksElsewhereAtEnd") or after.get("stacksElsewhere") or {}, **after_stacks)
     known = sorted(set(stacks_before) | set(stacks_after))
 
     def owner(item):
