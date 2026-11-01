@@ -855,49 +855,83 @@ class Dep05And08And09And11(unittest.TestCase):
                                "-c", "commit.gpgsign=false", *args], check=True, stdout=subprocess.PIPE,
                               universal_newlines=True).stdout.strip()
 
+    CANDIDATE = "v9.9.9-rc.1"
+
+    def commit(self, repo, message, files=(), allow_empty=False):
+        for name, text in files:
+            path = repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+            self.git(repo, "add", name)
+        self.git(repo, "commit", "-q", "-m", message, *(["--allow-empty"] if allow_empty else []))
+        return self.git(repo, "rev-parse", "HEAD")
+
     def repo_with_a_candidate(self):
-        """B, then the candidate's commit C adding release/<candidate>/; origin/main at C."""
+        """B; the candidate's commit C adding release/<candidate>/, tagged; origin/main at C, the checkout
+        at the tag."""
         repo = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, repo, True)
         self.git(repo, "init", "-q")
-        (repo / "a.txt").write_text("B\n")
-        self.git(repo, "add", "a.txt")
-        self.git(repo, "commit", "-q", "-m", "B")
-        b = self.git(repo, "rev-parse", "HEAD")
-        (repo / "release").mkdir()
-        (repo / "release" / "manifest.json").write_text("{}\n")
-        self.git(repo, "add", "release")
-        self.git(repo, "commit", "-q", "-m", "C")
-        self.git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
-        return repo, b
+        b = self.commit(repo, "B", [("a.txt", "B\n")])
+        c = self.commit(repo, "C", [(f"release/{self.CANDIDATE}/manifest.json", "{}\n")])
+        self.git(repo, "tag", self.CANDIDATE, c)
+        self.git(repo, "update-ref", "refs/remotes/origin/main", c)
+        self.git(repo, "checkout", "-q", "--detach", self.CANDIDATE)
+        return repo, b, c
 
     def test_not_the_tag_while_main_is_the_candidate_is_its_first_parent(self):
         # #95: right after the tag, origin/main is the candidate's commit; install.sh --release would install.
-        repo, b = self.repo_with_a_candidate()
-        ref, note = self.d5.not_the_tag(repo)
-        self.assertEqual(ref, "HEAD^1")
-        self.assertEqual(self.git(repo, "rev-parse", ref), b)
+        repo, b, _ = self.repo_with_a_candidate()
+        sha, note = self.d5.not_the_tag(repo, self.CANDIDATE, b)
+        self.assertEqual(sha, b)
         self.assertIn("first parent", note)
 
-    def test_not_the_tag_is_main_once_main_moved(self):
-        repo, _ = self.repo_with_a_candidate()
+    def test_not_the_tag_is_main_once_main_changed_more_than_the_release(self):
+        repo, b, c = self.repo_with_a_candidate()
         self.git(repo, "checkout", "-q", "-b", "later")
-        (repo / "b.txt").write_text("later\n")
-        self.git(repo, "add", "b.txt")
-        self.git(repo, "commit", "-q", "-m", "later")
-        self.git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
-        self.git(repo, "checkout", "-q", "HEAD^1")
-        self.assertEqual(self.d5.not_the_tag(repo), ("origin/main", "origin/main"))
+        later = self.commit(repo, "a fix", [("b.txt", "later\n")])
+        self.git(repo, "update-ref", "refs/remotes/origin/main", later)
+        self.git(repo, "checkout", "-q", "--detach", self.CANDIDATE)
+        self.assertEqual(self.d5.not_the_tag(repo, self.CANDIDATE, b), (later, f"origin/main ({later[:12]})"))
 
-    def test_not_the_tag_is_never_the_candidates_tree(self):
-        repo, _ = self.repo_with_a_candidate()
-        self.git(repo, "commit", "-q", "--allow-empty", "-m", "the same tree on top")
-        self.git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
-        self.git(repo, "checkout", "-q", "--detach", "HEAD")
-        # origin/main is HEAD; HEAD^1 (C) has the same tree too: no checkout to refuse from.
-        ref, why = self.d5.not_the_tag(repo)
-        self.assertIsNone(ref)
-        self.assertIn("neither", why)
+    def test_not_the_tag_is_not_main_when_main_changed_only_the_release(self):
+        # The records merged after the tag change only release/<candidate>/: install.sh --release takes that
+        # commit as the candidate too.
+        repo, b, _ = self.repo_with_a_candidate()
+        self.git(repo, "checkout", "-q", "-b", "later")
+        notes = self.commit(repo, "the records", [(f"release/{self.CANDIDATE}/notes.md", "GO?\n")])
+        self.git(repo, "update-ref", "refs/remotes/origin/main", notes)
+        self.git(repo, "checkout", "-q", "--detach", self.CANDIDATE)
+        sha, _ = self.d5.not_the_tag(repo, self.CANDIDATE, b)
+        self.assertEqual(sha, b)
+
+    def test_not_the_tag_anchors_on_the_tag_not_on_head(self):
+        # The harness run from a later checkout (HEAD past the tag): still the tag's first parent, never the tag.
+        repo, b, c = self.repo_with_a_candidate()
+        self.git(repo, "checkout", "-q", "-b", "later")
+        notes = self.commit(repo, "the records", [(f"release/{self.CANDIDATE}/notes.md", "GO?\n")])
+        self.git(repo, "update-ref", "refs/remotes/origin/main", notes)
+        sha, _ = self.d5.not_the_tag(repo, self.CANDIDATE, b)
+        self.assertEqual(sha, b)
+        self.assertNotEqual(sha, c)
+
+    def test_not_the_tag_is_none_when_install_sh_takes_both(self):
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, repo, True)
+        self.git(repo, "init", "-q")
+        b = self.commit(repo, "B", [("a.txt", "B\n")])
+        self.commit(repo, "the release", [(f"release/{self.CANDIDATE}/manifest.json", "{}\n")])
+        c = self.commit(repo, "C", allow_empty=True)
+        self.git(repo, "tag", self.CANDIDATE, c)
+        self.git(repo, "update-ref", "refs/remotes/origin/main", c)
+        sha, why = self.d5.not_the_tag(repo, self.CANDIDATE, b)
+        self.assertIsNone(sha)
+        self.assertIn("no checkout of main", why)
+
+    def test_release_refuses(self):
+        repo, b, c = self.repo_with_a_candidate()
+        self.assertTrue(self.d5.release_refuses(repo, b, self.CANDIDATE, b))      # no release/<candidate>/
+        self.assertFalse(self.d5.release_refuses(repo, c, self.CANDIDATE, b))     # the tag itself
 
     def test_the_form_not_accepted_refusal_has_no_eks_key(self):
         # Its configuration is the EKS run's base turned serverless: with an EKS key left, install.sh would
