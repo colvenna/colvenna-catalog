@@ -9,7 +9,7 @@ import java.nio.file.Path;
  * <ul>
  *   <li>{@code seed}: databases and tables of the run (and one snapshot each), {@link Seed};
  *   <li>{@code drop}: the run's databases, with their tables, {@link Drop};
- *   <li>{@code writers}: closed-loop committers, {@link Writers} (P1a, P1b);
+ *   <li>{@code writers}: closed-loop committers, {@link Writers} (P1a, P1b, P1c);
  *   <li>{@code reads}: the open-loop metadata read mix, {@link Reads} (P2);
  *   <li>{@code tokens}: open-loop credential requests, {@link Tokens} (P3);
  *   <li>{@code cold}: one cold-start round, {@link Cold} (P4);

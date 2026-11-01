@@ -13,7 +13,9 @@ from . import REPO
 
 TERMS = REPO / "docs" / "performance" / "terms.md"
 FORMS = ("eks", "serverless")
-SCENARIOS = ("P1a", "P1b", "P2", "P3", "P4a", "P4b", "P5")
+SCENARIOS = ("P1a", "P1b", "P1c", "P2", "P3", "P4a", "P4b", "P5")
+# Scenarios that are reported and never judged: their runs are OBSERVED, and no candidate's verdict counts them.
+OBSERVED_SCENARIOS = ("P1c",)
 
 # The Paimon client's timeouts and retries, part of the method (terms.md section 4, P4; B6): read in
 # paimon-api 2.0.0's HttpClientUtils and ExponentialHttpRequestRetryStrategy. The load tool sets
@@ -51,6 +53,7 @@ TARGETS = {
                {"eks": 0.99, "serverless": 0.99}),
         Target("P1b whole commit p95 / p99", {"EKS": "≤ 3 s / ≤ 6 s", "Serverless": "≤ 5 s / ≤ 10 s"},
                {"eks": {"p95": 3000, "p99": 6000}, "serverless": {"p95": 5000, "p99": 10000}}),
+        Target("P1c one table's capacity (2 commits/s offered)", {"EKS": "observed", "Serverless": "observed"}),
     ],
     "P2": [
         Target("`getTable`, load snapshot p95 / p99, at the target rate",
@@ -93,10 +96,17 @@ def target(section, row):
     return next(t for t in TARGETS[section] if t.row == row)
 
 
-# The load of each scenario at the terms' durations (seconds), before any scaling.
+# The load of each scenario at the terms' durations (seconds), before any scaling. A value that differs by
+# form is a {form: value} (per_form).
 LOAD = {
     "P1a": {"writers": 8, "rows": 100, "interval": 0, "shared": False, "warmup": 60, "duration": 600},
-    "P1b": {"writers": 4, "rows": 100, "interval": 2000, "shared": True, "warmup": 60, "duration": 600},
+    # P1b as revised on 2026-11-01 (#83): the requester's load (within one table's capacity) and EKS's 20 minutes;
+    # the serverless form's 40 minutes the release coordinator's, so that each window offers 1,200 commits and
+    # the whole commit's percentiles are judged (1,000 samples). terms.md, P1.
+    "P1b": {"writers": 4, "rows": 100, "interval": {"eks": 4000, "serverless": 8000}, "shared": True, "warmup": 60,
+            "duration": {"eks": 1200, "serverless": 2400}},
+    # P1c: P1b's earlier load, about one table's capacity: observed only.
+    "P1c": {"writers": 4, "rows": 100, "interval": 2000, "shared": True, "warmup": 60, "duration": 600},
     "P2": {"databases": 20, "tables": 50, "mix": "getTable:60,snapshot:30,listTables:10", "page": 100,
            "steps": {"eks": [50, 100, 200, 400, 800], "serverless": [25, 50, 100, 150]},
            "target_rate": {"eks": 200, "serverless": 50}, "step": 300, "warmup": 120},
@@ -114,6 +124,11 @@ LOAD = {
 # What "sent on time" means for an open-loop request (P2's sustainable rate): it started within this
 # long of the time it was due. The terms ask for 99 % on time and leave the bound to the method.
 ON_TIME_MS = 100
+
+
+def per_form(value, form):
+    """A load's value for the form: the value itself, or the form's when it differs by form."""
+    return value[form] if isinstance(value, dict) else value
 
 
 def scaled(seconds, scale, floor=10):
