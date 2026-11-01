@@ -16,10 +16,10 @@ import org.apache.paimon.table.sink.StreamTableWrite;
 import org.apache.paimon.table.sink.StreamWriteBuilder;
 
 /**
- * Closed-loop writers (terms.md P1a, P1b, P1c, and P5's writers): {@code writers} writers, each with a
- * catalog, a commit user ({@code perf-w<n>}) and a stream writer of its own, as a Flink sink holds
- * them, commit {@code rows} rows (one data file) at a time to the table {@code tables[n]}, or all
- * to {@code tables[0]} with {@code shared=true}.
+ * Closed-loop writers (terms.md P1a, P1b, P1c, and P5's writers): {@code writers} writers, each
+ * with a catalog, a commit user ({@code perf-w<n>}) and a stream writer of its own, as a Flink sink
+ * holds them, commit {@code rows} rows (one data file) at a time to the table {@code tables[n]}, or
+ * all to {@code tables[0]} with {@code shared=true}.
  *
  * <p>With {@code interval=0} each writer commits back to back; otherwise commit k of writer n is
  * due at {@code start + n * interval / writers + k * interval}, and is made when the previous one
