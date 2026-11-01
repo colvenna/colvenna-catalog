@@ -1010,6 +1010,21 @@ class Dep05And08And09And11(unittest.TestCase):
         self.assertFalse(self.d11.judge_nlb_removed(run_of("x", 0), "arn:x", ["tg"], ["tg"])[0])
 
 
+class Dep09RunsTheHarnesssScripts(unittest.TestCase):
+    def test_the_check_and_the_drivers_removal_are_the_harnesss(self):
+        """#59: verify-clean.sh (the check, with #60's wait for what RDS is still deleting) and down.sh (the harness's
+        test driver, which uatlib/testdriver.py deployed) come from the harness's checkout, whatever --installer-checkout
+        names; uninstall.sh stays the install's (Installer). rc.2's retests ran the tag's verify-clean.sh, without #60."""
+        from uatlib.install import REPO
+        self.assertEqual(dep09.SCRIPTS, {"down": REPO / "tests" / "serverless" / "down.sh",
+                                         "verify-clean": REPO / "tests" / "serverless" / "verify-clean.sh"})
+        self.assertTrue(all(p.exists() for p in dep09.SCRIPTS.values()))
+        source = Path(dep09.__file__).read_text()
+        self.assertNotIn('checkout / "tests"', source)  # no other script of the tag's
+        self.assertEqual(source.count('SCRIPTS["verify-clean"]'), 1)
+        self.assertEqual(source.count('SCRIPTS["down"]'), 1)
+
+
 class Dep09DropsWhatWasGiven(unittest.TestCase):
     """UAT-DEP-09 drops the catalog's database and users from an existing instance with the deployment
     guide's statements, which uninstall.sh --delete-data prints (#73)."""

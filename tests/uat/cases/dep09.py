@@ -19,6 +19,7 @@ import subprocess
 import time
 
 from uatlib import deploy
+from uatlib.install import REPO
 
 ID = "UAT-DEP-09"
 FORMS = ("eks", "serverless")
@@ -156,6 +157,14 @@ def record_existing(ctx, instance, bucket):
     return out
 
 
+# The harness's own scripts the case runs, whatever --installer-checkout names: the check (verify-clean.sh)
+# and the removal of the harness's test driver (down.sh; testdriver deployed it). uninstall.sh is the
+# install's, from its checkout (a candidate's tag), as the user runs it (Installer). So a retest with a
+# fixed harness runs the fixed check (#59: rc.2's retests ran the tag's verify-clean.sh, without #60's wait).
+SCRIPTS = {"down": REPO / "tests" / "serverless" / "down.sh",
+           "verify-clean": REPO / "tests" / "serverless" / "verify-clean.sh"}
+
+
 def run(ctx):
     args, inst, aws = ctx.args, ctx.install, ctx.aws
     checkout = deploy.checkout_of(args)
@@ -184,7 +193,7 @@ def run(ctx):
             notes.append(f"on the instance UAT-DEP-10 restored ({status})")
         notes.append(f"{len(stacks_before)} stacks; given: database {bool(instance)}, bucket {bool(bucket)}")
     with ctx.preparing("the driver taken down first (tests/serverless/down.sh)") as notes:
-        down = subprocess.run([str(checkout / "tests" / "serverless" / "down.sh"), inst.env, inst.region],
+        down = subprocess.run([str(SCRIPTS["down"]), inst.env, inst.region],
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, env=aws.env())
         ctx.keep("driver-down.log", down.stdout)
         if down.returncode != 0:
@@ -224,7 +233,7 @@ def run(ctx):
 
     # --- step 3 --------------------------------------------------------------------------------------
     env = dict(aws.env(), API_IDS=api_ids)
-    clean = subprocess.run([str(checkout / "tests" / "serverless" / "verify-clean.sh"), inst.env, inst.region],
+    clean = subprocess.run([str(SCRIPTS["verify-clean"]), inst.env, inst.region],
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, env=env)
     ctx.keep("verify-clean.txt", clean.stdout)
     kube_left = []
