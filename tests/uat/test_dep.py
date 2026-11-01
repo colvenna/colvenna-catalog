@@ -1011,18 +1011,20 @@ class Dep05And08And09And11(unittest.TestCase):
 
 
 class Dep09RunsTheHarnesssScripts(unittest.TestCase):
-    def test_the_check_and_the_drivers_removal_are_the_harnesss(self):
-        """#59: verify-clean.sh (the check, with #60's wait for what RDS is still deleting) and down.sh (the harness's
-        test driver, which uatlib/testdriver.py deployed) come from the harness's checkout, whatever --installer-checkout
-        names; uninstall.sh stays the install's (Installer). rc.2's retests ran the tag's verify-clean.sh, without #60."""
+    def test_the_check_and_the_drivers_removal_are_the_harnesss_the_uninstall_the_installs(self):
+        """#59: verify-clean.sh (the check, with #60's wait for what RDS is still deleting) and down.sh (testdriver.down:
+        the harness's test driver, which it deployed) come from the harness's checkout, whatever --installer-checkout
+        names; uninstall.sh from the install's (Installer, at checkout_of). rc.2's retests ran the tag's verify-clean.sh,
+        without #60's wait."""
         from uatlib.install import REPO
-        self.assertEqual(dep09.SCRIPTS, {"down": REPO / "tests" / "serverless" / "down.sh",
-                                         "verify-clean": REPO / "tests" / "serverless" / "verify-clean.sh"})
-        self.assertTrue(all(p.exists() for p in dep09.SCRIPTS.values()))
-        source = Path(dep09.__file__).read_text()
-        self.assertNotIn('checkout / "tests"', source)  # no other script of the tag's
-        self.assertEqual(source.count('SCRIPTS["verify-clean"]'), 1)
-        self.assertEqual(source.count('SCRIPTS["down"]'), 1)
+        self.assertEqual(dep09.VERIFY_CLEAN, REPO / "tests" / "serverless" / "verify-clean.sh")
+        self.assertTrue(dep09.VERIFY_CLEAN.exists())
+        lines = [line.strip() for line in Path(dep09.__file__).read_text().splitlines()]
+        # The install's checkout serves the Installer alone: no other script of the tag's is run.
+        self.assertEqual([line for line in lines if "checkout" in line and not line.startswith("#")],
+                         ["checkout = deploy.checkout_of(args)", "installer = deploy.Installer(ctx, checkout, args.config)"])
+        self.assertIn("clean = subprocess.run([str(VERIFY_CLEAN), inst.env, inst.region],", lines)
+        self.assertIn("notes.append(testdriver.down(ctx, inst))  # the harness's down.sh, as it deployed the driver (#59)", lines)
 
 
 class Dep09DropsWhatWasGiven(unittest.TestCase):
