@@ -109,6 +109,19 @@ Rescanned with ASH 3.5.4 at this change's head: 0 actionable, the 8 entries all 
 
 ASH is not a job of `scripts/ci-local.sh`. It runs in an image of its own, about 4.5 GB, built from a clone of its tag, and takes some 4 minutes on the tree. It stays in `scan.sh`, which each candidate's record runs (section 7). What let the findings pile up between candidates was a suppression that stopped matching without a sound; a mark moves with its line, and `test_ash_config.py` keeps line numbers out of `.ash/.ash.yaml`. A change that adds credential-shaped test data, or SQL built from strings, runs ASH (or `scan.sh`) before it merges, and its pull request gives the counts.
 
+### 5.3 An advisory after `v1.0.0-rc.2` (#85)
+
+`v1.0.0-rc.2`'s B was not at 0 on ASH: 10 detect-secrets findings, verified false positives, were marked after its tag (#26), so the release check counted them. Before the next candidate, `main` at `c861bde` was scanned again on 2026-11-01 (`scan.sh`, ASH 3.5.4 from its GitHub tag). detect-secrets, bandit, checkov, cfn-nag, semgrep and opengrep had nothing actionable. There were 5 actionable findings, all one advisory published on 2026-10-30: [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) (CVE-2026-118764, MEDIUM), a denial of service by glob-pattern amplification in minimatch before 11.0.1.
+
+- **Where it is.** grype's match in `deploy/aws/package-lock.json`, npm audit's on minimatch, and npm audit's entries for the three packages it names after it: `aws-cdk-lib`, `cdk-nag`, and `@aws-cdk/lambda-layer-kubectl-v36`. Trivy finds the same advisory in the lockfile. The lockfile's only minimatch is 10.2.6, bundled inside `aws-cdk-lib` 2.274.0.
+- **Why it is not fixed.** No release of aws-cdk-lib carries a fixed minimatch: its latest, 2.275.0, bundles `^10.2.6` too. An npm override cannot replace a package bundled inside another.
+- **Why it is a false positive here.** The advisory's growth of glob parts happens in `firstPhasePreProcess` only when `optimizationLevel` is 2 or more. Minimatch's default is 1. aws-cdk-lib's three callers in 2.274.0, read in its published package, never set it: `Stack`'s match of the bundling-stacks context, `IgnoreStrategy.glob` (asset exclude patterns), and the construct selectors. Their patterns are this repository's own CDK code and the operator's context, at synthesis on the operator's host. Nothing of aws-cdk-lib is in the server's image or the chart.
+- **What was suppressed.** `.ash/.ash.yaml` has the five entries, by rule and file, and `.trivyignore.yaml` has one, for the lockfile.
+  - npm audit's three package entries only repeat the advisory, which is reported and judged on its own, at minimatch.
+  - `test_ash_config.py` holds the lockfile to that one bundled copy. Another copy fails it. A minimatch past 11.0.1 leaves the entries unused, and they are then removed.
+
+Rescanned at this change's head: ASH has 0 actionable findings, and the 13 entries are all in use (`used_suppressions`). The counts are in the pull request.
+
 ## 6. Open findings and their handling
 
 ### 6.1 Inside Apache Paimon 2.0.0's jars
