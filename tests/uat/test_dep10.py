@@ -11,9 +11,12 @@ def record(snapshots, tables=None):
 
 class Restore(unittest.TestCase):
     def test_listing_reads_and_history_as_at_the_point(self):
-        self.assertTrue(dep10.judge_lists(0, ["t2", "gone", "t1"])[0])
-        self.assertFalse(dep10.judge_lists(0, ["t1", "t2", "t3", "gone"])[0])
-        self.assertFalse(dep10.judge_lists(1, ["gone", "t1", "t2"])[0])
+        self.assertTrue(dep10.judge_lists(0, {"listing": ["t2", "gone", "t1"]})[0])
+        self.assertFalse(dep10.judge_lists(0, {"listing": ["t1", "t2", "t3", "gone"]})[0])
+        self.assertFalse(dep10.judge_lists(1, {"listing": ["gone", "t1", "t2"]})[0])
+        ok, detail = dep10.judge_lists(0, {"listing": ["t2", "gone", "t1"], "toolExit": 1})  # #64: incomplete
+        self.assertFalse(ok)
+        self.assertIn("not compared", detail)
         point = record({"t1": {1: {"plannedRows": 10}}, "t2": {1: {"plannedRows": 10}}},
                        {"t1": {"rows": 10, "checksum": "a"}, "t2": {"rows": 10, "checksum": "b"}})
         self.assertTrue(dep10.judge_reads(point, point)[0])

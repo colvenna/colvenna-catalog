@@ -120,6 +120,11 @@ class Records(unittest.TestCase):
         self.assertEqual(lifecycle.incomplete(b, cut), ["after: the state tool's output ended without its done line "
                                                         "(exit 1), 3 reads"])
         self.assertEqual(lifecycle.incomplete(b, b), [])
+        # A record kept before record() said so (UAT-DEP-07 loads UAT-DEP-06's from its evidence): its tool's exit.
+        old = dict(self.rec([], {"events": {i: snap for i in range(1, 6)}}), toolExit=1)
+        self.assertFalse(lifecycle.same_snapshots(old, old, "events"))
+        self.assertFalse(lifecycle.data_unchanged(old, old, writer_table="events")[0])
+        self.assertEqual(lifecycle.incomplete(old, dict(old, toolExit=0)), ["before: the state tool exited 1"])
 
     def test_the_record_reads_again_until_the_tool_finishes(self):
         """#64: record() reads the state again when the tool's read broke off, up to lifecycle.READS times; the record

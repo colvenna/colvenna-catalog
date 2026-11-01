@@ -120,9 +120,9 @@ def judge_as_at_snapshot(at, point, tables):
     took the snapshot (point: its record from then; None when not found)."""
     if point is None:
         return False, "no record of UAT-DEP-06's from the snapshot's time"
-    missing = lifecycle.incomplete(at, point)
-    if missing:
-        return False, f"not compared, a record is incomplete ({'; '.join(missing)}) (#64)"
+    reason = lifecycle.not_compared(at, point)
+    if reason:
+        return False, reason
     same = {t: lifecycle.same_snapshots(at, point, t) for t in tables}
     listed = sorted(at.get("listing") or []) == sorted(point.get("listing") or [])
     return listed and all(same.values()), f"listed as then: {listed}; snapshot by snapshot as then: {same}"

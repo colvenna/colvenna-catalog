@@ -72,21 +72,21 @@ def judge_guarded(runs, stack_db):
     return ok, "; ".join(out)
 
 
-def judge_lists(code, listing):
-    """After the restore the catalog lists what it did at the point: gone, t1, t2, no t3."""
+def judge_lists(code, at):
+    """After the restore the catalog lists what it did at the point: gone, t1, t2, no t3 (at: the record after
+    it, never an incomplete one, #64)."""
+    reason = lifecycle.not_compared(None, at)
+    if reason:
+        return False, f"install.sh exit {code}; {reason}"
+    listing = at.get("listing")
     return code == 0 and sorted(listing or []) == ["gone", "t1", "t2"], f"install.sh exit {code}; listed {sorted(listing or [])}"
-
-
-def not_compared(a, b):
-    """The reason two records are not compared (one of them incomplete, #64), or None."""
-    missing = lifecycle.incomplete(a, b)
-    return f"not compared, a record is incomplete ({'; '.join(missing)})" if missing else None
 
 
 def judge_reads(at, point):
     """t1 and t2 read as at the point (rows and checksum)."""
-    if not_compared(at, point):
-        return False, not_compared(at, point)
+    reason = lifecycle.not_compared(at, point)
+    if reason:
+        return False, reason
     pairs = {t: (at["tables"].get(t), point["tables"].get(t)) for t in ("t1", "t2")}
     ok = all(a is not None and a == b for a, b in pairs.values())
     return ok, "; ".join(f"{t}: {(a or {}).get('rows')} rows, at the point {(b or {}).get('rows')}" for t, (a, b) in pairs.items())
@@ -94,8 +94,9 @@ def judge_reads(at, point):
 
 def judge_history(at, point):
     """t1's and t2's snapshots, one by one, read as at the point."""
-    if not_compared(at, point):
-        return False, not_compared(at, point)
+    reason = lifecycle.not_compared(at, point)
+    if reason:
+        return False, reason
     t1, t2 = lifecycle.same_snapshots(at, point, "t1"), lifecycle.same_snapshots(at, point, "t2")
     return t1 and t2, f"snapshot by snapshot as at the point: t1 {t1}, t2 {t2}"
 
@@ -128,8 +129,9 @@ def judge_in_line(final):
 
 def judge_history_before(now, before):
     """t1 (its later commit included) and t3 read, snapshot by snapshot, as before the restore."""
-    if not_compared(now, before):
-        return False, not_compared(now, before)
+    reason = lifecycle.not_compared(now, before)
+    if reason:
+        return False, reason
     t1, t3 = lifecycle.same_snapshots(now, before, "t1"), lifecycle.same_snapshots(now, before, "t3")
     return t1 and t3, f"as before the restore: t1 {t1}, t3 {t3}"
 
@@ -275,7 +277,7 @@ def run(ctx):
     # The case's admin token may be unknown to the restored database: the one the install holds now.
     admin.tokens["admin"] = ctx.install.admin_token()
     at = lifecycle.record(ctx, tools, "writer", db, tables, [who])
-    ctx.check("lists-as-at-point", *judge_lists(code, at["listing"]))
+    ctx.check("lists-as-at-point", *judge_lists(code, at))
     ctx.check("reads-as-at-point", *judge_reads(at, point))
     ctx.check("history-as-at-point", *judge_history(at, point))
 
