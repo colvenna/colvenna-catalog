@@ -1,0 +1,55 @@
+COMPAT-INFO {"engine":"flink","engineVersion":"1.20.5","paimonVersion":"2.0.0","paimonJar":"paimon-flink-1.20-2.0.0.jar","dataTokens":true}
+COMPAT-STEP - create-database OK 90ms 
+COMPAT-STEP pk create-table OK 469ms 
+COMPAT-STEP pk insert ids 1..100 OK 11777ms 
+COMPAT-STEP pk upsert ids 91..110 OK 4309ms 
+2026-11-01T05:24:03.874Z WARN  MetricGroup - The operator name Source: t_pk[127] -> Calc[128] -> ConstraintEnforcer[129] -> RowKindSetter[129] -> Map exceeded the 80 characters length limit and was truncated.
+COMPAT-STEP pk delete ids 1..5 OK 6128ms 
+COMPAT-STEP pk count-snapshots OK 1869ms 
+COMPAT-STEP pk read-rows OK 2875ms 
+COMPAT-STEP pk read-sum OK 3082ms 
+COMPAT-STEP pk read-upserted OK 2359ms 
+COMPAT-STEP pk read-deleted OK 2946ms 
+COMPAT-INFO {"ambientRefusal":"AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261101051511_6acf_flink120_p200.db/t_pk/schema/schema-0: org.apache.hadoop.fs.s3a.auth.NoAuthWithAWSException: No AWS Credentials provided by TemporaryAWSCredentialsProvider SimpleAWSCredentialsProvider EnvironmentVariableCredentialsProvider IAMInstanceCredentialsProvider : software.amazon.awss...","table":"t_pk"}
+COMPAT-STEP pk probe-own-identity OK 1099ms 
+COMPAT-STEP pk drop-table OK 153ms 
+COMPAT-STEP pk-dv create-table OK 419ms 
+COMPAT-STEP pk-dv insert ids 1..100 OK 9102ms 
+COMPAT-STEP pk-dv upsert ids 91..110 OK 5459ms 
+2026-11-01T05:24:38.825Z WARN  MetricGroup - The operator name Source: t_pk_dv[285] -> Calc[286] -> ConstraintEnforcer[287] -> RowKindSetter[287] -> Map exceeded the 80 characters length limit and was truncated.
+COMPAT-STEP pk-dv delete ids 1..5 OK 7505ms 
+COMPAT-STEP pk-dv insert ids 111..120, left uncompacted OK 5300ms 
+COMPAT-STEP pk-dv count-snapshots OK 1813ms 
+COMPAT-STEP pk-dv count-deletion-vectors OK 1705ms 
+COMPAT-STEP pk-dv count-level-0-files OK 2824ms 
+COMPAT-STEP pk-dv read-rows OK 3424ms 
+COMPAT-STEP pk-dv read-sum OK 3507ms 
+COMPAT-STEP pk-dv read-upserted OK 2896ms 
+COMPAT-STEP pk-dv read-deleted OK 2654ms 
+COMPAT-STEP pk-dv read-uncompacted OK 2589ms 
+COMPAT-INFO {"ambientRefusal":"AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261101051511_6acf_flink120_p200.db/t_pk_dv/schema/schema-0: org.apache.hadoop.fs.s3a.auth.NoAuthWithAWSException: No AWS Credentials provided by TemporaryAWSCredentialsProvider SimpleAWSCredentialsProvider EnvironmentVariableCredentialsProvider IAMInstanceCredentialsProvider : software.amazon.a...","table":"t_pk_dv"}
+COMPAT-STEP pk-dv probe-own-identity OK 1094ms 
+COMPAT-STEP pk-dv drop-table OK 134ms 
+COMPAT-STEP append create-table OK 441ms 
+COMPAT-STEP append insert ids 1..100 OK 3493ms 
+COMPAT-STEP append insert ids 91..110 OK 2573ms 
+COMPAT-STEP append count-snapshots OK 1730ms 
+COMPAT-STEP append read-rows OK 1751ms 
+COMPAT-STEP append read-sum OK 1891ms 
+COMPAT-STEP append read-duplicates OK 1995ms 
+COMPAT-INFO {"ambientRefusal":"AccessDeniedException: s3://<REDACTED>/warehouse/compat_20261101051511_6acf_flink120_p200.db/t_append/schema/schema-0: org.apache.hadoop.fs.s3a.auth.NoAuthWithAWSException: No AWS Credentials provided by TemporaryAWSCredentialsProvider SimpleAWSCredentialsProvider EnvironmentVariableCredentialsProvider IAMInstanceCredentialsProvider : software.amazon....","table":"t_append"}
+COMPAT-STEP append probe-own-identity OK 1063ms 
+COMPAT-STEP append drop-table OK 158ms 
+COMPAT-STEP - drop-database OK 148ms 
+COMPAT-RESULT {"table":"pk","op":"write","status":"PASS","detail":"3 writes committed (insert ids 1..100, upsert ids 91..110, delete ids 1..5); 3 snapshots"}
+COMPAT-RESULT {"table":"pk","op":"read","status":"PASS","detail":"rows=105, sum=26090, upserted=1100, deleted=0"}
+COMPAT-RESULT {"table":"pk","op":"credentials","status":"PASS","detail":"the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"}
+COMPAT-RESULT {"table":"pk","op":"ddl","status":"PASS","detail":"create and drop of the database and the table"}
+COMPAT-RESULT {"table":"pk-dv","op":"write","status":"PASS","detail":"4 writes committed (insert ids 1..100, upsert ids 91..110, delete ids 1..5, insert ids 111..120, left uncompacted); 7 snapshots; 2 deletion vector index files, 2 level-0 files"}
+COMPAT-RESULT {"table":"pk-dv","op":"read","status":"PASS","detail":"rows=115, sum=27245, upserted=1100, deleted=0, uncompacted=10"}
+COMPAT-RESULT {"table":"pk-dv","op":"credentials","status":"PASS","detail":"the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"}
+COMPAT-RESULT {"table":"pk-dv","op":"ddl","status":"PASS","detail":"create and drop of the database and the table"}
+COMPAT-RESULT {"table":"append","op":"write","status":"PASS","detail":"2 writes committed (insert ids 1..100, insert ids 91..110); 2 snapshots"}
+COMPAT-RESULT {"table":"append","op":"read","status":"PASS","detail":"rows=120, sum=27060, duplicates=2"}
+COMPAT-RESULT {"table":"append","op":"credentials","status":"PASS","detail":"the engine's own identity is refused the table's files; it wrote and read with data-token.enabled=true and no S3 keys of its own"}
+COMPAT-RESULT {"table":"append","op":"ddl","status":"PASS","detail":"create and drop of the database and the table"}

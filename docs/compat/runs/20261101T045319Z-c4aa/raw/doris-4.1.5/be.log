@@ -1,0 +1,1210 @@
+Certificate was added to keystore
+StdoutLogger 2026-11-01 04:59:02,652 Start time: Sun Nov  1 04:59:02 UTC 2026
+StdoutLogger 2026-11-01 04:59:02,723 Added missing Java option: -Dhadoop.shell.setsid.enabled=false
+I20261101 04:59:02.944015 748 doris_main.cpp:423]  version doris-4.1.5-release(AVX2) RELEASE features: -TDE,-TLS,-VARIANT_NESTED_GROUP,-HDFS_STORAGE_VAULT,+UI,+AZURE_BLOB,+AZURE_STORAGE_VAULT,-HIVE_UDF,+BE_JAVA_EXTENSIONS (build git://vm-208@917b20be83878e98f94e3ebf7efccc80346e3e50)
+Built on Sun, 11 Oct 2026 21:57:08 CST by vm-208
+I20261101 04:59:02.949419 748 jni-util.cpp:110] set final LIBHDFS_OPTS: -Dfile.encoding=UTF-8 -Djol.skipHotspotSAAttach=true -Xmx1024m -DlogPath=/opt/apache-doris/be/log//jni.log -Xlog:gc*:/opt/apache-doris/be/log//be.gc.log.20261101-045902:time,uptime:filecount=10,filesize=50M -Djavax.security.auth.useSubjectCredsOnly=false -Dsun.security.krb5.debug=true -Dsun.java.command=DorisBE -XX:-CriticalJNINatives -XX:+IgnoreUnrecognizedVMOptions -Darrow.enable_null_check_for_get=false --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED --add-opens=java.management/sun.management=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.xml/com.sun.org.apache.xerces.internal.jaxp=ALL-UNNAMED -Dhadoop.shell.setsid.enabled=false -Djava.security.krb5.conf=/etc/krb5.conf  -Djdk.lang.processReaperUseDefaultStackSize=true
+I20261101 04:59:05.312801 748 jvm_metrics.cpp:294] Start JVM monitoring.
+I20261101 04:59:05.312902 748 doris_main.cpp:531] Doris backend JNI is initialized.
+I20261101 04:59:05.313941 748 mem_info.cpp:287] Physical Memory: 16554225664, BE Available Physical Memory(consider cgroup): 3221225472, Mem Limit: 2.70 GB, origin config value: 90%, System Mem Available Min Reserve: 153.60 MB, Vm Min Free KBytes: 66.00 MB, Vm Overcommit Memory: 1
+I20261101 04:59:05.314009 748 doris_main.cpp:613] Cpu Info:
+  Model: Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz
+  Cores: 4
+  Max Possible Cores: 4
+  L1 Cache: 32.00 KB (Line: 64.00 B)
+  L2 Cache: 1.00 MB (Line: 64.00 B)
+  L3 Cache: 35.75 MB (Line: 64.00 B)
+  Hardware Supports:
+    ssse3
+    sse4_1
+    sse4_2
+    popcnt
+    avx
+    avx2
+  Numa Nodes: 1
+  Numa Nodes of Cores: 0->0 | 1->0 | 2->0 | 3->0 |
+I20261101 04:59:05.314041 748 doris_main.cpp:614] Disk Info: 
+  Num disks 2: nvme0n, nvme0n1p
+I20261101 04:59:05.314055 748 doris_main.cpp:615] Physical Memory: 3221225472
+Memory Limt: 2899102924
+CGroup Info: Process CGroup Memory Info (cgroups path: /sys/fs/cgroup, cgroup version: v2): memory limit: 3221225472, memory usage: 326657616
+I20261101 04:59:05.351701 748 doris_main.cpp:623] PHDR cache enabled: 1
+I20261101 04:59:05.543102 748 doris_main.cpp:626] SymbolIndex preloaded: objects=19 symbols=1028780
+I20261101 04:59:05.543195 748 backend_options.cpp:113] priority cidrs: 127.0.0.1/32
+I20261101 04:59:05.543354 748 backend_options.cpp:63] local host ip=127.0.0.1
+W20261101 04:59:05.848135 748 timezone_utils.cpp:101] Meet illegal tzdata file: iso3166.tab. skipped
+W20261101 04:59:05.848577 748 timezone_utils.cpp:101] Meet illegal tzdata file: leap-seconds.list. skipped
+W20261101 04:59:05.848639 748 timezone_utils.cpp:101] Meet illegal tzdata file: leapseconds. skipped
+W20261101 04:59:05.849224 748 timezone_utils.cpp:101] Meet illegal tzdata file: tzdata.zi. skipped
+W20261101 04:59:05.849280 748 timezone_utils.cpp:101] Meet illegal tzdata file: zone.tab. skipped
+W20261101 04:59:05.849323 748 timezone_utils.cpp:101] Meet illegal tzdata file: zone1970.tab. skipped
+W20261101 04:59:05.849388 748 timezone_utils.cpp:101] Meet illegal tzdata file: zonenow.tab. skipped
+I20261101 04:59:05.849793 748 timezone_utils.cpp:118] Preloaded682 timezones.
+I20261101 04:59:05.856566 748 threadpool.cpp:332] Thread pool 'SendBatchThreadPool' initialized: min_threads=64, max_threads=64, max_queue_size=102400, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:05.857033 748 threadpool.cpp:332] Thread pool 'UDFCloseWorkers' initialized: min_threads=4, max_threads=4, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:05.858803 748 threadpool.cpp:332] Thread pool 'BufferedReaderPrefetchThreadPool' initialized: min_threads=16, max_threads=64, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:05.861816 748 threadpool.cpp:332] Thread pool 'SegmentPrefetchThreadPool' initialized: min_threads=32, max_threads=2000, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:05.862939 748 threadpool.cpp:332] Thread pool 'SendTableStatsThreadPool' initialized: min_threads=8, max_threads=32, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:05.864588 748 threadpool.cpp:332] Thread pool 'S3FileUploadThreadPool' initialized: min_threads=16, max_threads=64, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:05.864805 748 threadpool.cpp:332] Thread pool 'LazyReleaseMemoryThreadPool' initialized: min_threads=1, max_threads=1, max_queue_size=1000000, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:05.867733 748 threadpool.cpp:332] Thread pool 'NonBlockCloseThreadPool' initialized: min_threads=12, max_threads=64, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:05.869957 748 threadpool.cpp:332] Thread pool 'S3FileSystemThreadPool' initialized: min_threads=16, max_threads=64, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:05.870098 748 threadpool.cpp:332] Thread pool 'PeerRaceS3ThreadPool' initialized: min_threads=0, max_threads=32, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+E20261101 04:59:05.870462 748 variable.cpp:179] Already exposed `doris_cache_data_page_cache' whose value is `0'
+E20261101 04:59:05.870528 748 variable.cpp:179] Already exposed `doris_cache_data_page_cache_persecond' whose value is `0'
+I20261101 04:59:05.870555 748 cache_manager.h:49] Register Cache DataPageCache
+E20261101 04:59:05.870793 748 variable.cpp:179] Already exposed `doris_cache_index_page_cache' whose value is `0'
+E20261101 04:59:05.870836 748 variable.cpp:179] Already exposed `doris_cache_index_page_cache_persecond' whose value is `0'
+I20261101 04:59:05.870862 748 cache_manager.h:49] Register Cache IndexPageCache
+E20261101 04:59:05.871086 748 variable.cpp:179] Already exposed `doris_cache_pkindex_page_cache' whose value is `0'
+E20261101 04:59:05.871124 748 variable.cpp:179] Already exposed `doris_cache_pkindex_page_cache_persecond' whose value is `0'
+I20261101 04:59:05.871148 748 cache_manager.h:49] Register Cache PKIndexPageCache
+I20261101 04:59:05.871165 748 exec_env_init.cpp:597] Storage page cache memory limit: 552.96 MB, origin config value: 20%
+E20261101 04:59:05.871229 748 variable.cpp:179] Already exposed `doris_cache_ann_index_ivflist_cache' whose value is `0'
+E20261101 04:59:05.871255 748 variable.cpp:179] Already exposed `doris_cache_ann_index_ivflist_cache_persecond' whose value is `0'
+I20261101 04:59:05.871273 748 cache_manager.h:49] Register Cache AnnIndexIVFListCache
+I20261101 04:59:05.871286 748 exec_env_init.cpp:610] ANN index IVF list cache memory limit: 1.89 GB, origin config value: 70%
+E20261101 04:59:05.871409 748 variable.cpp:179] Already exposed `doris_cache_point_query_row_cache' whose value is `0'
+E20261101 04:59:05.871481 748 variable.cpp:179] Already exposed `doris_cache_point_query_row_cache_persecond' whose value is `0'
+I20261101 04:59:05.871542 748 cache_manager.h:49] Register Cache PointQueryRowCache
+I20261101 04:59:05.871560 748 exec_env_init.cpp:624] Row cache memory limit: 552.96 MB, origin config value: 20%
+E20261101 04:59:05.871670 748 variable.cpp:179] Already exposed `doris_cache_segment_cache' whose value is `0'
+E20261101 04:59:05.871703 748 variable.cpp:179] Already exposed `doris_cache_segment_cache_persecond' whose value is `0'
+I20261101 04:59:05.871723 748 cache_manager.h:49] Register Cache SegmentCache
+I20261101 04:59:05.871735 748 exec_env_init.cpp:658] segment_cache_capacity <= fd_number * 1 / 5, fd_number: 1048576 segment_cache_capacity: 209700 min_segment_cache_mem_limit 144955145
+I20261101 04:59:05.871747 748 exec_env_init.cpp:664] max file reader cache size is: 349525, resource hard limit is: 1048576, config file_cache_max_file_reader_cache_size is: 1000000
+E20261101 04:59:05.871891 748 variable.cpp:179] Already exposed `doris_cache_common_obj_lrucache' whose value is `0'
+E20261101 04:59:05.871912 748 variable.cpp:179] Already exposed `doris_cache_common_obj_lrucache_persecond' whose value is `0'
+I20261101 04:59:05.871929 748 cache_manager.h:49] Register Cache CommonObjLRUCache
+E20261101 04:59:05.871996 748 variable.cpp:179] Already exposed `doris_cache_point_query_lookup_connection_cache' whose value is `0'
+E20261101 04:59:05.872030 748 variable.cpp:179] Already exposed `doris_cache_point_query_lookup_connection_cache_persecond' whose value is `0'
+I20261101 04:59:05.872051 748 cache_manager.h:49] Register Cache PointQueryLookupConnectionCache
+I20261101 04:59:05.872067 748 inverted_index_cache.cpp:59] fd_number: 1048576, inverted index open searcher limit: 209715
+E20261101 04:59:05.872364 748 variable.cpp:179] Already exposed `doris_cache_inverted_index_searcher_cache' whose value is `0'
+E20261101 04:59:05.872404 748 variable.cpp:179] Already exposed `doris_cache_inverted_index_searcher_cache_persecond' whose value is `0'
+I20261101 04:59:05.872432 748 cache_manager.h:49] Register Cache InvertedIndexSearcherCache
+I20261101 04:59:05.872448 748 exec_env_init.cpp:685] Inverted index searcher cache memory limit: 276.48 MB, origin config value: 10%
+E20261101 04:59:05.872681 748 variable.cpp:179] Already exposed `doris_cache_inverted_index_query_cache' whose value is `0'
+E20261101 04:59:05.872720 748 variable.cpp:179] Already exposed `doris_cache_inverted_index_query_cache_persecond' whose value is `0'
+I20261101 04:59:05.872745 748 cache_manager.h:49] Register Cache InvertedIndexQueryCache
+I20261101 04:59:05.872764 748 exec_env_init.cpp:699] Inverted index query match cache memory limit: 276.48 MB, origin config value: 10%
+E20261101 04:59:05.872864 748 variable.cpp:179] Already exposed `doris_cache_condition_cache' whose value is `0'
+E20261101 04:59:05.872895 748 variable.cpp:179] Already exposed `doris_cache_condition_cache_persecond' whose value is `0'
+I20261101 04:59:05.872917 748 cache_manager.h:49] Register Cache ConditionCache
+I20261101 04:59:05.872942 748 exec_env_init.cpp:709] Condition cache memory limit: 512.00 MB, origin config value: 512
+E20261101 04:59:05.872999 748 variable.cpp:179] Already exposed `doris_cache_query_cache' whose value is `0'
+E20261101 04:59:05.873031 748 variable.cpp:179] Already exposed `doris_cache_query_cache_persecond' whose value is `0'
+I20261101 04:59:05.873071 748 cache_manager.h:49] Register Cache QueryCache
+I20261101 04:59:05.873087 748 exec_env_init.cpp:718] query cache memory limit: 512MB
+E20261101 04:59:05.873461 748 variable.cpp:179] Already exposed `doris_cache_mow_delete_bitmap_agg_cache' whose value is `0'
+E20261101 04:59:05.873521 748 variable.cpp:179] Already exposed `doris_cache_mow_delete_bitmap_agg_cache_persecond' whose value is `0'
+I20261101 04:59:05.873545 748 cache_manager.h:49] Register Cache MowDeleteBitmapAggCache
+I20261101 04:59:05.873555 748 cgroup_cpu_ctl.cpp:70] [cgroup_init_path]doris cgroup home path is not specify, if you not use workload group, you can ignore this log.
+I20261101 04:59:05.874342 748 block_file_cache_factory.cpp:80] path /opt/apache-doris/be/file_cache does not exist, create 
+I20261101 04:59:05.874388 748 block_file_cache_factory.cpp:100] The cache /opt/apache-doris/be/file_cache config size 0 is larger than disk size 42869960704 or zero, recalc it.
+I20261101 04:59:05.874404 748 block_file_cache_factory.cpp:107] [FileCache] path: /opt/apache-doris/be/file_cache total_size: 42869960704 disk_total_size: 42869960704
+I20261101 04:59:05.875069 748 block_file_cache.cpp:460] file cache path= /opt/apache-doris/be/file_cache capacity: 42869960704, max_file_block_size: 1048576, max_query_cache_size: 0, disposable_queue_size: 2143498035, disposable_queue_elements: 102400, index_queue_size: 2143498035, index_queue_elements: 102400, ttl_queue_size: 21434980350, ttl_queue_elements: 102400, query_queue_size: 17147984284, query_queue_elements: 102400, storage: disk
+I20261101 04:59:05.875135 748 cache_lru_dumper.cpp:493] no lru dump file is founded for ttl
+I20261101 04:59:05.875151 748 cache_lru_dumper.cpp:495] lru restore time costs: 0us.
+I20261101 04:59:05.875174 748 cache_lru_dumper.cpp:493] no lru dump file is founded for index
+I20261101 04:59:05.875187 748 cache_lru_dumper.cpp:495] lru restore time costs: 0us.
+I20261101 04:59:05.875208 748 cache_lru_dumper.cpp:493] no lru dump file is founded for normal
+I20261101 04:59:05.875218 748 cache_lru_dumper.cpp:495] lru restore time costs: 0us.
+I20261101 04:59:05.875236 748 cache_lru_dumper.cpp:493] no lru dump file is founded for disposable
+I20261101 04:59:05.875250 748 cache_lru_dumper.cpp:495] lru restore time costs: 0us.
+I20261101 04:59:05.903590 748 fs_file_cache_storage.cpp:623] Cache will upgrade from 2.0 to 3.0 progressively during running. 2.0 data format will evict eventually.
+I20261101 04:59:05.903678 748 fs_file_cache_storage.cpp:1060] Finished loading cache info from meta store using RocksDB iterator
+I20261101 04:59:05.904268 748 block_file_cache.cpp:2446] Starting background evict in advance thread
+I20261101 04:59:05.905226 748 fragment_mgr.cpp:725] FragmentMgr cancel worker start working.
+I20261101 04:59:05.906194 748 fs_file_cache_storage.cpp:182] file cache /opt/apache-doris/be/file_cache lazy load done.
+I20261101 04:59:05.906561 748 threadpool.cpp:332] Thread pool 'FragmentMgrAsyncWorkThreadPool' initialized: min_threads=16, max_threads=2048, max_queue_size=4096, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.161361 748 threadpool.cpp:332] Thread pool 'SegmentFileWriterThreadPool' initialized: min_threads=6, max_threads=6, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.161679 748 threadpool.cpp:332] Thread pool 'routine_load' initialized: min_threads=0, max_threads=1024, max_queue_size=1024, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.161898 748 threadpool.cpp:332] Thread pool 'GroupCommitThreadPool' initialized: min_threads=1, max_threads=10, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.162171 748 threadpool.cpp:332] Thread pool 'GroupCommitReplayWalThreadPool' initialized: min_threads=1, max_threads=10, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.162406 748 work_thread_pool.hpp:65] PriorityThreadPool 'WriteCooldownMetaExecutor' initialized: num_threads=1, queue_size=2147483647
+I20261101 04:59:06.162530 748 work_thread_pool.hpp:65] PriorityThreadPool 'WriteCooldownMetaExecutor' initialized: num_threads=1, queue_size=2147483647
+I20261101 04:59:06.162775 748 work_thread_pool.hpp:65] PriorityThreadPool 'WriteCooldownMetaExecutor' initialized: num_threads=1, queue_size=2147483647
+I20261101 04:59:06.162930 748 work_thread_pool.hpp:65] PriorityThreadPool 'WriteCooldownMetaExecutor' initialized: num_threads=1, queue_size=2147483647
+I20261101 04:59:06.163069 748 work_thread_pool.hpp:65] PriorityThreadPool 'WriteCooldownMetaExecutor' initialized: num_threads=1, queue_size=2147483647
+I20261101 04:59:06.163359 748 load_path_mgr.cpp:71] Load path configured to []
+I20261101 04:59:06.163455 748 result_buffer_mgr.cpp:201] result buffer manager cancel thread begin.
+E20261101 04:59:06.163765 748 variable.cpp:179] Already exposed `doris_cache_load_state_channel_cache_' whose value is `0'
+E20261101 04:59:06.163813 748 variable.cpp:179] Already exposed `doris_cache_load_state_channel_cache_persecond' whose value is `0'
+I20261101 04:59:06.163843 748 cache_manager.h:49] Register Cache LoadStateChannelCache 
+I20261101 04:59:06.163973 748 wal_manager.cpp:117] wal_dir:/opt/apache-doris/be/storage/wal, tmp_dir:/opt/apache-doris/be/storage/wal/tmp
+E20261101 04:59:06.164445 748 variable.cpp:179] Already exposed `doris_cache_tablet_schema_cache' whose value is `0'
+E20261101 04:59:06.164502 748 variable.cpp:179] Already exposed `doris_cache_tablet_schema_cache_persecond' whose value is `0'
+I20261101 04:59:06.164523 748 cache_manager.h:49] Register Cache TabletSchemaCache
+E20261101 04:59:06.164579 748 variable.cpp:179] Already exposed `doris_cache_tablet_column_object_pool' whose value is `0'
+E20261101 04:59:06.164608 748 variable.cpp:179] Already exposed `doris_cache_tablet_column_object_pool_persecond' whose value is `0'
+I20261101 04:59:06.164630 748 cache_manager.h:49] Register Cache TabletColumnObjectPool
+I20261101 04:59:06.167937 748 exec_env_init.cpp:798] The file deploy_mode doesn't exist, create it.
+start BE in local mode
+E20261101 04:59:06.168344 748 variable.cpp:179] Already exposed `doris_cache_mow_tablet_version_cache' whose value is `0'
+E20261101 04:59:06.168440 748 variable.cpp:179] Already exposed `doris_cache_mow_tablet_version_cache_persecond' whose value is `0'
+I20261101 04:59:06.168469 748 cache_manager.h:49] Register Cache MowTabletVersionCache
+E20261101 04:59:06.168514 748 variable.cpp:179] Already exposed `doris_cache_create_tablet_rridx_cache' whose value is `0'
+E20261101 04:59:06.168541 748 variable.cpp:179] Already exposed `doris_cache_create_tablet_rridx_cache_persecond' whose value is `0'
+I20261101 04:59:06.168565 748 cache_manager.h:49] Register Cache CreateTabletRRIdxCache
+I20261101 04:59:06.168591 748 storage_engine.cpp:233] starting backend using uid:9e43d4fdd086247e-24b1fe56d04b73bf
+I20261101 04:59:06.168856 748 data_dir.cpp:893] path: /opt/apache-doris/be/storage total capacity: 42869960704, available capacity: 29475450880, usage: 0.312445, in_use: 0
+I20261101 04:59:06.223447 748 data_dir.cpp:203] path: /opt/apache-doris/be/storage, hash: 8278071542442530434
+I20261101 04:59:06.225525 748 olap_meta.cpp:73] [Rocksdb] RocksDB version: 5.14.2
+I20261101 04:59:06.225610 748 olap_meta.cpp:73] [Rocksdb] Git sha rocksdb_build_git_sha:71b924ac59c72d9d57038736e692f4294cea40c1
+I20261101 04:59:06.225625 748 olap_meta.cpp:73] [Rocksdb] Compile date Oct 10 2026
+I20261101 04:59:06.225665 748 olap_meta.cpp:73] [Rocksdb] DB SUMMARY
+I20261101 04:59:06.225692 748 olap_meta.cpp:73] [Rocksdb] [ERROR] Error when reading /opt/apache-doris/be/storage/meta dir
+I20261101 04:59:06.225710 748 olap_meta.cpp:73] [Rocksdb] SST files in /opt/apache-doris/be/storage/meta dir, Total Num: 0, files: 
+I20261101 04:59:06.225720 748 olap_meta.cpp:73] [Rocksdb] Write Ahead Log file in /opt/apache-doris/be/storage/meta: 
+I20261101 04:59:06.225734 748 olap_meta.cpp:73] [Rocksdb]                         Options.error_if_exists: 0
+I20261101 04:59:06.225747 748 olap_meta.cpp:73] [Rocksdb]                       Options.create_if_missing: 1
+I20261101 04:59:06.225762 748 olap_meta.cpp:73] [Rocksdb]                         Options.paranoid_checks: 1
+I20261101 04:59:06.225777 748 olap_meta.cpp:73] [Rocksdb]                                     Options.env: 0x5643d2b75210
+I20261101 04:59:06.225793 748 olap_meta.cpp:73] [Rocksdb]                                Options.info_log: 0x7f9469ecf270
+I20261101 04:59:06.225802 748 olap_meta.cpp:73] [Rocksdb]                Options.max_file_opening_threads: 16
+I20261101 04:59:06.225811 748 olap_meta.cpp:73] [Rocksdb]                              Options.statistics: (nil)
+I20261101 04:59:06.225821 748 olap_meta.cpp:73] [Rocksdb]                               Options.use_fsync: 0
+I20261101 04:59:06.225828 748 olap_meta.cpp:73] [Rocksdb]                       Options.max_log_file_size: 0
+I20261101 04:59:06.225841 748 olap_meta.cpp:73] [Rocksdb]                  Options.max_manifest_file_size: 18446744073709551615
+I20261101 04:59:06.225857 748 olap_meta.cpp:73] [Rocksdb]                   Options.log_file_time_to_roll: 0
+I20261101 04:59:06.225870 748 olap_meta.cpp:73] [Rocksdb]                       Options.keep_log_file_num: 1000
+I20261101 04:59:06.225879 748 olap_meta.cpp:73] [Rocksdb]                    Options.recycle_log_file_num: 0
+I20261101 04:59:06.225888 748 olap_meta.cpp:73] [Rocksdb]                         Options.allow_fallocate: 1
+I20261101 04:59:06.225896 748 olap_meta.cpp:73] [Rocksdb]                        Options.allow_mmap_reads: 0
+I20261101 04:59:06.225904 748 olap_meta.cpp:73] [Rocksdb]                       Options.allow_mmap_writes: 0
+I20261101 04:59:06.225914 748 olap_meta.cpp:73] [Rocksdb]                        Options.use_direct_reads: 0
+I20261101 04:59:06.225926 748 olap_meta.cpp:73] [Rocksdb]                        Options.use_direct_io_for_flush_and_compaction: 0
+I20261101 04:59:06.225941 748 olap_meta.cpp:73] [Rocksdb]          Options.create_missing_column_families: 1
+I20261101 04:59:06.225956 748 olap_meta.cpp:73] [Rocksdb]                              Options.db_log_dir: 
+I20261101 04:59:06.225965 748 olap_meta.cpp:73] [Rocksdb]                                 Options.wal_dir: /opt/apache-doris/be/storage/meta
+I20261101 04:59:06.225973 748 olap_meta.cpp:73] [Rocksdb]                Options.table_cache_numshardbits: 6
+I20261101 04:59:06.225981 748 olap_meta.cpp:73] [Rocksdb]                      Options.max_subcompactions: 1
+I20261101 04:59:06.225991 748 olap_meta.cpp:73] [Rocksdb]                  Options.max_background_flushes: -1
+I20261101 04:59:06.226001 748 olap_meta.cpp:73] [Rocksdb]                         Options.WAL_ttl_seconds: 0
+I20261101 04:59:06.226016 748 olap_meta.cpp:73] [Rocksdb]                       Options.WAL_size_limit_MB: 0
+I20261101 04:59:06.226032 748 olap_meta.cpp:73] [Rocksdb]             Options.manifest_preallocation_size: 4194304
+I20261101 04:59:06.226042 748 olap_meta.cpp:73] [Rocksdb]                     Options.is_fd_close_on_exec: 1
+I20261101 04:59:06.226060 748 olap_meta.cpp:73] [Rocksdb]                   Options.advise_random_on_open: 1
+I20261101 04:59:06.226068 748 olap_meta.cpp:73] [Rocksdb]                    Options.db_write_buffer_size: 0
+I20261101 04:59:06.226078 748 olap_meta.cpp:73] [Rocksdb]                    Options.write_buffer_manager: 0x7f9469ecf320
+I20261101 04:59:06.226090 748 olap_meta.cpp:73] [Rocksdb]         Options.access_hint_on_compaction_start: 1
+I20261101 04:59:06.226105 748 olap_meta.cpp:73] [Rocksdb]  Options.new_table_reader_for_compaction_inputs: 0
+I20261101 04:59:06.226118 748 olap_meta.cpp:73] [Rocksdb]           Options.random_access_max_buffer_size: 1048576
+I20261101 04:59:06.226131 748 olap_meta.cpp:73] [Rocksdb]                      Options.use_adaptive_mutex: 0
+I20261101 04:59:06.226141 748 olap_meta.cpp:73] [Rocksdb]                            Options.rate_limiter: (nil)
+I20261101 04:59:06.226150 748 olap_meta.cpp:73] [Rocksdb]     Options.sst_file_manager.rate_bytes_per_sec: 0
+I20261101 04:59:06.226158 748 olap_meta.cpp:73] [Rocksdb]                       Options.wal_recovery_mode: 2
+I20261101 04:59:06.226172 748 olap_meta.cpp:73] [Rocksdb]                  Options.enable_thread_tracking: 0
+I20261101 04:59:06.226188 748 olap_meta.cpp:73] [Rocksdb]                  Options.enable_pipelined_write: 0
+I20261101 04:59:06.226202 748 olap_meta.cpp:73] [Rocksdb]         Options.allow_concurrent_memtable_write: 1
+I20261101 04:59:06.226212 748 olap_meta.cpp:73] [Rocksdb]      Options.enable_write_thread_adaptive_yield: 1
+I20261101 04:59:06.226220 748 olap_meta.cpp:73] [Rocksdb]             Options.write_thread_max_yield_usec: 100
+I20261101 04:59:06.226229 748 olap_meta.cpp:73] [Rocksdb]            Options.write_thread_slow_yield_usec: 3
+I20261101 04:59:06.226238 748 olap_meta.cpp:73] [Rocksdb]                               Options.row_cache: None
+I20261101 04:59:06.226249 748 olap_meta.cpp:73] [Rocksdb]                              Options.wal_filter: None
+I20261101 04:59:06.226264 748 olap_meta.cpp:73] [Rocksdb]             Options.avoid_flush_during_recovery: 0
+I20261101 04:59:06.226279 748 olap_meta.cpp:73] [Rocksdb]             Options.allow_ingest_behind: 0
+I20261101 04:59:06.226286 748 olap_meta.cpp:73] [Rocksdb]             Options.preserve_deletes: 0
+I20261101 04:59:06.226295 748 olap_meta.cpp:73] [Rocksdb]             Options.two_write_queues: 0
+I20261101 04:59:06.226303 748 olap_meta.cpp:73] [Rocksdb]             Options.manual_wal_flush: 0
+I20261101 04:59:06.226311 748 olap_meta.cpp:73] [Rocksdb]             Options.max_background_jobs: 16
+I20261101 04:59:06.226320 748 olap_meta.cpp:73] [Rocksdb]             Options.max_background_compactions: -1
+I20261101 04:59:06.226332 748 olap_meta.cpp:73] [Rocksdb]             Options.avoid_flush_during_shutdown: 0
+I20261101 04:59:06.226349 748 olap_meta.cpp:73] [Rocksdb]           Options.writable_file_max_buffer_size: 1048576
+I20261101 04:59:06.226363 748 olap_meta.cpp:73] [Rocksdb]             Options.delayed_write_rate : 16777216
+I20261101 04:59:06.226372 748 olap_meta.cpp:73] [Rocksdb]             Options.max_total_wal_size: 0
+I20261101 04:59:06.226382 748 olap_meta.cpp:73] [Rocksdb]             Options.delete_obsolete_files_period_micros: 21600000000
+I20261101 04:59:06.226390 748 olap_meta.cpp:73] [Rocksdb]                   Options.stats_dump_period_sec: 600
+I20261101 04:59:06.226398 748 olap_meta.cpp:73] [Rocksdb]                          Options.max_open_files: -1
+I20261101 04:59:06.226413 748 olap_meta.cpp:73] [Rocksdb]                          Options.bytes_per_sync: 0
+I20261101 04:59:06.226439 748 olap_meta.cpp:73] [Rocksdb]                      Options.wal_bytes_per_sync: 0
+I20261101 04:59:06.226450 748 olap_meta.cpp:73] [Rocksdb]       Options.compaction_readahead_size: 0
+I20261101 04:59:06.226460 748 olap_meta.cpp:73] [Rocksdb] Compression algorithms supported:
+I20261101 04:59:06.226473 748 olap_meta.cpp:73] [Rocksdb] 	kZSTD supported: 1
+I20261101 04:59:06.226487 748 olap_meta.cpp:73] [Rocksdb] 	kXpressCompression supported: 0
+I20261101 04:59:06.226502 748 olap_meta.cpp:73] [Rocksdb] 	kBZip2Compression supported: 1
+I20261101 04:59:06.226516 748 olap_meta.cpp:73] [Rocksdb] 	kZSTDNotFinalCompression supported: 1
+I20261101 04:59:06.226527 748 olap_meta.cpp:73] [Rocksdb] 	kLZ4Compression supported: 1
+I20261101 04:59:06.226544 748 olap_meta.cpp:73] [Rocksdb] 	kZlibCompression supported: 1
+I20261101 04:59:06.226557 748 olap_meta.cpp:73] [Rocksdb] 	kLZ4HCCompression supported: 1
+I20261101 04:59:06.226573 748 olap_meta.cpp:73] [Rocksdb] 	kSnappyCompression supported: 1
+I20261101 04:59:06.226648 748 olap_meta.cpp:73] [Rocksdb] Fast CRC32 supported: Not supported on x86
+I20261101 04:59:06.227385 748 olap_meta.cpp:73] [Rocksdb] [db/db_impl_open.cc:222] Creating manifest 1 
+I20261101 04:59:06.247148 748 olap_meta.cpp:73] [Rocksdb] [db/version_set.cc:3085] Recovering from manifest file: MANIFEST-000001
+I20261101 04:59:06.247345 748 olap_meta.cpp:73] [Rocksdb] [db/column_family.cc:475] --------------- Options for column family [default]:
+I20261101 04:59:06.247360 748 olap_meta.cpp:73] [Rocksdb]               Options.comparator: leveldb.BytewiseComparator
+I20261101 04:59:06.247370 748 olap_meta.cpp:73] [Rocksdb]           Options.merge_operator: None
+I20261101 04:59:06.247378 748 olap_meta.cpp:73] [Rocksdb]        Options.compaction_filter: None
+I20261101 04:59:06.247387 748 olap_meta.cpp:73] [Rocksdb]        Options.compaction_filter_factory: None
+I20261101 04:59:06.247398 748 olap_meta.cpp:73] [Rocksdb]         Options.memtable_factory: SkipListFactory
+I20261101 04:59:06.247697 748 olap_meta.cpp:73] [Rocksdb]            Options.table_factory: BlockBasedTable
+I20261101 04:59:06.247896 748 olap_meta.cpp:73] [Rocksdb]            table_factory options:   flush_block_policy_factory: FlushBlockBySizePolicyFactory (0x7f9473b418b8)
+  cache_index_and_filter_blocks: 0
+  cache_index_and_filter_blocks_with_high_priority: 0
+  pin_l0_filter_and_index_blocks_in_cache: 0
+  index_type: 0
+  hash_index_allow_collision: 1
+  checksum: 1
+  no_block_cache: 0
+  block_cache: 0x7f9469f40fb0
+  block_cache_name: LRUCache
+  block_cache_options:
+    capacity : 8388608
+    num_shard_bits : 4
+    strict_capacity_limit : 0
+    high_pri_pool_ratio: 0.000
+  block_cache_compressed: (nil)
+  persistent_cache: (nil)
+  block_size: 4096
+  block_size_deviation: 10
+  block_restart_interval: 16
+  index_block_restart_interval: 1
+  metadata_block_size: 4096
+  partition_filters: 0
+  use_delta_encoding: 1
+  filter_policy: nullptr
+  whole_key_filtering: 1
+  verify_compression: 0
+  read_amp_bytes_per_bit: 0
+  format_version: 2
+  enable_index_compression: 1
+  block_align: 0
+I20261101 04:59:06.247915 748 olap_meta.cpp:73] [Rocksdb]        Options.write_buffer_size: 67108864
+I20261101 04:59:06.247927 748 olap_meta.cpp:73] [Rocksdb]  Options.max_write_buffer_number: 2
+I20261101 04:59:06.247938 748 olap_meta.cpp:73] [Rocksdb]          Options.compression: Snappy
+I20261101 04:59:06.247951 748 olap_meta.cpp:73] [Rocksdb]                  Options.bottommost_compression: Disabled
+I20261101 04:59:06.247965 748 olap_meta.cpp:73] [Rocksdb]       Options.prefix_extractor: nullptr
+I20261101 04:59:06.248008 748 olap_meta.cpp:73] [Rocksdb]   Options.memtable_insert_with_hint_prefix_extractor: nullptr
+I20261101 04:59:06.248023 748 olap_meta.cpp:73] [Rocksdb]             Options.num_levels: 7
+I20261101 04:59:06.248035 748 olap_meta.cpp:73] [Rocksdb]        Options.min_write_buffer_number_to_merge: 1
+I20261101 04:59:06.248055 748 olap_meta.cpp:73] [Rocksdb]     Options.max_write_buffer_number_to_maintain: 0
+I20261101 04:59:06.248070 748 olap_meta.cpp:73] [Rocksdb]            Options.compression_opts.window_bits: -14
+I20261101 04:59:06.248083 748 olap_meta.cpp:73] [Rocksdb]                  Options.compression_opts.level: -1
+I20261101 04:59:06.248095 748 olap_meta.cpp:73] [Rocksdb]               Options.compression_opts.strategy: 0
+I20261101 04:59:06.248107 748 olap_meta.cpp:73] [Rocksdb]         Options.compression_opts.max_dict_bytes: 0
+I20261101 04:59:06.248117 748 olap_meta.cpp:73] [Rocksdb]         Options.compression_opts.zstd_max_train_bytes: 0
+I20261101 04:59:06.249127 748 olap_meta.cpp:73] [Rocksdb]      Options.level0_file_num_compaction_trigger: 4
+I20261101 04:59:06.249823 748 olap_meta.cpp:73] [Rocksdb]          Options.level0_slowdown_writes_trigger: 20
+I20261101 04:59:06.249985 748 olap_meta.cpp:73] [Rocksdb]              Options.level0_stop_writes_trigger: 36
+I20261101 04:59:06.249997 748 olap_meta.cpp:73] [Rocksdb]                   Options.target_file_size_base: 67108864
+I20261101 04:59:06.250007 748 olap_meta.cpp:73] [Rocksdb]             Options.target_file_size_multiplier: 1
+I20261101 04:59:06.250016 748 olap_meta.cpp:73] [Rocksdb]                Options.max_bytes_for_level_base: 268435456
+I20261101 04:59:06.250398 748 olap_meta.cpp:73] [Rocksdb] Options.level_compaction_dynamic_level_bytes: 0
+I20261101 04:59:06.250447 748 olap_meta.cpp:73] [Rocksdb]          Options.max_bytes_for_level_multiplier: 10.000000
+I20261101 04:59:06.250473 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[0]: 1
+I20261101 04:59:06.250488 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[1]: 1
+I20261101 04:59:06.250869 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[2]: 1
+I20261101 04:59:06.250888 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[3]: 1
+I20261101 04:59:06.251132 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[4]: 1
+I20261101 04:59:06.251148 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[5]: 1
+I20261101 04:59:06.251159 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[6]: 1
+I20261101 04:59:06.251171 748 olap_meta.cpp:73] [Rocksdb]       Options.max_sequential_skip_in_iterations: 8
+I20261101 04:59:06.251948 748 olap_meta.cpp:73] [Rocksdb]                    Options.max_compaction_bytes: 1677721600
+I20261101 04:59:06.252003 748 olap_meta.cpp:73] [Rocksdb]                        Options.arena_block_size: 8388608
+I20261101 04:59:06.252028 748 olap_meta.cpp:73] [Rocksdb]   Options.soft_pending_compaction_bytes_limit: 68719476736
+I20261101 04:59:06.252043 748 olap_meta.cpp:73] [Rocksdb]   Options.hard_pending_compaction_bytes_limit: <ACCOUNT_ID>
+I20261101 04:59:06.252079 748 olap_meta.cpp:73] [Rocksdb]       Options.rate_limit_delay_max_milliseconds: 100
+I20261101 04:59:06.252094 748 olap_meta.cpp:73] [Rocksdb]                Options.disable_auto_compactions: 0
+I20261101 04:59:06.253779 748 olap_meta.cpp:73] [Rocksdb]                        Options.compaction_style: kCompactionStyleLevel
+I20261101 04:59:06.253809 748 olap_meta.cpp:73] [Rocksdb]                          Options.compaction_pri: kByCompensatedSize
+I20261101 04:59:06.253844 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.size_ratio: 1
+I20261101 04:59:06.253865 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.min_merge_width: 2
+I20261101 04:59:06.253880 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.max_merge_width: 4294967295
+I20261101 04:59:06.253888 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.max_size_amplification_percent: 200
+I20261101 04:59:06.253897 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.compression_size_percent: -1
+I20261101 04:59:06.254160 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.stop_style: kCompactionStopStyleTotalSize
+I20261101 04:59:06.254185 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_fifo.max_table_files_size: 1073741824
+I20261101 04:59:06.254195 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_fifo.allow_compaction: 0
+I20261101 04:59:06.254392 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_fifo.ttl: 0
+I20261101 04:59:06.254415 748 olap_meta.cpp:73] [Rocksdb]                   Options.table_properties_collectors: 
+I20261101 04:59:06.254424 748 olap_meta.cpp:73] [Rocksdb]                   Options.inplace_update_support: 0
+I20261101 04:59:06.254433 748 olap_meta.cpp:73] [Rocksdb]                 Options.inplace_update_num_locks: 10000
+I20261101 04:59:06.254457 748 olap_meta.cpp:73] [Rocksdb]               Options.memtable_prefix_bloom_size_ratio: 0.000000
+I20261101 04:59:06.254468 748 olap_meta.cpp:73] [Rocksdb]   Options.memtable_huge_page_size: 0
+I20261101 04:59:06.254479 748 olap_meta.cpp:73] [Rocksdb]                           Options.bloom_locality: 0
+I20261101 04:59:06.254988 748 olap_meta.cpp:73] [Rocksdb]                    Options.max_successive_merges: 0
+I20261101 04:59:06.255267 748 olap_meta.cpp:73] [Rocksdb]                Options.optimize_filters_for_hits: 0
+I20261101 04:59:06.255286 748 olap_meta.cpp:73] [Rocksdb]                Options.paranoid_file_checks: 0
+I20261101 04:59:06.256613 748 olap_meta.cpp:73] [Rocksdb]                Options.force_consistency_checks: 0
+I20261101 04:59:06.256662 748 olap_meta.cpp:73] [Rocksdb]                Options.report_bg_io_stats: 0
+I20261101 04:59:06.256676 748 olap_meta.cpp:73] [Rocksdb]                               Options.ttl: 0
+I20261101 04:59:06.273924 748 olap_meta.cpp:73] [Rocksdb] [db/version_set.cc:3361] Recovered from manifest file:/opt/apache-doris/be/storage/meta/MANIFEST-000001 succeeded,manifest_file_number is 1, next_file_number is 3, last_sequence is 0, log_number is 0,prev_log_number is 0,max_column_family is 0,min_log_number_to_keep is 0
+I20261101 04:59:06.274485 748 olap_meta.cpp:73] [Rocksdb] [db/version_set.cc:3369] Column family [default] (ID 0), log number is 0
+I20261101 04:59:06.276909 748 olap_meta.cpp:73] [Rocksdb] [db/version_set.cc:2847] Creating manifest 4
+I20261101 04:59:06.292478 748 olap_meta.cpp:73] [Rocksdb] [db/column_family.cc:475] --------------- Options for column family [doris]:
+I20261101 04:59:06.292672 748 olap_meta.cpp:73] [Rocksdb]               Options.comparator: leveldb.BytewiseComparator
+I20261101 04:59:06.292716 748 olap_meta.cpp:73] [Rocksdb]           Options.merge_operator: None
+I20261101 04:59:06.292732 748 olap_meta.cpp:73] [Rocksdb]        Options.compaction_filter: None
+I20261101 04:59:06.292748 748 olap_meta.cpp:73] [Rocksdb]        Options.compaction_filter_factory: None
+I20261101 04:59:06.292763 748 olap_meta.cpp:73] [Rocksdb]         Options.memtable_factory: SkipListFactory
+I20261101 04:59:06.293166 748 olap_meta.cpp:73] [Rocksdb]            Options.table_factory: BlockBasedTable
+I20261101 04:59:06.293254 748 olap_meta.cpp:73] [Rocksdb]            table_factory options:   flush_block_policy_factory: FlushBlockBySizePolicyFactory (0x7f94b63ff0a0)
+  cache_index_and_filter_blocks: 0
+  cache_index_and_filter_blocks_with_high_priority: 0
+  pin_l0_filter_and_index_blocks_in_cache: 0
+  index_type: 0
+  hash_index_allow_collision: 1
+  checksum: 1
+  no_block_cache: 0
+  block_cache: 0x7f9469f41020
+  block_cache_name: LRUCache
+  block_cache_options:
+    capacity : 8388608
+    num_shard_bits : 4
+    strict_capacity_limit : 0
+    high_pri_pool_ratio: 0.000
+  block_cache_compressed: (nil)
+  persistent_cache: (nil)
+  block_size: 4096
+  block_size_deviation: 10
+  block_restart_interval: 16
+  index_block_restart_interval: 1
+  metadata_block_size: 4096
+  partition_filters: 0
+  use_delta_encoding: 1
+  filter_policy: nullptr
+  whole_key_filtering: 1
+  verify_compression: 0
+  read_amp_bytes_per_bit: 0
+  format_version: 2
+  enable_index_compression: 1
+  block_align: 0
+I20261101 04:59:06.293270 748 olap_meta.cpp:73] [Rocksdb]        Options.write_buffer_size: 67108864
+I20261101 04:59:06.293279 748 olap_meta.cpp:73] [Rocksdb]  Options.max_write_buffer_number: 2
+I20261101 04:59:06.293288 748 olap_meta.cpp:73] [Rocksdb]          Options.compression: Snappy
+I20261101 04:59:06.293298 748 olap_meta.cpp:73] [Rocksdb]                  Options.bottommost_compression: Disabled
+I20261101 04:59:06.293308 748 olap_meta.cpp:73] [Rocksdb]       Options.prefix_extractor: nullptr
+I20261101 04:59:06.293316 748 olap_meta.cpp:73] [Rocksdb]   Options.memtable_insert_with_hint_prefix_extractor: nullptr
+I20261101 04:59:06.293326 748 olap_meta.cpp:73] [Rocksdb]             Options.num_levels: 7
+I20261101 04:59:06.293334 748 olap_meta.cpp:73] [Rocksdb]        Options.min_write_buffer_number_to_merge: 1
+I20261101 04:59:06.293344 748 olap_meta.cpp:73] [Rocksdb]     Options.max_write_buffer_number_to_maintain: 0
+I20261101 04:59:06.293352 748 olap_meta.cpp:73] [Rocksdb]            Options.compression_opts.window_bits: -14
+I20261101 04:59:06.293360 748 olap_meta.cpp:73] [Rocksdb]                  Options.compression_opts.level: -1
+I20261101 04:59:06.293370 748 olap_meta.cpp:73] [Rocksdb]               Options.compression_opts.strategy: 0
+I20261101 04:59:06.293377 748 olap_meta.cpp:73] [Rocksdb]         Options.compression_opts.max_dict_bytes: 0
+I20261101 04:59:06.293385 748 olap_meta.cpp:73] [Rocksdb]         Options.compression_opts.zstd_max_train_bytes: 0
+I20261101 04:59:06.293393 748 olap_meta.cpp:73] [Rocksdb]      Options.level0_file_num_compaction_trigger: 4
+I20261101 04:59:06.293402 748 olap_meta.cpp:73] [Rocksdb]          Options.level0_slowdown_writes_trigger: 20
+I20261101 04:59:06.293411 748 olap_meta.cpp:73] [Rocksdb]              Options.level0_stop_writes_trigger: 36
+I20261101 04:59:06.293419 748 olap_meta.cpp:73] [Rocksdb]                   Options.target_file_size_base: 67108864
+I20261101 04:59:06.293427 748 olap_meta.cpp:73] [Rocksdb]             Options.target_file_size_multiplier: 1
+I20261101 04:59:06.293435 748 olap_meta.cpp:73] [Rocksdb]                Options.max_bytes_for_level_base: 268435456
+I20261101 04:59:06.293444 748 olap_meta.cpp:73] [Rocksdb] Options.level_compaction_dynamic_level_bytes: 0
+I20261101 04:59:06.293454 748 olap_meta.cpp:73] [Rocksdb]          Options.max_bytes_for_level_multiplier: 10.000000
+I20261101 04:59:06.293464 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[0]: 1
+I20261101 04:59:06.293479 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[1]: 1
+I20261101 04:59:06.293504 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[2]: 1
+I20261101 04:59:06.293514 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[3]: 1
+I20261101 04:59:06.293522 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[4]: 1
+I20261101 04:59:06.293530 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[5]: 1
+I20261101 04:59:06.293655 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[6]: 1
+I20261101 04:59:06.293890 748 olap_meta.cpp:73] [Rocksdb]       Options.max_sequential_skip_in_iterations: 8
+I20261101 04:59:06.293920 748 olap_meta.cpp:73] [Rocksdb]                    Options.max_compaction_bytes: 1677721600
+I20261101 04:59:06.294278 748 olap_meta.cpp:73] [Rocksdb]                        Options.arena_block_size: 8388608
+I20261101 04:59:06.294308 748 olap_meta.cpp:73] [Rocksdb]   Options.soft_pending_compaction_bytes_limit: 68719476736
+I20261101 04:59:06.294396 748 olap_meta.cpp:73] [Rocksdb]   Options.hard_pending_compaction_bytes_limit: <ACCOUNT_ID>
+I20261101 04:59:06.294421 748 olap_meta.cpp:73] [Rocksdb]       Options.rate_limit_delay_max_milliseconds: 100
+I20261101 04:59:06.294436 748 olap_meta.cpp:73] [Rocksdb]                Options.disable_auto_compactions: 0
+I20261101 04:59:06.294461 748 olap_meta.cpp:73] [Rocksdb]                        Options.compaction_style: kCompactionStyleLevel
+I20261101 04:59:06.294507 748 olap_meta.cpp:73] [Rocksdb]                          Options.compaction_pri: kByCompensatedSize
+I20261101 04:59:06.294521 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.size_ratio: 1
+I20261101 04:59:06.294534 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.min_merge_width: 2
+I20261101 04:59:06.294546 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.max_merge_width: 4294967295
+I20261101 04:59:06.294559 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.max_size_amplification_percent: 200
+I20261101 04:59:06.294571 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.compression_size_percent: -1
+I20261101 04:59:06.294584 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.stop_style: kCompactionStopStyleTotalSize
+I20261101 04:59:06.294596 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_fifo.max_table_files_size: 1073741824
+I20261101 04:59:06.294607 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_fifo.allow_compaction: 0
+I20261101 04:59:06.294620 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_fifo.ttl: 0
+I20261101 04:59:06.294631 748 olap_meta.cpp:73] [Rocksdb]                   Options.table_properties_collectors: 
+I20261101 04:59:06.294642 748 olap_meta.cpp:73] [Rocksdb]                   Options.inplace_update_support: 0
+I20261101 04:59:06.294654 748 olap_meta.cpp:73] [Rocksdb]                 Options.inplace_update_num_locks: 10000
+I20261101 04:59:06.294669 748 olap_meta.cpp:73] [Rocksdb]               Options.memtable_prefix_bloom_size_ratio: 0.000000
+I20261101 04:59:06.294682 748 olap_meta.cpp:73] [Rocksdb]   Options.memtable_huge_page_size: 0
+I20261101 04:59:06.294692 748 olap_meta.cpp:73] [Rocksdb]                           Options.bloom_locality: 0
+I20261101 04:59:06.294704 748 olap_meta.cpp:73] [Rocksdb]                    Options.max_successive_merges: 0
+I20261101 04:59:06.294719 748 olap_meta.cpp:73] [Rocksdb]                Options.optimize_filters_for_hits: 0
+I20261101 04:59:06.294745 748 olap_meta.cpp:73] [Rocksdb]                Options.paranoid_file_checks: 0
+I20261101 04:59:06.294757 748 olap_meta.cpp:73] [Rocksdb]                Options.force_consistency_checks: 0
+I20261101 04:59:06.294768 748 olap_meta.cpp:73] [Rocksdb]                Options.report_bg_io_stats: 0
+I20261101 04:59:06.294781 748 olap_meta.cpp:73] [Rocksdb]                               Options.ttl: 0
+I20261101 04:59:06.294885 748 olap_meta.cpp:73] [Rocksdb] [db/db_impl.cc:1396] Created column family [doris] (ID 1)
+I20261101 04:59:06.304294 748 olap_meta.cpp:73] [Rocksdb] [db/column_family.cc:475] --------------- Options for column family [meta]:
+I20261101 04:59:06.304371 748 olap_meta.cpp:73] [Rocksdb]               Options.comparator: leveldb.BytewiseComparator
+I20261101 04:59:06.304390 748 olap_meta.cpp:73] [Rocksdb]           Options.merge_operator: None
+I20261101 04:59:06.304404 748 olap_meta.cpp:73] [Rocksdb]        Options.compaction_filter: None
+I20261101 04:59:06.304443 748 olap_meta.cpp:73] [Rocksdb]        Options.compaction_filter_factory: None
+I20261101 04:59:06.304468 748 olap_meta.cpp:73] [Rocksdb]         Options.memtable_factory: SkipListFactory
+I20261101 04:59:06.304483 748 olap_meta.cpp:73] [Rocksdb]            Options.table_factory: BlockBasedTable
+I20261101 04:59:06.304541 748 olap_meta.cpp:73] [Rocksdb]            table_factory options:   flush_block_policy_factory: FlushBlockBySizePolicyFactory (0x7f94b63ff0a8)
+  cache_index_and_filter_blocks: 0
+  cache_index_and_filter_blocks_with_high_priority: 0
+  pin_l0_filter_and_index_blocks_in_cache: 0
+  index_type: 0
+  hash_index_allow_collision: 1
+  checksum: 1
+  no_block_cache: 0
+  block_cache: 0x7f9469f41090
+  block_cache_name: LRUCache
+  block_cache_options:
+    capacity : 8388608
+    num_shard_bits : 4
+    strict_capacity_limit : 0
+    high_pri_pool_ratio: 0.000
+  block_cache_compressed: (nil)
+  persistent_cache: (nil)
+  block_size: 4096
+  block_size_deviation: 10
+  block_restart_interval: 16
+  index_block_restart_interval: 1
+  metadata_block_size: 4096
+  partition_filters: 0
+  use_delta_encoding: 1
+  filter_policy: nullptr
+  whole_key_filtering: 1
+  verify_compression: 0
+  read_amp_bytes_per_bit: 0
+  format_version: 2
+  enable_index_compression: 1
+  block_align: 0
+I20261101 04:59:06.304561 748 olap_meta.cpp:73] [Rocksdb]        Options.write_buffer_size: 67108864
+I20261101 04:59:06.304577 748 olap_meta.cpp:73] [Rocksdb]  Options.max_write_buffer_number: 5
+I20261101 04:59:06.304594 748 olap_meta.cpp:73] [Rocksdb]          Options.compression: Snappy
+I20261101 04:59:06.304615 748 olap_meta.cpp:73] [Rocksdb]                  Options.bottommost_compression: Disabled
+I20261101 04:59:06.304632 748 olap_meta.cpp:73] [Rocksdb]       Options.prefix_extractor: rocksdb.FixedPrefix.4
+I20261101 04:59:06.304656 748 olap_meta.cpp:73] [Rocksdb]   Options.memtable_insert_with_hint_prefix_extractor: nullptr
+I20261101 04:59:06.304672 748 olap_meta.cpp:73] [Rocksdb]             Options.num_levels: 7
+I20261101 04:59:06.304685 748 olap_meta.cpp:73] [Rocksdb]        Options.min_write_buffer_number_to_merge: 1
+I20261101 04:59:06.304702 748 olap_meta.cpp:73] [Rocksdb]     Options.max_write_buffer_number_to_maintain: 0
+I20261101 04:59:06.304716 748 olap_meta.cpp:73] [Rocksdb]            Options.compression_opts.window_bits: -14
+I20261101 04:59:06.304740 748 olap_meta.cpp:73] [Rocksdb]                  Options.compression_opts.level: -1
+I20261101 04:59:06.304754 748 olap_meta.cpp:73] [Rocksdb]               Options.compression_opts.strategy: 0
+I20261101 04:59:06.304769 748 olap_meta.cpp:73] [Rocksdb]         Options.compression_opts.max_dict_bytes: 0
+I20261101 04:59:06.304812 748 olap_meta.cpp:73] [Rocksdb]         Options.compression_opts.zstd_max_train_bytes: 0
+I20261101 04:59:06.304827 748 olap_meta.cpp:73] [Rocksdb]      Options.level0_file_num_compaction_trigger: 4
+I20261101 04:59:06.304841 748 olap_meta.cpp:73] [Rocksdb]          Options.level0_slowdown_writes_trigger: 20
+I20261101 04:59:06.304855 748 olap_meta.cpp:73] [Rocksdb]              Options.level0_stop_writes_trigger: 36
+I20261101 04:59:06.304868 748 olap_meta.cpp:73] [Rocksdb]                   Options.target_file_size_base: 67108864
+I20261101 04:59:06.304881 748 olap_meta.cpp:73] [Rocksdb]             Options.target_file_size_multiplier: 1
+I20261101 04:59:06.304893 748 olap_meta.cpp:73] [Rocksdb]                Options.max_bytes_for_level_base: 268435456
+I20261101 04:59:06.304906 748 olap_meta.cpp:73] [Rocksdb] Options.level_compaction_dynamic_level_bytes: 0
+I20261101 04:59:06.304941 748 olap_meta.cpp:73] [Rocksdb]          Options.max_bytes_for_level_multiplier: 10.000000
+I20261101 04:59:06.304958 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[0]: 1
+I20261101 04:59:06.304972 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[1]: 1
+I20261101 04:59:06.304993 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[2]: 1
+I20261101 04:59:06.305013 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[3]: 1
+I20261101 04:59:06.305042 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[4]: 1
+I20261101 04:59:06.305056 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[5]: 1
+I20261101 04:59:06.305071 748 olap_meta.cpp:73] [Rocksdb] Options.max_bytes_for_level_multiplier_addtl[6]: 1
+I20261101 04:59:06.305085 748 olap_meta.cpp:73] [Rocksdb]       Options.max_sequential_skip_in_iterations: 8
+I20261101 04:59:06.305100 748 olap_meta.cpp:73] [Rocksdb]                    Options.max_compaction_bytes: 1677721600
+I20261101 04:59:06.305112 748 olap_meta.cpp:73] [Rocksdb]                        Options.arena_block_size: 8388608
+I20261101 04:59:06.305128 748 olap_meta.cpp:73] [Rocksdb]   Options.soft_pending_compaction_bytes_limit: 68719476736
+I20261101 04:59:06.305137 748 olap_meta.cpp:73] [Rocksdb]   Options.hard_pending_compaction_bytes_limit: <ACCOUNT_ID>
+I20261101 04:59:06.305147 748 olap_meta.cpp:73] [Rocksdb]       Options.rate_limit_delay_max_milliseconds: 100
+I20261101 04:59:06.305158 748 olap_meta.cpp:73] [Rocksdb]                Options.disable_auto_compactions: 0
+I20261101 04:59:06.305177 748 olap_meta.cpp:73] [Rocksdb]                        Options.compaction_style: kCompactionStyleLevel
+I20261101 04:59:06.305194 748 olap_meta.cpp:73] [Rocksdb]                          Options.compaction_pri: kByCompensatedSize
+I20261101 04:59:06.305204 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.size_ratio: 1
+I20261101 04:59:06.305212 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.min_merge_width: 2
+I20261101 04:59:06.305222 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.max_merge_width: 4294967295
+I20261101 04:59:06.305230 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.max_size_amplification_percent: 200
+I20261101 04:59:06.305239 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.compression_size_percent: -1
+I20261101 04:59:06.305253 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_universal.stop_style: kCompactionStopStyleTotalSize
+I20261101 04:59:06.305280 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_fifo.max_table_files_size: 1073741824
+I20261101 04:59:06.305290 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_fifo.allow_compaction: 0
+I20261101 04:59:06.305298 748 olap_meta.cpp:73] [Rocksdb] Options.compaction_options_fifo.ttl: 0
+I20261101 04:59:06.305307 748 olap_meta.cpp:73] [Rocksdb]                   Options.table_properties_collectors: 
+I20261101 04:59:06.305431 748 olap_meta.cpp:73] [Rocksdb]                   Options.inplace_update_support: 0
+I20261101 04:59:06.305476 748 olap_meta.cpp:73] [Rocksdb]                 Options.inplace_update_num_locks: 10000
+I20261101 04:59:06.305493 748 olap_meta.cpp:73] [Rocksdb]               Options.memtable_prefix_bloom_size_ratio: 0.000000
+I20261101 04:59:06.305506 748 olap_meta.cpp:73] [Rocksdb]   Options.memtable_huge_page_size: 0
+I20261101 04:59:06.305519 748 olap_meta.cpp:73] [Rocksdb]                           Options.bloom_locality: 0
+I20261101 04:59:06.305531 748 olap_meta.cpp:73] [Rocksdb]                    Options.max_successive_merges: 0
+I20261101 04:59:06.305545 748 olap_meta.cpp:73] [Rocksdb]                Options.optimize_filters_for_hits: 0
+I20261101 04:59:06.305557 748 olap_meta.cpp:73] [Rocksdb]                Options.paranoid_file_checks: 0
+I20261101 04:59:06.305572 748 olap_meta.cpp:73] [Rocksdb]                Options.force_consistency_checks: 0
+I20261101 04:59:06.305584 748 olap_meta.cpp:73] [Rocksdb]                Options.report_bg_io_stats: 0
+I20261101 04:59:06.305596 748 olap_meta.cpp:73] [Rocksdb]                               Options.ttl: 0
+I20261101 04:59:06.305702 748 olap_meta.cpp:73] [Rocksdb] [db/db_impl.cc:1396] Created column family [meta] (ID 2)
+I20261101 04:59:06.318337 748 olap_meta.cpp:73] [Rocksdb] [db/db_impl_open.cc:1219] DB pointer 0x7f947142a000
+I20261101 04:59:06.318555 748 storage_engine.cpp:164] stream load record path: /opt/apache-doris/be/storage
+I20261101 04:59:06.352479 748 storage_engine.cpp:518] the 'ulimit' value check is skipped, the SKIP_CHECK_ULIMIT env value is true
+I20261101 04:59:06.352670 748 threadpool.cpp:332] Thread pool 'load_data_dir' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.353004 748 data_dir.cpp:348] start to load tablets from /opt/apache-doris/be/storage
+I20261101 04:59:06.353092 748 data_dir.cpp:341] successfully check incompatible old format meta /opt/apache-doris/be/storage
+I20261101 04:59:06.353262 748 data_dir.cpp:359] begin loading rowset from meta
+I20261101 04:59:06.353283 748 data_dir.cpp:415] load rowset from meta finished, cost: 0 ms, data dir: /opt/apache-doris/be/storage
+I20261101 04:59:06.353307 748 data_dir.cpp:421] begin loading tablet from meta
+I20261101 04:59:06.353327 748 data_dir.cpp:471] load tablet from meta finished, loaded tablet: 0, error tablet: 0, cost: 0 ms, path: /opt/apache-doris/be/storage
+I20261101 04:59:06.353528 748 data_dir.cpp:505] load pending publish task from meta finished, cost: 0 ms, data dir: /opt/apache-doris/be/storage
+I20261101 04:59:06.353559 748 data_dir.cpp:658] load delete bitmap from meta finished, cost: 0 ms, data dir: /opt/apache-doris/be/storage
+I20261101 04:59:06.353574 748 data_dir.cpp:664] finish to load tablets from /opt/apache-doris/be/storage, total rowset meta: 0, invalid rowset num: 0, visible/stale rowsets' delete bitmap count: 0, invalid rowsets' delete bitmap count: 0
+I20261101 04:59:06.354326 748 threadpool.cpp:332] Thread pool 'MemTableFlushThreadPool' initialized: min_threads=2, max_threads=16, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.354624 748 threadpool.cpp:332] Thread pool 'MemTableHighPriorityFlushThreadPool' initialized: min_threads=2, max_threads=16, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.354842 748 threadpool.cpp:332] Thread pool 'TabletCalcDeleteBitmapThreadPool' initialized: min_threads=1, max_threads=32, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.355028 748 threadpool.cpp:332] Thread pool 'LoadCalcDeleteBitmapThreadPool' initialized: min_threads=1, max_threads=2, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.355057 748 storage_engine.cpp:235] success to init storage engine.
+I20261101 04:59:06.355175 748 olap_server.cpp:211] unused rowset monitor thread started
+I20261101 04:59:06.355290 748 olap_server.cpp:217] evict quering thread started
+I20261101 04:59:06.355389 748 storage_engine.cpp:1251] start to delete unused rowset, size: 0, unused delete bitmap size: 0
+I20261101 04:59:06.355581 748 storage_engine.cpp:1309] collected 0 unused rowsets to remove, skipped 0 rowsets due to use count > 1, skipped 0 rowsets due to don't need to delete file, skipped 0 rowsets due to delayed expired timestamp. left 0 unused delete bitmap.
+I20261101 04:59:06.355608 748 storage_engine.cpp:1334] removed all collected unused rowsets
+I20261101 04:59:06.356117 748 olap_server.cpp:223] garbage sweeper thread started
+I20261101 04:59:06.356247 748 olap_server.cpp:229] disk stat monitor thread started
+I20261101 04:59:06.356263 748 storage_engine.cpp:850] start trash and snapshot sweep. is_clean=0
+I20261101 04:59:06.356415 748 storage_engine.cpp:476] get root path info cost: 0 ms. tablet counter: 0
+I20261101 04:59:06.356455 748 storage_engine.cpp:874] Start to sweep path /opt/apache-doris/be/storage
+I20261101 04:59:06.356741 748 storage_engine.cpp:1016] remove 0 invalid rowset meta from dir: /opt/apache-doris/be/storage
+I20261101 04:59:06.356781 748 storage_engine.cpp:1051] remove 0 invalid binlog meta from dir: /opt/apache-doris/be/storage
+I20261101 04:59:06.356796 748 storage_engine.cpp:1078] removed invalid delete bitmap from dir: /opt/apache-doris/be/storage, deleted tablets size: 0
+I20261101 04:59:06.356810 748 storage_engine.cpp:1103] removed invalid pending publish info from dir: /opt/apache-doris/be/storage, deleted pending publish info size: 0
+I20261101 04:59:06.356925 748 data_dir.cpp:909] path: /opt/apache-doris/be/storage trash capacity: 0
+I20261101 04:59:06.357925 748 threadpool.cpp:332] Thread pool 'BaseCompactionTaskThreadPool' initialized: min_threads=4, max_threads=4, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.358299 748 threadpool.cpp:332] Thread pool 'CumuCompactionTaskThreadPool' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.358978 748 threadpool.cpp:332] Thread pool 'SegCompactionTaskThreadPool' initialized: min_threads=5, max_threads=5, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.359354 748 threadpool.cpp:332] Thread pool 'ColdDataCompactionTaskThreadPool' initialized: min_threads=2, max_threads=2, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.359577 748 olap_server.cpp:604] try to start compaction producer process!
+I20261101 04:59:06.359472 748 olap_server.cpp:262] compaction tasks producer thread started
+I20261101 04:59:06.360050 748 threadpool.cpp:332] Thread pool 'TabletMetaCheckpointTaskThreadPool' initialized: min_threads=0, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.361084 748 olap_server.cpp:276] tablet checkpoint tasks producer thread started
+I20261101 04:59:06.362228 748 olap_server.cpp:475] begin to produce tablet meta checkpoint tasks, data_dir=/opt/apache-doris/be/storage
+I20261101 04:59:06.362813 748 olap_server.cpp:281] tablet path check thread started
+I20261101 04:59:06.364742 748 olap_server.cpp:293] path gc threads started. number:1
+I20261101 04:59:06.364820 748 olap_server.cpp:442] try to start path gc thread!
+I20261101 04:59:06.364845 748 olap_server.cpp:462] try to perform path gc! disk remain [0.687555] internal [21600]
+I20261101 04:59:06.364886 748 data_dir.cpp:817] start to gc data dir /opt/apache-doris/be/storage
+I20261101 04:59:06.363973 748 tablet_manager.cpp:1515] finish to do meta checkpoint on dir: /opt/apache-doris/be/storage, number: 0, cost(ms): 0
+I20261101 04:59:06.365571 748 work_thread_pool.hpp:65] PriorityThreadPool 'CooldownTaskThreadPool' initialized: num_threads=5, queue_size=2147483647
+I20261101 04:59:06.366456 748 olap_server.cpp:300] cooldown thread pool started
+I20261101 04:59:06.366631 748 olap_server.cpp:306] cooldown tasks producer thread started
+I20261101 04:59:06.366739 748 olap_server.cpp:312] remove unused remote files thread started
+I20261101 04:59:06.366830 748 olap_server.cpp:318] cold data compaction producer thread started
+I20261101 04:59:06.368232 748 olap_server.cpp:1201] cooldown producer get tablet num: 0
+I20261101 04:59:06.373788 748 threadpool.cpp:332] Thread pool 'TabletPublishTxnThreadPool' initialized: min_threads=32, max_threads=32, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.374378 748 olap_server.cpp:329] async publish thread started
+I20261101 04:59:06.374800 748 olap_server.cpp:335] check tablet delete bitmap score thread started
+I20261101 04:59:06.374927 748 olap_server.cpp:1651] try to start check tablet delete bitmap score!
+I20261101 04:59:06.377355 748 adaptive_thread_pool_controller.cpp:143] Adaptive: added pool group 'flush', max_threads=16, min_threads=2, interval_ms=10000
+I20261101 04:59:06.377417 748 olap_server.cpp:339] all storage engine's background threads are started.
+W20261101 04:59:06.377467 748 status.h:442] meet error status: [NOT_FOUND]Key not found: stream_load_recorder_manager_last_fetch_key
+
+<Empty trace>
+I20261101 04:59:06.377502 748 stream_load_recorder_manager.cpp:76] No stream load recorder manager last fetch key found in RocksDB, starting from beginning
+I20261101 04:59:06.377887 748 exec_env_init.cpp:493] begin create internal workload group.
+I20261101 04:59:06.379046 748 threadpool.cpp:332] Thread pool 'p_normal_blocking_scheduler' initialized: min_threads=8, max_threads=8, max_queue_size=0, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.379148 748 task_scheduler.cpp:66] TaskScheduler set cores|size=8
+I20261101 04:59:06.379722 748 threadpool.cpp:332] Thread pool 'p_normal_simple_scheduler' initialized: min_threads=4, max_threads=4, max_queue_size=0, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.379983 748 task_scheduler.cpp:66] TaskScheduler set cores|size=4
+I20261101 04:59:06.386752 748 threadpool.cpp:332] Thread pool 'mf_normal' initialized: min_threads=2, max_threads=16, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.386824 748 workload_group.cpp:642] [upsert wg thread pool] create mf_normal succ, gid=1, max thread num=16, min thread num=2
+I20261101 04:59:06.386895 748 adaptive_thread_pool_controller.cpp:143] Adaptive: added pool group 'flush_wg_1_0x7f9470768400', max_threads=16, min_threads=2, interval_ms=10000
+I20261101 04:59:06.387607 748 workload_sched_policy_mgr.cpp:38] start workload scheduler 
+I20261101 04:59:06.387648 748 spill_file_manager.cpp:160] init spill stream manager
+I20261101 04:59:06.387720 748 spill_file_manager.cpp:523] spill storage path: /opt/apache-doris/be/storage, capacity: 39.93 GB, limit: 7.19 GB, available: 27.38 GB
+I20261101 04:59:06.388247 748 spill_file_manager.cpp:189] spill gc thread started
+I20261101 04:59:06.388330 748 threadpool.cpp:332] Thread pool 'ReportProfileThreadPool' initialized: min_threads=0, max_threads=5, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.388526 748 exec_env_init.cpp:223] Using SimdJSON Haswell implementation
+I20261101 04:59:06.401731 748 data_dir.cpp:885] gc data dir path: /opt/apache-doris/be/storage finished
+I20261101 04:59:06.402238 748 agent_server.cpp:56] Register workload group listener
+I20261101 04:59:06.402279 748 agent_server.cpp:62] Register workload scheduler policy listener
+I20261101 04:59:06.402671 748 threadpool.cpp:332] Thread pool 'TaskWP_ALTER_INVERTED_INDEX' initialized: min_threads=3, max_threads=3, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.402845 748 threadpool.cpp:332] Thread pool 'TaskWP_CHECK_CONSISTENCY' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.403159 748 threadpool.cpp:332] Thread pool 'TaskWP_UPLOAD' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.403313 748 threadpool.cpp:332] Thread pool 'TaskWP_DOWNLOAD' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.403959 748 threadpool.cpp:332] Thread pool 'TaskWP_MAKE_SNAPSHOT' initialized: min_threads=5, max_threads=5, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.404455 748 threadpool.cpp:332] Thread pool 'TaskWP_RELEASE_SNAPSHOT' initialized: min_threads=5, max_threads=5, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.404618 748 threadpool.cpp:332] Thread pool 'TaskWP_MOVE' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.404760 748 threadpool.cpp:332] Thread pool 'TaskWP_SUBMIT_TABLE_COMPACTION' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.405097 748 threadpool.cpp:332] Thread pool 'TaskWP_PUSH_STORAGE_POLICY' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.405269 748 threadpool.cpp:332] Thread pool 'TaskWP_PUSH_INDEX_POLICY' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.405441 748 threadpool.cpp:332] Thread pool 'TaskWP_PUSH_COOLDOWN_CONF' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.405927 748 threadpool.cpp:332] Thread pool 'TaskWP_CREATE_TABLE' initialized: min_threads=3, max_threads=3, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.406415 748 threadpool.cpp:332] Thread pool 'TaskWP_DROP_TABLE' initialized: min_threads=3, max_threads=3, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.407163 748 threadpool.cpp:332] Thread pool 'TaskWP_PUBLISH_VERSION' initialized: min_threads=8, max_threads=8, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.407358 748 threadpool.cpp:332] Thread pool 'TaskWP_CLEAR_TRANSACTION_TASK' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.407661 748 threadpool.cpp:332] Thread pool 'TaskWP_DELETE' initialized: min_threads=3, max_threads=3, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.408339 748 threadpool.cpp:332] Thread pool 'TaskWP_UPDATE_TABLET_META_INFO' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.408950 748 threadpool.cpp:332] Thread pool 'TaskWP_ALTER_TABLE' initialized: min_threads=3, max_threads=3, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.409709 748 threadpool.cpp:332] Thread pool 'TaskWP_STORAGE_MEDIUM_MIGRATE' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.409967 748 threadpool.cpp:332] Thread pool 'TaskWP_GC_BINLOG' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.410142 748 threadpool.cpp:332] Thread pool 'TaskWP_CLEAN_TRASH' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.410315 748 threadpool.cpp:332] Thread pool 'TaskWP_CLEAN_UDF_CACHE' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.410606 748 threadpool.cpp:332] Thread pool 'TaskWP_UPDATE_VISIBLE_VERSION' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.411105 748 backend_service.cpp:697] ingest binlog thread pool size is -1, so we will in sync mode
+I20261101 04:59:06.411846 748 thrift_server.cpp:504] ThriftServer 'backend' started on port: 9060
+I20261101 04:59:06.421358 748 work_thread_pool.hpp:65] WorkThreadPool 'brpc_heavy' initialized: num_threads=128, queue_size=10240
+I20261101 04:59:06.426431 748 work_thread_pool.hpp:65] WorkThreadPool 'brpc_peer_fetch' initialized: num_threads=64, queue_size=4096
+I20261101 04:59:06.435613 748 work_thread_pool.hpp:65] WorkThreadPool 'brpc_light' initialized: num_threads=128, queue_size=10240
+I20261101 04:59:06.473187 748 work_thread_pool.hpp:65] WorkThreadPool 'brpc_arrow_flight' initialized: num_threads=512, queue_size=20480
+I20261101 04:59:06.476074 748 be_server_starter_factory.cpp:107] BRPC server bind to host: 0.0.0.0, port: 8060
+I20261101 04:59:06.506353 748 server.cpp:1144] Server[doris::PInternalServiceImpl] is serving on port=8060.
+I20261101 04:59:06.506621 748 server.cpp:1147] Check out http://compat-c4aa-doris415-read:8060 in web browser.
+I20261101 04:59:06.574445 748 threadpool.cpp:332] Thread pool 'DownloadThreadPool' initialized: min_threads=64, max_threads=64, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.574683 748 threadpool.cpp:332] Thread pool 'MigrationTaskThreadPool' initialized: min_threads=1, max_threads=1, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.586223 748 threadpool.cpp:332] Thread pool 'EvHttpServer' initialized: min_threads=128, max_threads=128, max_queue_size=2147483647, idle_timeout_ms=500, workload_group=''
+I20261101 04:59:06.603365 748 thrift_server.cpp:504] ThriftServer 'heartbeat' started on port: 9050
+I20261101 04:59:06.605352 748 flight_sql_service.cpp:151] Arrow Flight Service bind to host: 0.0.0.0, port: 8050
+I20261101 04:59:06.606652 748 task_worker_pool.cpp:751] waiting to receive first heartbeat from frontend before doing report
+I20261101 04:59:06.606909 748 task_worker_pool.cpp:751] waiting to receive first heartbeat from frontend before doing report
+I20261101 04:59:06.606961 748 task_worker_pool.cpp:751] waiting to receive first heartbeat from frontend before doing report
+I20261101 04:59:06.606997 748 task_worker_pool.cpp:751] waiting to receive first heartbeat from frontend before doing report
+I20261101 04:59:06.660480 748 daemon.cpp:232] sys physical memory 3.00 GB. process memory used 1.28 GB(= 1.28 GB[vm/rss] + 0[reserved] + 0B[waiting_refresh]), limit 2.70 GB, soft limit 2.43 GB. sys available memory 2.12 GB(= 2.12 GB[proc/available] - 0[reserved] - 0B[waiting_refresh]), low water mark 153.60 MB, warning water mark 307.20 MB
+I20261101 04:59:06.660671 748 workload_group_manager.cpp:937] 
+Query Memory Summary: 
+I20261101 04:59:07.164980 748 wal_manager.cpp:505] Scheduled(every 10s) WAL info: [/opt/apache-doris/be/storage/wal: limit 2939852390 Bytes, used 0 Bytes, estimated wal bytes 0 Bytes, available 2939852390 Bytes.];
+I20261101 04:59:11.178277 748 heartbeat_server.cpp:69] get heartbeat from FE.host:127.0.0.1, rpc port:9020, cluster id:765082414, frontend_info:TFrontendInfo(coordinator_address=TNetworkAddress(hostname=127.0.0.1, port=9020), process_uuid=1793509067910) , counter:1, BE start time: 1793509146602
+I20261101 04:59:11.178375 748 heartbeat_server.cpp:117] get first heartbeat. update cluster id
+I20261101 04:59:11.179919 748 heartbeat_server.cpp:122] record cluster id. host: 127.0.0.1. port: 9020. cluster id: 765082414. frontend_infos: TFrontendInfo(coordinator_address=TNetworkAddress(hostname=127.0.0.1, port=9020), process_uuid=1793509067910) 
+I20261101 04:59:11.180006 748 heartbeat_server.cpp:199] master change. new master host: 127.0.0.1. port: 9020. epoch: 1
+I20261101 04:59:11.180025 748 heartbeat_server.cpp:222] get token. token: 210c8123-90c7-4f3a-b733-d7c5d95f9b42
+I20261101 04:59:11.180085 748 exec_env.cpp:105] A completely new frontend, TFrontendInfo(coordinator_address=TNetworkAddress(hostname=127.0.0.1, port=9020), process_uuid=1793509067910)
+I20261101 04:59:11.180130 748 heartbeat_server.cpp:325] set new auth token: fbfc26ac-e337-4d69-a373-cc07e45b1a5e
+I20261101 04:59:11.180147 748 heartbeat_server.cpp:335] Master FE is changed or restarted. report tablet and disk info immediately
+I20261101 04:59:11.180348 748 data_dir.cpp:893] path: /opt/apache-doris/be/storage total capacity: 42869960704, available capacity: 29398515712, usage: 0.31424, in_use: 1
+I20261101 04:59:11.180488 748 dns_cache.cpp:98] update hostname 127.0.0.1's ip to 127.0.0.1
+I20261101 04:59:11.180513 748 storage_engine.cpp:476] get root path info cost: 0 ms. tablet counter: 0
+I20261101 04:59:11.858250 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067965
+I20261101 04:59:11.858392 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067967, table_id=1793509067963, partition_id=1793509067962, replica_id=1793509067968, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.858333 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067965, table_id=1793509067963, partition_id=1793509067962, replica_id=1793509067966, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.858355 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067967
+I20261101 04:59:11.858604 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067969
+I20261101 04:59:11.858649 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067971
+I20261101 04:59:11.858719 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067973
+I20261101 04:59:11.858820 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067969, table_id=1793509067963, partition_id=1793509067962, replica_id=1793509067970, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.859035 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067975
+I20261101 04:59:11.859622 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067977
+I20261101 04:59:11.859335 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067967, tablet_path=/opt/apache-doris/be/storage/data/0/1793509067967/1426459410
+I20261101 04:59:11.859691 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067967|tablet_id=1793509067967
+I20261101 04:59:11.860162 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067969, tablet_path=/opt/apache-doris/be/storage/data/2/1793509067969/1426459410
+I20261101 04:59:11.860208 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067969|tablet_id=1793509067969
+I20261101 04:59:11.859459 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067965, tablet_path=/opt/apache-doris/be/storage/data/1/1793509067965/1426459410
+I20261101 04:59:11.860667 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067965|tablet_id=1793509067965
+I20261101 04:59:11.889403 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067971, table_id=1793509067963, partition_id=1793509067962, replica_id=1793509067972, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.889528 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067975, table_id=1793509067963, partition_id=1793509067962, replica_id=1793509067976, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.889418 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067973, table_id=1793509067963, partition_id=1793509067962, replica_id=1793509067974, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.890355 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067971, tablet_path=/opt/apache-doris/be/storage/data/3/1793509067971/1426459410
+I20261101 04:59:11.890412 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067971|tablet_id=1793509067971
+I20261101 04:59:11.890367 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067973, tablet_path=/opt/apache-doris/be/storage/data/5/1793509067973/1426459410
+I20261101 04:59:11.890367 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067975, tablet_path=/opt/apache-doris/be/storage/data/4/1793509067975/1426459410
+I20261101 04:59:11.890713 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067975|tablet_id=1793509067975
+I20261101 04:59:11.890668 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067973|tablet_id=1793509067973
+I20261101 04:59:11.890987 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067977, table_id=1793509067963, partition_id=1793509067962, replica_id=1793509067978, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.891517 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067977, tablet_path=/opt/apache-doris/be/storage/data/6/1793509067977/1426459410
+I20261101 04:59:11.891570 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067977|tablet_id=1793509067977
+I20261101 04:59:11.929175 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067982
+I20261101 04:59:11.929204 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067982, table_id=1793509067980, partition_id=1793509067979, replica_id=1793509067983, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.929314 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067984
+I20261101 04:59:11.929517 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067986
+I20261101 04:59:11.929615 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067984, table_id=1793509067980, partition_id=1793509067979, replica_id=1793509067985, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.929558 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067988
+I20261101 04:59:11.929692 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067990
+I20261101 04:59:11.929719 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067992
+I20261101 04:59:11.929850 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067994
+I20261101 04:59:11.929987 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067982, tablet_path=/opt/apache-doris/be/storage/data/7/1793509067982/661244580
+I20261101 04:59:11.930017 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067982|tablet_id=1793509067982
+I20261101 04:59:11.930404 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067986, table_id=1793509067980, partition_id=1793509067979, replica_id=1793509067987, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.930447 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067984, tablet_path=/opt/apache-doris/be/storage/data/8/1793509067984/661244580
+I20261101 04:59:11.930672 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067984|tablet_id=1793509067984
+I20261101 04:59:11.931872 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067988, table_id=1793509067980, partition_id=1793509067979, replica_id=1793509067989, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.931979 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067986, tablet_path=/opt/apache-doris/be/storage/data/9/1793509067986/661244580
+I20261101 04:59:11.932013 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067986|tablet_id=1793509067986
+I20261101 04:59:11.932159 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067990, table_id=1793509067980, partition_id=1793509067979, replica_id=1793509067991, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.932538 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067988, tablet_path=/opt/apache-doris/be/storage/data/10/1793509067988/661244580
+I20261101 04:59:11.932569 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067988|tablet_id=1793509067988
+I20261101 04:59:11.932960 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067992, table_id=1793509067980, partition_id=1793509067979, replica_id=1793509067993, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.933189 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067994, table_id=1793509067980, partition_id=1793509067979, replica_id=1793509067995, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:11.933616 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067994, tablet_path=/opt/apache-doris/be/storage/data/13/1793509067994/661244580
+I20261101 04:59:11.933670 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067994|tablet_id=1793509067994
+I20261101 04:59:11.933634 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067992, tablet_path=/opt/apache-doris/be/storage/data/12/1793509067992/661244580
+I20261101 04:59:11.933772 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067992|tablet_id=1793509067992
+I20261101 04:59:11.934278 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067990, tablet_path=/opt/apache-doris/be/storage/data/11/1793509067990/661244580
+I20261101 04:59:11.934317 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067990|tablet_id=1793509067990
+I20261101 04:59:12.007812 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509067999
+I20261101 04:59:12.008016 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509068001
+I20261101 04:59:12.007864 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509067999, table_id=1793509067996, partition_id=1793509067998, replica_id=1793509068000, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:12.008086 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509068001, table_id=1793509067996, partition_id=1793509067998, replica_id=1793509068002, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:12.009490 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509068001, tablet_path=/opt/apache-doris/be/storage/data/15/1793509068001/1906720855
+I20261101 04:59:12.009554 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509068001|tablet_id=1793509068001
+I20261101 04:59:12.009884 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509067999, tablet_path=/opt/apache-doris/be/storage/data/14/1793509067999/1906720855
+I20261101 04:59:12.010100 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509067999|tablet_id=1793509067999
+I20261101 04:59:12.037642 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509068004
+I20261101 04:59:12.038009 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509068006
+I20261101 04:59:12.044170 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509068004, table_id=1793509067996, partition_id=1793509068003, replica_id=1793509068005, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:12.044224 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509068006, table_id=1793509067996, partition_id=1793509068003, replica_id=1793509068007, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:12.045429 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509068006, tablet_path=/opt/apache-doris/be/storage/data/17/1793509068006/1906720855
+I20261101 04:59:12.045612 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509068006|tablet_id=1793509068006
+I20261101 04:59:12.046188 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509068004, tablet_path=/opt/apache-doris/be/storage/data/16/1793509068004/1906720855
+I20261101 04:59:12.046578 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509068004|tablet_id=1793509068004
+I20261101 04:59:12.068197 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509068009
+I20261101 04:59:12.068336 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509068011
+I20261101 04:59:12.068373 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509068009, table_id=1793509067996, partition_id=1793509068008, replica_id=1793509068010, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:12.069234 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509068009, tablet_path=/opt/apache-doris/be/storage/data/18/1793509068009/1906720855
+I20261101 04:59:12.069283 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509068009|tablet_id=1793509068009
+I20261101 04:59:12.069870 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509068011, table_id=1793509067996, partition_id=1793509068008, replica_id=1793509068012, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:12.070669 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509068011, tablet_path=/opt/apache-doris/be/storage/data/19/1793509068011/1906720855
+I20261101 04:59:12.070725 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509068011|tablet_id=1793509068011
+I20261101 04:59:12.084669 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509068014
+I20261101 04:59:12.084784 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509068014, table_id=1793509067996, partition_id=1793509068013, replica_id=1793509068015, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:12.084878 748 tablet_manager.cpp:258] begin to create tablet. tablet_id=1793509068016, table_id=1793509067996, partition_id=1793509068013, replica_id=1793509068017, stores.size=1, first store=/opt/apache-doris/be/storage
+I20261101 04:59:12.084827 748 task_worker_pool.cpp:430] successfully submit task|type=CREATE|signature=1793509068016
+I20261101 04:59:12.086115 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509068014, tablet_path=/opt/apache-doris/be/storage/data/20/1793509068014/1906720855
+I20261101 04:59:12.086205 748 tablet_manager.cpp:342] success to create tablet. tablet_id=1793509068016, tablet_path=/opt/apache-doris/be/storage/data/21/1793509068016/1906720855
+I20261101 04:59:12.086246 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509068016|tablet_id=1793509068016
+I20261101 04:59:12.086169 748 task_worker_pool.cpp:1894] successfully create tablet|signature=1793509068014|tablet_id=1793509068014
+I20261101 04:59:12.944661 748 fragment_mgr.cpp:495] query_id: 2286bac202864cc7-b803ca9a3366ce0d, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 1, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1,normal
+I20261101 04:59:12.946344 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=2286bac202864cc7-b803ca9a3366ce0d|fragment_id=0
+I20261101 04:59:12.946506 748 query_context.cpp:289] Query 2286bac202864cc7-b803ca9a3366ce0d deconstructed, elapsed_ms: 1, mem_tracker: deregister query/load memory tracker, queryId=2286bac202864cc7-b803ca9a3366ce0d, Limit=2.00 GB, CurrUsed=0, PeakUsed=31.25 MB
+I20261101 04:59:12.997786 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=2286bac202864cc7-b803ca9a3366ce0d, is_close=true, is_cancelled=false, packet_num=0, peak_memory_usage=0
+I20261101 04:59:13.016278 748 backend_service.cpp:1293] query for dictionary status, return 0 rows
+I20261101 04:59:14.180508 748 tablet_manager.cpp:1085] find expired transactions for 0 tablets
+I20261101 04:59:14.180783 748 tablet_manager.cpp:1122] success to build all report tablets info. tablet_count=22
+I20261101 04:59:16.164848 748 wal_manager.cpp:389] Finish list wal_dir=/opt/apache-doris/be/storage/wal, wal count=0
+I20261101 04:59:16.657267 748 fragment_mgr.cpp:495] query_id: 70e47f21631147ec-bcff4f9a0b759979, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 1, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1,normal
+I20261101 04:59:16.658820 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=70e47f21631147ec-bcff4f9a0b759979|fragment_id=0
+I20261101 04:59:16.659175 748 query_context.cpp:289] Query 70e47f21631147ec-bcff4f9a0b759979 deconstructed, elapsed_ms: 1, mem_tracker: deregister query/load memory tracker, queryId=70e47f21631147ec-bcff4f9a0b759979, Limit=2.00 GB, CurrUsed=0, PeakUsed=31.25 MB
+I20261101 04:59:16.662062 748 fragment_mgr.cpp:495] query_id: 3383fba0b90e4511-aab26ed238903d54, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 1, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1,normal
+I20261101 04:59:16.662755 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=3383fba0b90e4511-aab26ed238903d54|fragment_id=0
+I20261101 04:59:16.662983 748 query_context.cpp:289] Query 3383fba0b90e4511-aab26ed238903d54 deconstructed, elapsed_ms: 0, mem_tracker: deregister query/load memory tracker, queryId=3383fba0b90e4511-aab26ed238903d54, Limit=2.00 GB, CurrUsed=0, PeakUsed=31.25 MB
+I20261101 04:59:16.679216 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=3383fba0b90e4511-aab26ed238903d54, is_close=true, is_cancelled=false, packet_num=0, peak_memory_usage=0
+I20261101 04:59:16.681018 748 fragment_mgr.cpp:495] query_id: 73cafc7a4379439f-a60e4c3c117e5ce6, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 1, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1,normal
+I20261101 04:59:16.681619 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=73cafc7a4379439f-a60e4c3c117e5ce6|fragment_id=0
+I20261101 04:59:16.681775 748 query_context.cpp:289] Query 73cafc7a4379439f-a60e4c3c117e5ce6 deconstructed, elapsed_ms: 0, mem_tracker: deregister query/load memory tracker, queryId=73cafc7a4379439f-a60e4c3c117e5ce6, Limit=2.00 GB, CurrUsed=0, PeakUsed=31.25 MB
+I20261101 04:59:16.687283 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=70e47f21631147ec-bcff4f9a0b759979, is_close=true, is_cancelled=false, packet_num=0, peak_memory_usage=0
+I20261101 04:59:16.699828 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=73cafc7a4379439f-a60e4c3c117e5ce6, is_close=true, is_cancelled=false, packet_num=0, peak_memory_usage=0
+I20261101 04:59:17.192361 748 wal_manager.cpp:505] Scheduled(every 10s) WAL info: [/opt/apache-doris/be/storage/wal: limit 2939830681 Bytes, used 0 Bytes, estimated wal bytes 0 Bytes, available 2939830681 Bytes.];
+I20261101 04:59:18.031829 748 backend_service.cpp:1293] query for dictionary status, return 0 rows
+I20261101 04:59:18.051419 748 workload_group_manager.cpp:144] workload group's id changed, before: 1, after:1793509067479
+I20261101 04:59:18.051501 748 workload_group_listener.cpp:69] [topic_publish_wg]update workload group finish, wg info=WorkloadGroup[id = 1793509067479, name = normal, version = 0, min_cpu_percent = 0, max_cpu_percent = 100, min_memory_percent = 0% , max_memory_percent = 100% , memory_limit = 2899102924B, slot_memory_policy = 0, total_query_slot_count = 0, memory_low_watermark = 80, memory_high_watermark = 95, mem_used_ratio = 0, total_mem_used = 0, wg_refresh_interval_memory_growth = 0scan_thread_num = 48, max_remote_scan_thread_num = 512, min_remote_scan_thread_num = 8, is_shutdown=false, query_num=3, read_bytes_per_second=-1, remote_read_bytes_per_second=-1], cgroup cpu_shares=0, cgroup cpu_hard_limit=0, cgroup home path=, list size=1, thread info=scheduler: p_normal_simple_scheduler, info: [exec num:4, real_num:4, min_num:4, max_num:4],[l_scan num:48, real_num:48, min_num:48, max_num:48],[r_scan num:8, real_num:8, min_num:8, max_num:512],[mem_tab_flush num:2, real_num:2, min_num:2, max_num:16]
+I20261101 04:59:18.051594 748 topic_subscriber.cpp:47] [topic_publish]finish handle topic WORKLOAD_GROUP, size=1
+I20261101 04:59:18.051617 748 workload_sched_policy_listener.cpp:79] [workload_schedule]finish update workload schedule policy, size=0
+I20261101 04:59:18.051635 748 topic_subscriber.cpp:47] [topic_publish]finish handle topic WORKLOAD_SCHED_POLICY, size=0
+I20261101 04:59:18.851285 748 fragment_mgr.cpp:495] query_id: 185d4ccbbca3400c-b72740d11b88bf79, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:18.869639 748 fragment_mgr.cpp:411] Query 185d4ccbbca3400c-b72740d11b88bf79 start execution
+I20261101 04:59:18.873605 748 workload_group_manager.cpp:240] 
+Process Memory Summary: process memory used 1.23 GB(= 1.23 GB[vm/rss] + 0[reserved] + 0B[waiting_refresh]), sys available memory 2.18 GB(= 2.18 GB[proc/available] - 0[reserved] - 0B[waiting_refresh]), all workload groups memory usage: 30.41 KB
+I20261101 04:59:23.032872 748 backend_service.cpp:1293] query for dictionary status, return 0 rows
+I20261101 04:59:23.551878 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=185d4ccbbca3400c-b72740d11b88bf79|fragment_id=0
+I20261101 04:59:23.552696 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=185d4ccbbca3400c-b72740d11b88bf79|fragment_id=1
+I20261101 04:59:23.552894 748 query_context.cpp:289] Query 185d4ccbbca3400c-b72740d11b88bf79 deconstructed, elapsed_ms: 4702, mem_tracker: deregister query/load memory tracker, queryId=185d4ccbbca3400c-b72740d11b88bf79, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.29 MB
+I20261101 04:59:23.571372 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=185d4ccbbca3400c-b72740d11b88bf79, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:23.593156 748 internal_service.cpp:661] Cancel query 185d4ccbbca3400c-b72740d11b88bf79, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:23.593254 748 fragment_mgr.cpp:712] Query 185d4ccbbca3400c-b72740d11b88bf79 does not exists, failed to cancel it
+I20261101 04:59:23.693159 748 fragment_mgr.cpp:495] query_id: d0067d6f30cb4582-afb372da62506fab, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:23.697885 748 fragment_mgr.cpp:411] Query d0067d6f30cb4582-afb372da62506fab start execution
+I20261101 04:59:24.142375 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=d0067d6f30cb4582-afb372da62506fab|fragment_id=0
+I20261101 04:59:24.142477 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=d0067d6f30cb4582-afb372da62506fab|fragment_id=1
+I20261101 04:59:24.144757 748 query_context.cpp:289] Query d0067d6f30cb4582-afb372da62506fab deconstructed, elapsed_ms: 451, mem_tracker: deregister query/load memory tracker, queryId=d0067d6f30cb4582-afb372da62506fab, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.29 MB
+I20261101 04:59:24.159349 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=d0067d6f30cb4582-afb372da62506fab, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:24.174036 748 internal_service.cpp:661] Cancel query d0067d6f30cb4582-afb372da62506fab, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:24.174150 748 fragment_mgr.cpp:712] Query d0067d6f30cb4582-afb372da62506fab does not exists, failed to cancel it
+I20261101 04:59:24.325089 748 fragment_mgr.cpp:495] query_id: f3c7b4d1981b4981-8d299ae583bd5dbb, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:24.333230 748 fragment_mgr.cpp:411] Query f3c7b4d1981b4981-8d299ae583bd5dbb start execution
+I20261101 04:59:24.830273 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=f3c7b4d1981b4981-8d299ae583bd5dbb|fragment_id=0
+I20261101 04:59:24.830561 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=f3c7b4d1981b4981-8d299ae583bd5dbb|fragment_id=1
+I20261101 04:59:24.830737 748 query_context.cpp:289] Query f3c7b4d1981b4981-8d299ae583bd5dbb deconstructed, elapsed_ms: 505, mem_tracker: deregister query/load memory tracker, queryId=f3c7b4d1981b4981-8d299ae583bd5dbb, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.30 MB
+I20261101 04:59:24.838967 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=f3c7b4d1981b4981-8d299ae583bd5dbb, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:24.852093 748 internal_service.cpp:661] Cancel query f3c7b4d1981b4981-8d299ae583bd5dbb, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:24.852377 748 fragment_mgr.cpp:712] Query f3c7b4d1981b4981-8d299ae583bd5dbb does not exists, failed to cancel it
+I20261101 04:59:24.977566 748 fragment_mgr.cpp:495] query_id: 53964cb7fa0b47aa-b9a0584d68a00ccf, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:24.984153 748 fragment_mgr.cpp:411] Query 53964cb7fa0b47aa-b9a0584d68a00ccf start execution
+I20261101 04:59:25.409373 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=53964cb7fa0b47aa-b9a0584d68a00ccf|fragment_id=0
+I20261101 04:59:25.409560 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=53964cb7fa0b47aa-b9a0584d68a00ccf|fragment_id=1
+I20261101 04:59:25.410043 748 query_context.cpp:289] Query 53964cb7fa0b47aa-b9a0584d68a00ccf deconstructed, elapsed_ms: 433, mem_tracker: deregister query/load memory tracker, queryId=53964cb7fa0b47aa-b9a0584d68a00ccf, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.30 MB
+I20261101 04:59:25.421531 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=53964cb7fa0b47aa-b9a0584d68a00ccf, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:25.431712 748 internal_service.cpp:661] Cancel query 53964cb7fa0b47aa-b9a0584d68a00ccf, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:25.431821 748 fragment_mgr.cpp:712] Query 53964cb7fa0b47aa-b9a0584d68a00ccf does not exists, failed to cancel it
+I20261101 04:59:25.950331 748 fragment_mgr.cpp:495] query_id: b9c4ec2fe28a41fc-9c979830d9e9fa29, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 1, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:25.952822 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=b9c4ec2fe28a41fc-9c979830d9e9fa29|fragment_id=0
+I20261101 04:59:25.953233 748 query_context.cpp:289] Query b9c4ec2fe28a41fc-9c979830d9e9fa29 deconstructed, elapsed_ms: 2, mem_tracker: deregister query/load memory tracker, queryId=b9c4ec2fe28a41fc-9c979830d9e9fa29, Limit=2.00 GB, CurrUsed=0, PeakUsed=31.25 MB
+I20261101 04:59:25.959898 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=b9c4ec2fe28a41fc-9c979830d9e9fa29, is_close=true, is_cancelled=false, packet_num=0, peak_memory_usage=0
+I20261101 04:59:25.977190 748 fragment_mgr.cpp:495] query_id: 59190e43194341ea-8b3307e9f65f45d8, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 1, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:25.978463 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=59190e43194341ea-8b3307e9f65f45d8|fragment_id=0
+I20261101 04:59:25.978613 748 query_context.cpp:289] Query 59190e43194341ea-8b3307e9f65f45d8 deconstructed, elapsed_ms: 1, mem_tracker: deregister query/load memory tracker, queryId=59190e43194341ea-8b3307e9f65f45d8, Limit=2.00 GB, CurrUsed=0, PeakUsed=31.25 MB
+I20261101 04:59:25.987497 748 fragment_mgr.cpp:495] query_id: 5a39876a50bf4dd3-9d3db0219d10d606, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 1, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:25.988873 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=5a39876a50bf4dd3-9d3db0219d10d606|fragment_id=0
+I20261101 04:59:25.989681 748 query_context.cpp:289] Query 5a39876a50bf4dd3-9d3db0219d10d606 deconstructed, elapsed_ms: 2, mem_tracker: deregister query/load memory tracker, queryId=5a39876a50bf4dd3-9d3db0219d10d606, Limit=2.00 GB, CurrUsed=0, PeakUsed=31.25 MB
+I20261101 04:59:25.995078 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=59190e43194341ea-8b3307e9f65f45d8, is_close=true, is_cancelled=false, packet_num=0, peak_memory_usage=0
+I20261101 04:59:26.003625 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=5a39876a50bf4dd3-9d3db0219d10d606, is_close=true, is_cancelled=false, packet_num=0, peak_memory_usage=0
+I20261101 04:59:26.368492 748 olap_server.cpp:1201] cooldown producer get tablet num: 0
+I20261101 04:59:26.787221 748 fragment_mgr.cpp:495] query_id: 73571a9416004554-b19e4b689c75f58b, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:26.792865 748 fragment_mgr.cpp:411] Query 73571a9416004554-b19e4b689c75f58b start execution
+I20261101 04:59:26.794127 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=73571a9416004554-b19e4b689c75f58b|fragment_id=0
+I20261101 04:59:26.794637 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=73571a9416004554-b19e4b689c75f58b|fragment_id=1
+I20261101 04:59:26.795010 748 query_context.cpp:289] Query 73571a9416004554-b19e4b689c75f58b deconstructed, elapsed_ms: 7, mem_tracker: deregister query/load memory tracker, queryId=73571a9416004554-b19e4b689c75f58b, Limit=2.70 GB, CurrUsed=0, PeakUsed=62.53 MB
+I20261101 04:59:26.812176 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=73571a9416004554-b19e4b689c75f58b, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:26.822975 748 internal_service.cpp:661] Cancel query 73571a9416004554-b19e4b689c75f58b, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:26.823181 748 fragment_mgr.cpp:712] Query 73571a9416004554-b19e4b689c75f58b does not exists, failed to cancel it
+I20261101 04:59:27.006654 748 fragment_mgr.cpp:495] query_id: 9fec6ce414a64b11-b361b35d81dbff78, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:27.012243 748 fragment_mgr.cpp:411] Query 9fec6ce414a64b11-b361b35d81dbff78 start execution
+I20261101 04:59:27.018675 748 s3_util.cpp:460] create one s3 client with (ak=<REDACTED>, token=<REDACTED>, endpoint=https://s3.us-east-2.amazonaws.com, region=us-east-2, bucket=<REDACTED>, max_connections=50, request_timeout_ms=3000, connect_timeout_ms=1000, use_virtual_addressing=true, cred_provider_type=0,role_arn=, external_id=, is_internal_bucket=false
+I20261101 04:59:27.019946 748 s3_util.cpp:460] create one s3 client with (ak=<REDACTED>, token=<REDACTED>, endpoint=https://s3.us-east-2.amazonaws.com, region=us-east-2, bucket=<REDACTED>, max_connections=50, request_timeout_ms=3000, connect_timeout_ms=1000, use_virtual_addressing=true, cred_provider_type=0,role_arn=, external_id=, is_internal_bucket=false
+I20261101 04:59:27.023479 748 s3_util.cpp:460] create one s3 client with (ak=<REDACTED>, token=<REDACTED>, endpoint=https://s3.us-east-2.amazonaws.com, region=us-east-2, bucket=<REDACTED>, max_connections=50, request_timeout_ms=3000, connect_timeout_ms=1000, use_virtual_addressing=true, cred_provider_type=0,role_arn=, external_id=, is_internal_bucket=false
+I20261101 04:59:27.149523 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=9fec6ce414a64b11-b361b35d81dbff78|fragment_id=0
+I20261101 04:59:27.149658 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=9fec6ce414a64b11-b361b35d81dbff78|fragment_id=1
+I20261101 04:59:27.150167 748 query_context.cpp:289] Query 9fec6ce414a64b11-b361b35d81dbff78 deconstructed, elapsed_ms: 143, mem_tracker: deregister query/load memory tracker, queryId=9fec6ce414a64b11-b361b35d81dbff78, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.31 MB
+I20261101 04:59:27.158192 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=9fec6ce414a64b11-b361b35d81dbff78, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:27.171118 748 internal_service.cpp:661] Cancel query 9fec6ce414a64b11-b361b35d81dbff78, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:27.171218 748 fragment_mgr.cpp:712] Query 9fec6ce414a64b11-b361b35d81dbff78 does not exists, failed to cancel it
+I20261101 04:59:27.247364 748 wal_manager.cpp:505] Scheduled(every 10s) WAL info: [/opt/apache-doris/be/storage/wal: limit 2932185497 Bytes, used 0 Bytes, estimated wal bytes 0 Bytes, available 2932185497 Bytes.];
+I20261101 04:59:27.379302 748 fragment_mgr.cpp:495] query_id: c3855be4a9504388-8be471d5646c0c98, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:27.384969 748 fragment_mgr.cpp:411] Query c3855be4a9504388-8be471d5646c0c98 start execution
+I20261101 04:59:27.403309 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=c3855be4a9504388-8be471d5646c0c98|fragment_id=0
+I20261101 04:59:27.404942 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=c3855be4a9504388-8be471d5646c0c98|fragment_id=1
+I20261101 04:59:27.405229 748 query_context.cpp:289] Query c3855be4a9504388-8be471d5646c0c98 deconstructed, elapsed_ms: 25, mem_tracker: deregister query/load memory tracker, queryId=c3855be4a9504388-8be471d5646c0c98, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.30 MB
+I20261101 04:59:27.416477 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=c3855be4a9504388-8be471d5646c0c98, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:27.427074 748 internal_service.cpp:661] Cancel query c3855be4a9504388-8be471d5646c0c98, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:27.427503 748 fragment_mgr.cpp:712] Query c3855be4a9504388-8be471d5646c0c98 does not exists, failed to cancel it
+I20261101 04:59:27.620641 748 fragment_mgr.cpp:495] query_id: e82db5f4aaeb4aaa-95ca914f4d21ebcb, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:27.626698 748 fragment_mgr.cpp:411] Query e82db5f4aaeb4aaa-95ca914f4d21ebcb start execution
+I20261101 04:59:27.641554 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=e82db5f4aaeb4aaa-95ca914f4d21ebcb|fragment_id=0
+I20261101 04:59:27.642261 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=e82db5f4aaeb4aaa-95ca914f4d21ebcb|fragment_id=1
+I20261101 04:59:27.642840 748 query_context.cpp:289] Query e82db5f4aaeb4aaa-95ca914f4d21ebcb deconstructed, elapsed_ms: 22, mem_tracker: deregister query/load memory tracker, queryId=e82db5f4aaeb4aaa-95ca914f4d21ebcb, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.30 MB
+I20261101 04:59:27.650813 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=e82db5f4aaeb4aaa-95ca914f4d21ebcb, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:27.658967 748 internal_service.cpp:661] Cancel query e82db5f4aaeb4aaa-95ca914f4d21ebcb, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:27.659063 748 fragment_mgr.cpp:712] Query e82db5f4aaeb4aaa-95ca914f4d21ebcb does not exists, failed to cancel it
+I20261101 04:59:27.786607 748 fragment_mgr.cpp:495] query_id: d176389236434103-9ac3cc34573b2752, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 2, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:27.790499 748 fragment_mgr.cpp:411] Query d176389236434103-9ac3cc34573b2752 start execution
+I20261101 04:59:27.790832 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=d176389236434103-9ac3cc34573b2752|fragment_id=0
+I20261101 04:59:27.792128 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=d176389236434103-9ac3cc34573b2752|fragment_id=1
+I20261101 04:59:27.792441 748 query_context.cpp:289] Query d176389236434103-9ac3cc34573b2752 deconstructed, elapsed_ms: 5, mem_tracker: deregister query/load memory tracker, queryId=d176389236434103-9ac3cc34573b2752, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.27 MB
+I20261101 04:59:27.801982 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=d176389236434103-9ac3cc34573b2752, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:27.804368 748 internal_service.cpp:661] Cancel query d176389236434103-9ac3cc34573b2752, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:27.804483 748 fragment_mgr.cpp:712] Query d176389236434103-9ac3cc34573b2752 does not exists, failed to cancel it
+I20261101 04:59:28.034313 748 backend_service.cpp:1293] query for dictionary status, return 0 rows
+I20261101 04:59:28.250317 748 fragment_mgr.cpp:495] query_id: a8cfa9d1ec3b4413-bc21021d2361421b, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 1, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:28.250936 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=a8cfa9d1ec3b4413-bc21021d2361421b|fragment_id=0
+I20261101 04:59:28.251065 748 query_context.cpp:289] Query a8cfa9d1ec3b4413-bc21021d2361421b deconstructed, elapsed_ms: 0, mem_tracker: deregister query/load memory tracker, queryId=a8cfa9d1ec3b4413-bc21021d2361421b, Limit=2.00 GB, CurrUsed=0, PeakUsed=31.25 MB
+I20261101 04:59:28.254076 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=a8cfa9d1ec3b4413-bc21021d2361421b, is_close=true, is_cancelled=false, packet_num=0, peak_memory_usage=0
+I20261101 04:59:28.265403 748 fragment_mgr.cpp:495] query_id: 12908a6df50a40f6-8bd445fa827db3ad, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 1, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:28.266506 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=12908a6df50a40f6-8bd445fa827db3ad|fragment_id=0
+I20261101 04:59:28.266654 748 query_context.cpp:289] Query 12908a6df50a40f6-8bd445fa827db3ad deconstructed, elapsed_ms: 0, mem_tracker: deregister query/load memory tracker, queryId=12908a6df50a40f6-8bd445fa827db3ad, Limit=2.00 GB, CurrUsed=0, PeakUsed=31.25 MB
+I20261101 04:59:28.267196 748 fragment_mgr.cpp:495] query_id: 6d1a0af3fee74096-bb982bb884a79f1d, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 1, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:28.267803 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=6d1a0af3fee74096-bb982bb884a79f1d|fragment_id=0
+I20261101 04:59:28.267969 748 query_context.cpp:289] Query 6d1a0af3fee74096-bb982bb884a79f1d deconstructed, elapsed_ms: 0, mem_tracker: deregister query/load memory tracker, queryId=6d1a0af3fee74096-bb982bb884a79f1d, Limit=2.00 GB, CurrUsed=0, PeakUsed=31.25 MB
+I20261101 04:59:28.273658 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=12908a6df50a40f6-8bd445fa827db3ad, is_close=true, is_cancelled=false, packet_num=0, peak_memory_usage=0
+I20261101 04:59:28.274394 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=6d1a0af3fee74096-bb982bb884a79f1d, is_close=true, is_cancelled=false, packet_num=0, peak_memory_usage=0
+I20261101 04:59:28.727560 748 fragment_mgr.cpp:495] query_id: 88007133032f4813-a7b9b7da0494763b, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:28.732048 748 fragment_mgr.cpp:411] Query 88007133032f4813-a7b9b7da0494763b start execution
+I20261101 04:59:28.733664 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=88007133032f4813-a7b9b7da0494763b|fragment_id=0
+I20261101 04:59:28.733858 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=88007133032f4813-a7b9b7da0494763b|fragment_id=1
+I20261101 04:59:28.734200 748 query_context.cpp:289] Query 88007133032f4813-a7b9b7da0494763b deconstructed, elapsed_ms: 6, mem_tracker: deregister query/load memory tracker, queryId=88007133032f4813-a7b9b7da0494763b, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.28 MB
+I20261101 04:59:28.737195 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=88007133032f4813-a7b9b7da0494763b, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:28.740037 748 internal_service.cpp:661] Cancel query 88007133032f4813-a7b9b7da0494763b, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:28.740130 748 fragment_mgr.cpp:712] Query 88007133032f4813-a7b9b7da0494763b does not exists, failed to cancel it
+I20261101 04:59:28.868394 748 fragment_mgr.cpp:495] query_id: 56edf84c4b954376-8029ba58c0ff016a, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:28.872759 748 fragment_mgr.cpp:411] Query 56edf84c4b954376-8029ba58c0ff016a start execution
+I20261101 04:59:28.877555 748 s3_util.cpp:460] create one s3 client with (ak=<REDACTED>, token=<REDACTED>, endpoint=https://s3.us-east-2.amazonaws.com, region=us-east-2, bucket=<REDACTED>, max_connections=50, request_timeout_ms=3000, connect_timeout_ms=1000, use_virtual_addressing=true, cred_provider_type=0,role_arn=, external_id=, is_internal_bucket=false
+I20261101 04:59:28.878422 748 s3_util.cpp:460] create one s3 client with (ak=<REDACTED>, token=<REDACTED>, endpoint=https://s3.us-east-2.amazonaws.com, region=us-east-2, bucket=<REDACTED>, max_connections=50, request_timeout_ms=3000, connect_timeout_ms=1000, use_virtual_addressing=true, cred_provider_type=0,role_arn=, external_id=, is_internal_bucket=false
+I20261101 04:59:28.937659 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=56edf84c4b954376-8029ba58c0ff016a|fragment_id=0
+I20261101 04:59:28.939109 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=56edf84c4b954376-8029ba58c0ff016a|fragment_id=1
+I20261101 04:59:28.939440 748 query_context.cpp:289] Query 56edf84c4b954376-8029ba58c0ff016a deconstructed, elapsed_ms: 70, mem_tracker: deregister query/load memory tracker, queryId=56edf84c4b954376-8029ba58c0ff016a, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.29 MB
+I20261101 04:59:28.940667 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=56edf84c4b954376-8029ba58c0ff016a, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:28.946036 748 internal_service.cpp:661] Cancel query 56edf84c4b954376-8029ba58c0ff016a, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:28.946743 748 fragment_mgr.cpp:712] Query 56edf84c4b954376-8029ba58c0ff016a does not exists, failed to cancel it
+I20261101 04:59:29.069805 748 fragment_mgr.cpp:495] query_id: 184a78096aef447a-95328bd7adbbfdd5, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:29.076258 748 fragment_mgr.cpp:411] Query 184a78096aef447a-95328bd7adbbfdd5 start execution
+I20261101 04:59:29.083768 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=184a78096aef447a-95328bd7adbbfdd5|fragment_id=0
+I20261101 04:59:29.084699 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=184a78096aef447a-95328bd7adbbfdd5|fragment_id=1
+I20261101 04:59:29.085638 748 query_context.cpp:289] Query 184a78096aef447a-95328bd7adbbfdd5 deconstructed, elapsed_ms: 15, mem_tracker: deregister query/load memory tracker, queryId=184a78096aef447a-95328bd7adbbfdd5, Limit=2.70 GB, CurrUsed=0, PeakUsed=62.53 MB
+I20261101 04:59:29.087474 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=184a78096aef447a-95328bd7adbbfdd5, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:29.094271 748 internal_service.cpp:661] Cancel query 184a78096aef447a-95328bd7adbbfdd5, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:29.094503 748 fragment_mgr.cpp:712] Query 184a78096aef447a-95328bd7adbbfdd5 does not exists, failed to cancel it
+I20261101 04:59:29.192553 748 fragment_mgr.cpp:495] query_id: d441eca58aeb4ca5-b01c2bb276ebe0c0, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:29.197036 748 fragment_mgr.cpp:411] Query d441eca58aeb4ca5-b01c2bb276ebe0c0 start execution
+I20261101 04:59:29.625540 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=d441eca58aeb4ca5-b01c2bb276ebe0c0|fragment_id=0
+I20261101 04:59:29.625861 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=d441eca58aeb4ca5-b01c2bb276ebe0c0|fragment_id=1
+I20261101 04:59:29.627169 748 query_context.cpp:289] Query d441eca58aeb4ca5-b01c2bb276ebe0c0 deconstructed, elapsed_ms: 435, mem_tracker: deregister query/load memory tracker, queryId=d441eca58aeb4ca5-b01c2bb276ebe0c0, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.28 MB
+I20261101 04:59:29.629796 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=d441eca58aeb4ca5-b01c2bb276ebe0c0, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:29.634697 748 internal_service.cpp:661] Cancel query d441eca58aeb4ca5-b01c2bb276ebe0c0, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:29.634809 748 fragment_mgr.cpp:712] Query d441eca58aeb4ca5-b01c2bb276ebe0c0 does not exists, failed to cancel it
+I20261101 04:59:29.745733 748 fragment_mgr.cpp:495] query_id: 1b421043c1114ef6-9bd8b9c21efa8386, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:29.750698 748 fragment_mgr.cpp:411] Query 1b421043c1114ef6-9bd8b9c21efa8386 start execution
+I20261101 04:59:30.188956 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=1b421043c1114ef6-9bd8b9c21efa8386|fragment_id=0
+I20261101 04:59:30.189733 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=1b421043c1114ef6-9bd8b9c21efa8386|fragment_id=1
+I20261101 04:59:30.189957 748 query_context.cpp:289] Query 1b421043c1114ef6-9bd8b9c21efa8386 deconstructed, elapsed_ms: 444, mem_tracker: deregister query/load memory tracker, queryId=1b421043c1114ef6-9bd8b9c21efa8386, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.29 MB
+I20261101 04:59:30.192560 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=1b421043c1114ef6-9bd8b9c21efa8386, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:30.195340 748 internal_service.cpp:661] Cancel query 1b421043c1114ef6-9bd8b9c21efa8386, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:30.195474 748 fragment_mgr.cpp:712] Query 1b421043c1114ef6-9bd8b9c21efa8386 does not exists, failed to cancel it
+I20261101 04:59:30.289368 748 fragment_mgr.cpp:495] query_id: 920aac0b91b544ef-9641ba444b76a8b7, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:30.295209 748 fragment_mgr.cpp:411] Query 920aac0b91b544ef-9641ba444b76a8b7 start execution
+I20261101 04:59:30.649648 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=920aac0b91b544ef-9641ba444b76a8b7|fragment_id=0
+I20261101 04:59:30.649950 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=920aac0b91b544ef-9641ba444b76a8b7|fragment_id=1
+I20261101 04:59:30.650451 748 query_context.cpp:289] Query 920aac0b91b544ef-9641ba444b76a8b7 deconstructed, elapsed_ms: 359, mem_tracker: deregister query/load memory tracker, queryId=920aac0b91b544ef-9641ba444b76a8b7, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.30 MB
+I20261101 04:59:30.652585 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=920aac0b91b544ef-9641ba444b76a8b7, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:30.656772 748 internal_service.cpp:661] Cancel query 920aac0b91b544ef-9641ba444b76a8b7, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:30.656875 748 fragment_mgr.cpp:712] Query 920aac0b91b544ef-9641ba444b76a8b7 does not exists, failed to cancel it
+I20261101 04:59:30.745095 748 fragment_mgr.cpp:495] query_id: 8a4a293245324ccc-ac3bc31072b7b903, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:30.755782 748 fragment_mgr.cpp:411] Query 8a4a293245324ccc-ac3bc31072b7b903 start execution
+I20261101 04:59:31.140056 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=8a4a293245324ccc-ac3bc31072b7b903|fragment_id=0
+I20261101 04:59:31.140744 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=8a4a293245324ccc-ac3bc31072b7b903|fragment_id=1
+I20261101 04:59:31.140982 748 query_context.cpp:289] Query 8a4a293245324ccc-ac3bc31072b7b903 deconstructed, elapsed_ms: 395, mem_tracker: deregister query/load memory tracker, queryId=8a4a293245324ccc-ac3bc31072b7b903, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.28 MB
+I20261101 04:59:31.143199 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=8a4a293245324ccc-ac3bc31072b7b903, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:31.150277 748 internal_service.cpp:661] Cancel query 8a4a293245324ccc-ac3bc31072b7b903, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:31.150404 748 fragment_mgr.cpp:712] Query 8a4a293245324ccc-ac3bc31072b7b903 does not exists, failed to cancel it
+I20261101 04:59:31.247793 748 fragment_mgr.cpp:495] query_id: e957fde502d64bcc-9607d81f0de129b0, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:31.254685 748 fragment_mgr.cpp:411] Query e957fde502d64bcc-9607d81f0de129b0 start execution
+I20261101 04:59:31.255921 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=e957fde502d64bcc-9607d81f0de129b0|fragment_id=0
+I20261101 04:59:31.256007 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=e957fde502d64bcc-9607d81f0de129b0|fragment_id=1
+I20261101 04:59:31.256302 748 query_context.cpp:289] Query e957fde502d64bcc-9607d81f0de129b0 deconstructed, elapsed_ms: 8, mem_tracker: deregister query/load memory tracker, queryId=e957fde502d64bcc-9607d81f0de129b0, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.28 MB
+I20261101 04:59:31.261643 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=e957fde502d64bcc-9607d81f0de129b0, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:31.267518 748 internal_service.cpp:661] Cancel query e957fde502d64bcc-9607d81f0de129b0, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:31.267969 748 fragment_mgr.cpp:712] Query e957fde502d64bcc-9607d81f0de129b0 does not exists, failed to cancel it
+I20261101 04:59:31.369314 748 fragment_mgr.cpp:495] query_id: b63648d4180c40a8-9995718d3243f478, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:31.375394 748 fragment_mgr.cpp:411] Query b63648d4180c40a8-9995718d3243f478 start execution
+I20261101 04:59:32.166550 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=b63648d4180c40a8-9995718d3243f478|fragment_id=0
+I20261101 04:59:32.167387 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=b63648d4180c40a8-9995718d3243f478|fragment_id=1
+I20261101 04:59:32.167649 748 query_context.cpp:289] Query b63648d4180c40a8-9995718d3243f478 deconstructed, elapsed_ms: 798, mem_tracker: deregister query/load memory tracker, queryId=b63648d4180c40a8-9995718d3243f478, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.29 MB
+I20261101 04:59:32.169775 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=b63648d4180c40a8-9995718d3243f478, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:32.172092 748 internal_service.cpp:661] Cancel query b63648d4180c40a8-9995718d3243f478, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:32.172194 748 fragment_mgr.cpp:712] Query b63648d4180c40a8-9995718d3243f478 does not exists, failed to cancel it
+I20261101 04:59:32.299125 748 fragment_mgr.cpp:495] query_id: 97cc6ebd67ee485e-a7a85532e925ad24, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:32.302989 748 fragment_mgr.cpp:411] Query 97cc6ebd67ee485e-a7a85532e925ad24 start execution
+I20261101 04:59:32.756050 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=97cc6ebd67ee485e-a7a85532e925ad24|fragment_id=0
+I20261101 04:59:32.756660 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=97cc6ebd67ee485e-a7a85532e925ad24|fragment_id=1
+I20261101 04:59:32.756827 748 query_context.cpp:289] Query 97cc6ebd67ee485e-a7a85532e925ad24 deconstructed, elapsed_ms: 457, mem_tracker: deregister query/load memory tracker, queryId=97cc6ebd67ee485e-a7a85532e925ad24, Limit=2.70 GB, CurrUsed=0, PeakUsed=62.53 MB
+I20261101 04:59:32.760033 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=97cc6ebd67ee485e-a7a85532e925ad24, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:32.762719 748 internal_service.cpp:661] Cancel query 97cc6ebd67ee485e-a7a85532e925ad24, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:32.762815 748 fragment_mgr.cpp:712] Query 97cc6ebd67ee485e-a7a85532e925ad24 does not exists, failed to cancel it
+I20261101 04:59:32.898157 748 fragment_mgr.cpp:495] query_id: 249f34985c2a4bb1-93feed8decddbfe9, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:32.902042 748 fragment_mgr.cpp:411] Query 249f34985c2a4bb1-93feed8decddbfe9 start execution
+I20261101 04:59:33.035321 748 backend_service.cpp:1293] query for dictionary status, return 0 rows
+I20261101 04:59:33.182533 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=249f34985c2a4bb1-93feed8decddbfe9|fragment_id=0
+I20261101 04:59:33.182720 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=249f34985c2a4bb1-93feed8decddbfe9|fragment_id=1
+I20261101 04:59:33.182950 748 query_context.cpp:289] Query 249f34985c2a4bb1-93feed8decddbfe9 deconstructed, elapsed_ms: 284, mem_tracker: deregister query/load memory tracker, queryId=249f34985c2a4bb1-93feed8decddbfe9, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.28 MB
+I20261101 04:59:33.185905 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=249f34985c2a4bb1-93feed8decddbfe9, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:33.188273 748 internal_service.cpp:661] Cancel query 249f34985c2a4bb1-93feed8decddbfe9, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:33.188380 748 fragment_mgr.cpp:712] Query 249f34985c2a4bb1-93feed8decddbfe9 does not exists, failed to cancel it
+I20261101 04:59:33.326788 748 fragment_mgr.cpp:495] query_id: 950dd2d46ba8494f-8510eb21f1da186a, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 2, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:33.331190 748 fragment_mgr.cpp:411] Query 950dd2d46ba8494f-8510eb21f1da186a start execution
+I20261101 04:59:33.331604 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=950dd2d46ba8494f-8510eb21f1da186a|fragment_id=0
+I20261101 04:59:33.331709 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=950dd2d46ba8494f-8510eb21f1da186a|fragment_id=1
+I20261101 04:59:33.332067 748 query_context.cpp:289] Query 950dd2d46ba8494f-8510eb21f1da186a deconstructed, elapsed_ms: 5, mem_tracker: deregister query/load memory tracker, queryId=950dd2d46ba8494f-8510eb21f1da186a, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.27 MB
+I20261101 04:59:33.338725 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=950dd2d46ba8494f-8510eb21f1da186a, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:33.341015 748 internal_service.cpp:661] Cancel query 950dd2d46ba8494f-8510eb21f1da186a, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:33.341116 748 fragment_mgr.cpp:712] Query 950dd2d46ba8494f-8510eb21f1da186a does not exists, failed to cancel it
+I20261101 04:59:33.426133 748 fragment_mgr.cpp:495] query_id: 6f23f8c36ec44627-a20a8f7e099e1f39, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:33.429739 748 fragment_mgr.cpp:411] Query 6f23f8c36ec44627-a20a8f7e099e1f39 start execution
+I20261101 04:59:33.430546 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=6f23f8c36ec44627-a20a8f7e099e1f39|fragment_id=0
+I20261101 04:59:33.431010 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=6f23f8c36ec44627-a20a8f7e099e1f39|fragment_id=1
+I20261101 04:59:33.431344 748 query_context.cpp:289] Query 6f23f8c36ec44627-a20a8f7e099e1f39 deconstructed, elapsed_ms: 5, mem_tracker: deregister query/load memory tracker, queryId=6f23f8c36ec44627-a20a8f7e099e1f39, Limit=2.70 GB, CurrUsed=0, PeakUsed=62.53 MB
+I20261101 04:59:33.436838 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=6f23f8c36ec44627-a20a8f7e099e1f39, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:33.438603 748 internal_service.cpp:661] Cancel query 6f23f8c36ec44627-a20a8f7e099e1f39, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:33.438681 748 fragment_mgr.cpp:712] Query 6f23f8c36ec44627-a20a8f7e099e1f39 does not exists, failed to cancel it
+I20261101 04:59:33.531263 748 fragment_mgr.cpp:495] query_id: 159e3488e4cc4337-97c03b6025e25cee, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:33.536242 748 fragment_mgr.cpp:411] Query 159e3488e4cc4337-97c03b6025e25cee start execution
+I20261101 04:59:33.794245 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=159e3488e4cc4337-97c03b6025e25cee|fragment_id=0
+I20261101 04:59:33.795161 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=159e3488e4cc4337-97c03b6025e25cee|fragment_id=1
+I20261101 04:59:33.796226 748 query_context.cpp:289] Query 159e3488e4cc4337-97c03b6025e25cee deconstructed, elapsed_ms: 264, mem_tracker: deregister query/load memory tracker, queryId=159e3488e4cc4337-97c03b6025e25cee, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.28 MB
+I20261101 04:59:33.797911 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=159e3488e4cc4337-97c03b6025e25cee, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:33.802536 748 internal_service.cpp:661] Cancel query 159e3488e4cc4337-97c03b6025e25cee, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:33.802659 748 fragment_mgr.cpp:712] Query 159e3488e4cc4337-97c03b6025e25cee does not exists, failed to cancel it
+I20261101 04:59:33.896260 748 fragment_mgr.cpp:495] query_id: 26a48a057f0048a6-b86b5b96524e0b36, coord_addr: TNetworkAddress(hostname=127.0.0.1, port=9020), total fragment num on current host: 3, fe process uuid: 1793509067910, query type: SELECT, report audit fe:TNetworkAddress(hostname=127.0.0.1, port=9020), use wg:1793509067479,normal
+I20261101 04:59:33.900875 748 fragment_mgr.cpp:411] Query 26a48a057f0048a6-b86b5b96524e0b36 start execution
+I20261101 04:59:34.229022 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=26a48a057f0048a6-b86b5b96524e0b36|fragment_id=0
+I20261101 04:59:34.229254 748 pipeline_fragment_context.cpp:158] PipelineFragmentContext::~PipelineFragmentContext|query_id=26a48a057f0048a6-b86b5b96524e0b36|fragment_id=1
+I20261101 04:59:34.231853 748 query_context.cpp:289] Query 26a48a057f0048a6-b86b5b96524e0b36 deconstructed, elapsed_ms: 336, mem_tracker: deregister query/load memory tracker, queryId=26a48a057f0048a6-b86b5b96524e0b36, Limit=2.70 GB, CurrUsed=0, PeakUsed=31.29 MB
+I20261101 04:59:34.236122 748 result_block_buffer.cpp:174] ResultBlockBuffer finished, fragment_id=26a48a057f0048a6-b86b5b96524e0b36, is_close=true, is_cancelled=false, packet_num=1, peak_memory_usage=0
+I20261101 04:59:34.239941 748 internal_service.cpp:661] Cancel query 26a48a057f0048a6-b86b5b96524e0b36, reason: [FINISHED]PStatus: Finished
+W20261101 04:59:34.240249 748 fragment_mgr.cpp:712] Query 26a48a057f0048a6-b86b5b96524e0b36 does not exists, failed to cancel it
+I20261101 04:59:36.355847 748 storage_engine.cpp:1251] start to delete unused rowset, size: 0, unused delete bitmap size: 0
+I20261101 04:59:36.355921 748 storage_engine.cpp:1309] collected 0 unused rowsets to remove, skipped 0 rowsets due to use count > 1, skipped 0 rowsets due to don't need to delete file, skipped 0 rowsets due to delayed expired timestamp. left 0 unused delete bitmap.
+I20261101 04:59:36.355986 748 storage_engine.cpp:1334] removed all collected unused rowsets
+W20261101 04:59:36.656859 748 doris_main.cpp:137] thrift internal message: TSocket::write_partial() send() <Host: 127.0.0.1 Port: 9020>: Broken pipe
+I20261101 04:59:37.275857 748 wal_manager.cpp:505] Scheduled(every 10s) WAL info: [/opt/apache-doris/be/storage/wal: limit 2932418969 Bytes, used 0 Bytes, estimated wal bytes 0 Bytes, available 2932418969 Bytes.];
+W20261101 04:59:38.657382 748 doris_main.cpp:137] thrift internal message: TSocket::open() error on socket (after THRIFT_POLL) <Host: 127.0.0.1 Port: 9020>: Connection refused
+W20261101 04:59:38.669417 748 status.h:442] meet error status: [THRIFT_RPC_ERROR]Couldn't open transport for 127.0.0.1:9020 (socket open() error: Connection refused)
+
+	0#  doris::ThriftClientImpl::open_with_retry(int, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/thrift_client.cpp:0
+	1#  doris::ClientCacheHelper::_create_client(doris::TNetworkAddress const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	2#  doris::ClientCacheHelper::reopen_client(std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	3#  doris::RuntimeQueryStatisticsMgr::report_runtime_query_statistics()::$_0::operator()() const at /home/zcp/repo_center/doris_release/doris/be/src/runtime/runtime_query_statistics_mgr.cpp:406
+	4#  doris::RuntimeQueryStatisticsMgr::report_runtime_query_statistics() at /home/zcp/repo_center/doris_release/doris/be/src/runtime/runtime_query_statistics_mgr.cpp:435
+	5#  doris::Daemon::report_runtime_query_statistics_thread() at /usr/local/ldb-toolchain-v0.26/bin/../lib/gcc/x86_64-pc-linux-gnu/15/include/g++-v15/bits/chrono.h:578
+	6#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	7#  ?
+	8#  __clone
+I20261101 04:59:38.669498 748 thrift_client.cpp:78] Unable to connect to 127.0.0.1:9020
+I20261101 04:59:38.669510 748 thrift_client.cpp:83] (Attempt 1 of 1)
+W20261101 04:59:38.769618 748 runtime_query_statistics_mgr.cpp:437] [report_query_statistics] report to fe TNetworkAddress(hostname=127.0.0.1, port=9020) failed, reason:write() send(): Broken pipe, try reopen.
+W20261101 04:59:38.769748 748 runtime_query_statistics_mgr.cpp:468] [report_query_statistics]reopen thrift client failed when report workload runtime statistics to TNetworkAddress(hostname=127.0.0.1, port=9020), reason: [THRIFT_RPC_ERROR]Couldn't open transport for 127.0.0.1:9020 (socket open() error: Connection refused)
+
+	0#  doris::ThriftClientImpl::open_with_retry(int, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/thrift_client.cpp:0
+	1#  doris::ClientCacheHelper::_create_client(doris::TNetworkAddress const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	2#  doris::ClientCacheHelper::reopen_client(std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	3#  doris::RuntimeQueryStatisticsMgr::report_runtime_query_statistics()::$_0::operator()() const at /home/zcp/repo_center/doris_release/doris/be/src/runtime/runtime_query_statistics_mgr.cpp:406
+	4#  doris::RuntimeQueryStatisticsMgr::report_runtime_query_statistics() at /home/zcp/repo_center/doris_release/doris/be/src/runtime/runtime_query_statistics_mgr.cpp:435
+	5#  doris::Daemon::report_runtime_query_statistics_thread() at /usr/local/ldb-toolchain-v0.26/bin/../lib/gcc/x86_64-pc-linux-gnu/15/include/g++-v15/bits/chrono.h:578
+	6#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	7#  ?
+	8#  __clone
+W20261101 04:59:39.186209 748 utils.cpp:142] master client, retry finishTask: No more data to read.
+W20261101 04:59:39.186543 748 doris_main.cpp:137] thrift internal message: TSocket::open() error on socket (after THRIFT_POLL) <Host: 127.0.0.1 Port: 9020>: Connection refused
+W20261101 04:59:39.196218 748 status.h:442] meet error status: [THRIFT_RPC_ERROR]Couldn't open transport for 127.0.0.1:9020 (socket open() error: Connection refused)
+
+	0#  doris::ThriftClientImpl::open_with_retry(int, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/thrift_client.cpp:0
+	1#  doris::ClientCacheHelper::_create_client(doris::TNetworkAddress const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	2#  doris::ClientCacheHelper::reopen_client(std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	3#  doris::MasterServerClient::report(doris::TReportRequest const&, doris::TMasterResult*) at /home/zcp/repo_center/doris_release/doris/be/src/util/client_cache.h:0
+	4#  doris::(anonymous namespace)::handle_report(doris::TReportRequest const&, doris::ClusterInfo const*, std::basic_string_view<char, std::char_traits<char> >) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	5#  doris::report_task_callback(doris::ClusterInfo const*) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:0
+	6#  std::_Function_handler<void (), doris::ReportWorker::ReportWorker(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, doris::ClusterInfo const*, int, std::function<void ()>)::$_0>::_M_invoke(std::_Any_data const&) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:733
+	7#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	8#  ?
+	9#  __clone
+I20261101 04:59:39.196297 748 thrift_client.cpp:78] Unable to connect to 127.0.0.1:9020
+I20261101 04:59:39.196313 748 thrift_client.cpp:83] (Attempt 1 of 1)
+W20261101 04:59:39.296427 748 utils.cpp:148] fail to get master client from cache. host=127.0.0.1, port=9020, code=7
+W20261101 04:59:39.305399 748 status.h:442] meet error status: [INTERNAL_ERROR]Fail to get master client from cache
+
+	0#  doris::(anonymous namespace)::handle_report(doris::TReportRequest const&, doris::ClusterInfo const*, std::basic_string_view<char, std::char_traits<char> >) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	1#  doris::report_task_callback(doris::ClusterInfo const*) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:0
+	2#  std::_Function_handler<void (), doris::ReportWorker::ReportWorker(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, doris::ClusterInfo const*, int, std::function<void ()>)::$_0>::_M_invoke(std::_Any_data const&) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:733
+	3#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	4#  ?
+	5#  __clone
+W20261101 04:59:39.305526 748 task_worker_pool.cpp:385] failed to report task|host=127.0.0.1|port=9020|error=[INTERNAL_ERROR]Fail to get master client from cache
+
+	0#  doris::(anonymous namespace)::handle_report(doris::TReportRequest const&, doris::ClusterInfo const*, std::basic_string_view<char, std::char_traits<char> >) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	1#  doris::report_task_callback(doris::ClusterInfo const*) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:0
+	2#  std::_Function_handler<void (), doris::ReportWorker::ReportWorker(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, doris::ClusterInfo const*, int, std::function<void ()>)::$_0>::_M_invoke(std::_Any_data const&) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:733
+	3#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	4#  ?
+	5#  __clone
+I20261101 04:59:41.203739 748 data_dir.cpp:893] path: /opt/apache-doris/be/storage total capacity: 42869960704, available capacity: 29324136448, usage: 0.315975, in_use: 1
+I20261101 04:59:41.203877 748 storage_engine.cpp:476] get root path info cost: 0 ms. tablet counter: 22
+W20261101 04:59:41.204041 748 utils.cpp:142] master client, retry finishTask: No more data to read.
+W20261101 04:59:41.204356 748 doris_main.cpp:137] thrift internal message: TSocket::open() error on socket (after THRIFT_POLL) <Host: 127.0.0.1 Port: 9020>: Connection refused
+W20261101 04:59:41.205785 748 utils.cpp:142] master client, retry finishTask: No more data to read.
+W20261101 04:59:41.206066 748 doris_main.cpp:137] thrift internal message: TSocket::open() error on socket (after THRIFT_POLL) <Host: 127.0.0.1 Port: 9020>: Connection refused
+W20261101 04:59:41.213635 748 status.h:442] meet error status: [THRIFT_RPC_ERROR]Couldn't open transport for 127.0.0.1:9020 (socket open() error: Connection refused)
+
+	0#  doris::ThriftClientImpl::open_with_retry(int, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/thrift_client.cpp:0
+	1#  doris::ClientCacheHelper::_create_client(doris::TNetworkAddress const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	2#  doris::ClientCacheHelper::reopen_client(std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	3#  doris::MasterServerClient::report(doris::TReportRequest const&, doris::TMasterResult*) at /home/zcp/repo_center/doris_release/doris/be/src/util/client_cache.h:0
+	4#  doris::(anonymous namespace)::handle_report(doris::TReportRequest const&, doris::ClusterInfo const*, std::basic_string_view<char, std::char_traits<char> >) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	5#  doris::report_disk_callback(doris::StorageEngine&, doris::ClusterInfo const*) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:0
+	6#  std::_Function_handler<void (), doris::ReportWorker::ReportWorker(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, doris::ClusterInfo const*, int, std::function<void ()>)::$_0>::_M_invoke(std::_Any_data const&) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:733
+	7#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	8#  ?
+	9#  __clone
+I20261101 04:59:41.213719 748 thrift_client.cpp:78] Unable to connect to 127.0.0.1:9020
+I20261101 04:59:41.213737 748 thrift_client.cpp:83] (Attempt 1 of 1)
+W20261101 04:59:41.227988 748 status.h:442] meet error status: [THRIFT_RPC_ERROR]Couldn't open transport for 127.0.0.1:9020 (socket open() error: Connection refused)
+
+	0#  doris::ThriftClientImpl::open_with_retry(int, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/thrift_client.cpp:0
+	1#  doris::ClientCacheHelper::_create_client(doris::TNetworkAddress const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	2#  doris::ClientCacheHelper::reopen_client(std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	3#  doris::MasterServerClient::report(doris::TReportRequest const&, doris::TMasterResult*) at /home/zcp/repo_center/doris_release/doris/be/src/util/client_cache.h:0
+	4#  doris::(anonymous namespace)::handle_report(doris::TReportRequest const&, doris::ClusterInfo const*, std::basic_string_view<char, std::char_traits<char> >) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	5#  doris::report_index_policy_callback(doris::ClusterInfo const*) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:0
+	6#  std::_Function_handler<void (), doris::ReportWorker::ReportWorker(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, doris::ClusterInfo const*, int, std::function<void ()>)::$_0>::_M_invoke(std::_Any_data const&) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:733
+	7#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	8#  ?
+	9#  __clone
+I20261101 04:59:41.228111 748 thrift_client.cpp:78] Unable to connect to 127.0.0.1:9020
+I20261101 04:59:41.228122 748 thrift_client.cpp:83] (Attempt 1 of 1)
+W20261101 04:59:41.313851 748 utils.cpp:148] fail to get master client from cache. host=127.0.0.1, port=9020, code=7
+W20261101 04:59:41.317492 748 status.h:442] meet error status: [INTERNAL_ERROR]Fail to get master client from cache
+
+	0#  doris::(anonymous namespace)::handle_report(doris::TReportRequest const&, doris::ClusterInfo const*, std::basic_string_view<char, std::char_traits<char> >) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	1#  doris::report_disk_callback(doris::StorageEngine&, doris::ClusterInfo const*) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:0
+	2#  std::_Function_handler<void (), doris::ReportWorker::ReportWorker(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, doris::ClusterInfo const*, int, std::function<void ()>)::$_0>::_M_invoke(std::_Any_data const&) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:733
+	3#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	4#  ?
+	5#  __clone
+W20261101 04:59:41.317571 748 task_worker_pool.cpp:385] failed to report disk|host=127.0.0.1|port=9020|error=[INTERNAL_ERROR]Fail to get master client from cache
+
+	0#  doris::(anonymous namespace)::handle_report(doris::TReportRequest const&, doris::ClusterInfo const*, std::basic_string_view<char, std::char_traits<char> >) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	1#  doris::report_disk_callback(doris::StorageEngine&, doris::ClusterInfo const*) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:0
+	2#  std::_Function_handler<void (), doris::ReportWorker::ReportWorker(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, doris::ClusterInfo const*, int, std::function<void ()>)::$_0>::_M_invoke(std::_Any_data const&) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:733
+	3#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	4#  ?
+	5#  __clone
+W20261101 04:59:41.328241 748 utils.cpp:148] fail to get master client from cache. host=127.0.0.1, port=9020, code=7
+W20261101 04:59:41.332381 748 status.h:442] meet error status: [INTERNAL_ERROR]Fail to get master client from cache
+
+	0#  doris::(anonymous namespace)::handle_report(doris::TReportRequest const&, doris::ClusterInfo const*, std::basic_string_view<char, std::char_traits<char> >) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	1#  doris::report_index_policy_callback(doris::ClusterInfo const*) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:0
+	2#  std::_Function_handler<void (), doris::ReportWorker::ReportWorker(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, doris::ClusterInfo const*, int, std::function<void ()>)::$_0>::_M_invoke(std::_Any_data const&) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:733
+	3#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	4#  ?
+	5#  __clone
+W20261101 04:59:41.332479 748 task_worker_pool.cpp:385] failed to report index_policy|host=127.0.0.1|port=9020|error=[INTERNAL_ERROR]Fail to get master client from cache
+
+	0#  doris::(anonymous namespace)::handle_report(doris::TReportRequest const&, doris::ClusterInfo const*, std::basic_string_view<char, std::char_traits<char> >) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	1#  doris::report_index_policy_callback(doris::ClusterInfo const*) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:0
+	2#  std::_Function_handler<void (), doris::ReportWorker::ReportWorker(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, doris::ClusterInfo const*, int, std::function<void ()>)::$_0>::_M_invoke(std::_Any_data const&) at /home/zcp/repo_center/doris_release/doris/be/src/agent/task_worker_pool.cpp:733
+	3#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	4#  ?
+	5#  __clone
+W20261101 04:59:41.770176 748 doris_main.cpp:137] thrift internal message: TSocket::open() error on socket (after THRIFT_POLL) <Host: 127.0.0.1 Port: 9020>: Connection refused
+W20261101 04:59:41.779605 748 status.h:442] meet error status: [THRIFT_RPC_ERROR]Couldn't open transport for 127.0.0.1:9020 (socket open() error: Connection refused)
+
+	0#  doris::ThriftClientImpl::open_with_retry(int, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/thrift_client.cpp:0
+	1#  doris::ClientCacheHelper::_create_client(doris::TNetworkAddress const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	2#  doris::ClientCacheHelper::get_client(doris::TNetworkAddress const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	3#  doris::ClientConnection<doris::FrontendServiceClient>::ClientConnection(doris::ClientCache<doris::FrontendServiceClient>*, doris::TNetworkAddress const&, int, doris::Status*, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/client_cache.h:180
+	4#  doris::RuntimeQueryStatisticsMgr::report_runtime_query_statistics() at /home/zcp/repo_center/doris_release/doris/be/src/runtime/runtime_query_statistics_mgr.cpp:393
+	5#  doris::Daemon::report_runtime_query_statistics_thread() at /usr/local/ldb-toolchain-v0.26/bin/../lib/gcc/x86_64-pc-linux-gnu/15/include/g++-v15/bits/chrono.h:578
+	6#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	7#  ?
+	8#  __clone
+I20261101 04:59:41.779691 748 thrift_client.cpp:78] Unable to connect to 127.0.0.1:9020
+I20261101 04:59:41.779703 748 thrift_client.cpp:83] (Attempt 1 of 1)
+I20261101 04:59:42.879910 748 client_cache.h:189] Failed to get client from cache: [THRIFT_RPC_ERROR]Couldn't open transport for 127.0.0.1:9020 (socket open() error: Connection refused)
+
+	0#  doris::ThriftClientImpl::open_with_retry(int, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/thrift_client.cpp:0
+	1#  doris::ClientCacheHelper::_create_client(doris::TNetworkAddress const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	2#  doris::ClientCacheHelper::get_client(doris::TNetworkAddress const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	3#  doris::ClientConnection<doris::FrontendServiceClient>::ClientConnection(doris::ClientCache<doris::FrontendServiceClient>*, doris::TNetworkAddress const&, int, doris::Status*, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/client_cache.h:180
+	4#  doris::RuntimeQueryStatisticsMgr::report_runtime_query_statistics() at /home/zcp/repo_center/doris_release/doris/be/src/runtime/runtime_query_statistics_mgr.cpp:393
+	5#  doris::Daemon::report_runtime_query_statistics_thread() at /usr/local/ldb-toolchain-v0.26/bin/../lib/gcc/x86_64-pc-linux-gnu/15/include/g++-v15/bits/chrono.h:578
+	6#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	7#  ?
+	8#  __clone
+, retrying[1]...
+W20261101 04:59:42.880312 748 doris_main.cpp:137] thrift internal message: TSocket::open() error on socket (after THRIFT_POLL) <Host: 127.0.0.1 Port: 9020>: Connection refused
+W20261101 04:59:42.880448 748 status.h:442] meet error status: [THRIFT_RPC_ERROR]Couldn't open transport for 127.0.0.1:9020 (socket open() error: Connection refused)
+
+	0#  doris::ThriftClientImpl::open_with_retry(int, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/thrift_client.cpp:0
+	1#  doris::ClientCacheHelper::_create_client(doris::TNetworkAddress const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	2#  doris::ClientCacheHelper::get_client(doris::TNetworkAddress const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	3#  doris::ClientConnection<doris::FrontendServiceClient>::ClientConnection(doris::ClientCache<doris::FrontendServiceClient>*, doris::TNetworkAddress const&, int, doris::Status*, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/client_cache.h:180
+	4#  doris::RuntimeQueryStatisticsMgr::report_runtime_query_statistics() at /home/zcp/repo_center/doris_release/doris/be/src/runtime/runtime_query_statistics_mgr.cpp:393
+	5#  doris::Daemon::report_runtime_query_statistics_thread() at /usr/local/ldb-toolchain-v0.26/bin/../lib/gcc/x86_64-pc-linux-gnu/15/include/g++-v15/bits/chrono.h:578
+	6#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	7#  ?
+	8#  __clone
+I20261101 04:59:42.880494 748 thrift_client.cpp:78] Unable to connect to 127.0.0.1:9020
+I20261101 04:59:42.880512 748 thrift_client.cpp:83] (Attempt 1 of 1)
+I20261101 04:59:44.980729 748 client_cache.h:189] Failed to get client from cache: [THRIFT_RPC_ERROR]Couldn't open transport for 127.0.0.1:9020 (socket open() error: Connection refused)
+
+	0#  doris::ThriftClientImpl::open_with_retry(int, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/thrift_client.cpp:0
+	1#  doris::ClientCacheHelper::_create_client(doris::TNetworkAddress const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	2#  doris::ClientCacheHelper::get_client(doris::TNetworkAddress const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	3#  doris::ClientConnection<doris::FrontendServiceClient>::ClientConnection(doris::ClientCache<doris::FrontendServiceClient>*, doris::TNetworkAddress const&, int, doris::Status*, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/client_cache.h:180
+	4#  doris::RuntimeQueryStatisticsMgr::report_runtime_query_statistics() at /home/zcp/repo_center/doris_release/doris/be/src/runtime/runtime_query_statistics_mgr.cpp:393
+	5#  doris::Daemon::report_runtime_query_statistics_thread() at /usr/local/ldb-toolchain-v0.26/bin/../lib/gcc/x86_64-pc-linux-gnu/15/include/g++-v15/bits/chrono.h:578
+	6#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	7#  ?
+	8#  __clone
+, retrying[2]...
+W20261101 04:59:44.981101 748 doris_main.cpp:137] thrift internal message: TSocket::open() error on socket (after THRIFT_POLL) <Host: 127.0.0.1 Port: 9020>: Connection refused
+W20261101 04:59:44.981261 748 status.h:442] meet error status: [THRIFT_RPC_ERROR]Couldn't open transport for 127.0.0.1:9020 (socket open() error: Connection refused)
+
+	0#  doris::ThriftClientImpl::open_with_retry(int, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/thrift_client.cpp:0
+	1#  doris::ClientCacheHelper::_create_client(doris::TNetworkAddress const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	2#  doris::ClientCacheHelper::get_client(doris::TNetworkAddress const&, std::function<doris::ThriftClientImpl* (doris::TNetworkAddress const&, void**)>&, void**, int) at /home/zcp/repo_center/doris_release/doris/be/src/common/status.h:528
+	3#  doris::ClientConnection<doris::FrontendServiceClient>::ClientConnection(doris::ClientCache<doris::FrontendServiceClient>*, doris::TNetworkAddress const&, int, doris::Status*, int) at /home/zcp/repo_center/doris_release/doris/be/src/util/client_cache.h:180
+	4#  doris::RuntimeQueryStatisticsMgr::report_runtime_query_statistics() at /home/zcp/repo_center/doris_release/doris/be/src/runtime/runtime_query_statistics_mgr.cpp:393
+	5#  doris::Daemon::report_runtime_query_statistics_thread() at /usr/local/ldb-toolchain-v0.26/bin/../lib/gcc/x86_64-pc-linux-gnu/15/include/g++-v15/bits/chrono.h:578
+	6#  doris::Thread::supervise_thread(void*) at /usr/local/ldb-toolchain-v0.26/bin/../usr/include/pthread.h:562
+	7#  ?
+	8#  __clone
+I20261101 04:59:44.981294 748 thrift_client.cpp:78] Unable to connect to 127.0.0.1:9020
+I20261101 04:59:44.981309 748 thrift_client.cpp:83] (Attempt 1 of 1)
+I20261101 04:59:46.368717 748 olap_server.cpp:1201] cooldown producer get tablet num: 0
+I20261101 04:59:47.297600 748 wal_manager.cpp:505] Scheduled(every 10s) WAL info: [/opt/apache-doris/be/storage/wal: limit 2932410368 Bytes, used 0 Bytes, estimated wal bytes 0 Bytes, available 2932410368 Bytes.];
