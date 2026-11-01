@@ -302,7 +302,8 @@ class Stacks(unittest.TestCase):
         self.assertIn("Cannot read the stack ColvennaCatalogUatStorage: An error occurred (AccessDenied)", out.stderr)
 
     def test_resources_that_cannot_be_listed_are_a_failure(self):
-        stubs = Stubs({"aws": {"cloudformation describe-stack-resources": {"stderr": "Throttling", "code": 254}}})
+        stubs = Stubs({"aws": {"cloudformation describe-stack-resources": {
+            "stderr": "An error occurred (AccessDenied) when calling the DescribeStackResources operation\n", "code": 254}}})
         out = run_bash("stack_resources S AWS::S3::Bucket", env={**stubs.env, "COLVENNA_REGION": "us-west-2"}, path_prepend=stubs.bin)
         self.assertNotEqual(out.returncode, 0)
 

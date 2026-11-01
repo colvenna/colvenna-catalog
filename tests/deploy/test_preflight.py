@@ -422,10 +422,12 @@ class Preflight(unittest.TestCase):
                                     helm={"get values": {"stderr": "Error: Kubernetes cluster unreachable\n", "code": 1}})
         self.assertEqual(out.returncode, 1, out.stderr)
         self.assertIn("Kubernetes cluster unreachable", out.stderr)
-        out, _ = self.run_preflight("preflight", aws={"cloudformation describe-stacks --region us-west-2 --stack-name": {
+        # Throttled for longer than aws_retry waits (#94; none here: THROTTLE_SECONDS=0).
+        out, _ = self.run_preflight("THROTTLE_SECONDS=0; preflight", aws={"cloudformation describe-stacks --region us-west-2 --stack-name": {
             "stderr": "An error occurred (Throttling) when calling the DescribeStacks operation: Rate exceeded\n", "code": 254}})
         self.assertEqual(out.returncode, 1, out.stderr)
         self.assertIn("Rate exceeded", out.stderr)
+        self.assertIn("aws cloudformation describe-stacks: throttled (Throttling) 1 time(s)", out.stderr)
 
     def test_a_database_the_install_makes_is_not_looked_up(self):
         out, stubs = self.run_preflight("assert_db_reachable", config={"COLVENNA_DB": "create"})

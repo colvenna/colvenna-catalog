@@ -17,6 +17,24 @@ def run_bash(script, env=None, path_prepend=None, stdin=None):
                           input=stdin, capture_output=True, text=True)
 
 
+# sleep, as a script under test calls it (aws_retry, deploy/lib/aws.sh): no real wait, each one recorded in
+# $STUB_DIR/slept (Stubs' directory) and the shell's clock moved on by it, so that the waits' bounds are
+# reached at once.
+CLOCK = 'sleep() { echo "$1" >>"$STUB_DIR/slept"; SECONDS=$((SECONDS + $1)); };'
+
+
+def slept(stubs):
+    """The waits a script under CLOCK made, in seconds, in order."""
+    path = stubs.dir / "slept"
+    return [int(s) for s in path.read_text().split()] if path.exists() else []
+
+
+def throttled(code, operation):
+    """A stub's answer (aws) for a throttled call, as the CLI prints it once its own attempts are spent (#94)."""
+    return {"stderr": f"aws: [ERROR]: An error occurred ({code}) when calling the {operation} operation "
+                      "(reached max retries: 2): Rate exceeded\n", "code": 254}
+
+
 def write(path, text):
     path.write_text(text)
     return path
