@@ -1,0 +1,13 @@
+colvenna-catalog-release/charts/colvenna-catalog@sha256:891ba0366a34b8523ee2eb54dfea1b6cd248e8509e700f983b0d5464dbdb1cbb (version 1.0.0), pulled back from the release registry, against
+v1.0.0-rc.4's chart colvenna-catalog-release/charts/colvenna-catalog@sha256:06b5328572d2bc80069a0f7ebd164c5e01f331317d20cf6a376d05e4e53e4449 (version 1.0.0-rc.4), file by file:
+changed   colvenna-catalog/Chart.yaml: version 1.0.0-rc.4 -> 1.0.0, appVersion v1.0.0-rc.4 -> 1.0.0; every other line the same
+same      colvenna-catalog/templates/_helpers.tpl (sha256:daca34696a5894c8a8f7cfa267f7ccc19725aca784ee7ba9f932f738e6557380)
+same      colvenna-catalog/templates/configmap.yaml (sha256:81124a118d044a007c900eaaabbc5bee657e8f462a863c6b1109ec90d9c8bbfb)
+same      colvenna-catalog/templates/deployment.yaml (sha256:fe1b2d9458adc9c2b85e5616fc59d112af0ada533ae38b7fed39b06ebb73fe38)
+same      colvenna-catalog/templates/networkpolicy.yaml (sha256:44a8fa16209630949efed601a2d796fb0605854fc136cdcc346b2afec4d255f3)
+same      colvenna-catalog/templates/pdb.yaml (sha256:36d59e8ad97ee780949327b7a89f1a70445803e4cc82165b81bbc25bba2febd8)
+same      colvenna-catalog/templates/service-nlb.yaml (sha256:5b584c4bd3522c6423d76d58ac0de8be3df9fc389d3bb2c193bb332f58891d31)
+same      colvenna-catalog/templates/service.yaml (sha256:9d17bbb46dd20ecc380e2ca9f5bcf2ef8498ef6ff0c28b4e3125cda2405d5781)
+same      colvenna-catalog/templates/serviceaccount.yaml (sha256:34716631b77681f058abc5589439c9ae181b5805299d5893636863015b3b8ccd)
+same      colvenna-catalog/values.yaml (sha256:2f374068fcbc6f5b19f36f7471f62c560d84b2ee921cc5568095eaacce695335)
+10 files compared: only Chart.yaml's version and appVersion differ
