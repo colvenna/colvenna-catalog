@@ -252,7 +252,7 @@ class Scenario:
         return record
 
 
-# --- P1a, P1b ----------------------------------------------------------------------------------------------
+# --- P1a, P1b, P1c ----------------------------------------------------------------------------------------
 
 def p1(sc, variant):
     t = sc.run.targets[0]
@@ -263,8 +263,8 @@ def p1(sc, variant):
     sc.seed(t, [db], len(tables), snapshot=False)
     t.principal("writer", [("DATABASE", "WRITE", db)])
     spec = {"key": "writer", "database": db, "tables": tables, "writers": p["writers"], "shared": p["shared"],
-            "interval": p["interval"], "rows": p["rows"], "warmup": sc.seconds(p["warmup"]),
-            "duration": sc.seconds(p["duration"], 60), "startDelay": 20}
+            "interval": terms.per_form(p["interval"], t.form), "rows": p["rows"], "warmup": sc.seconds(p["warmup"]),
+            "duration": sc.seconds(terms.per_form(p["duration"], t.form), 60), "startDelay": 20}
     sc.load[t.form] = dict(spec, key="<writer's token>")
     before = sc.catalog_metrics(t)
     poller = collect.AccessLog(t).start()
@@ -281,7 +281,7 @@ def p1(sc, variant):
     rest = raw.rest_lines(files.get("rest.log", ""))
     window = judge.commit_window(spec)
     n_conflicts = judge.conflicts(data.get("audit", []), window)
-    fn = judge.p1a if variant == "P1a" else judge.p1b
+    fn = {"P1a": judge.p1a, "P1b": judge.p1b, "P1c": judge.p1c}[variant]
     metrics = fn(t.form, spec, commits, rest, data["access"], conflicts=n_conflicts)
     metrics += counters + sc.database_rows(t, data) + sc.function_rows(t, data)
     sc.results[t.form] = metrics
@@ -710,12 +710,13 @@ def conditions(scenario, record):
 
 # --- one run -------------------------------------------------------------------------------------------------
 
-RUNNERS = {"P1a": lambda sc: p1(sc, "P1a"), "P1b": lambda sc: p1(sc, "P1b"), "P2": p2, "P3": p3,
+RUNNERS = {"P1a": lambda sc: p1(sc, "P1a"), "P1b": lambda sc: p1(sc, "P1b"), "P1c": lambda sc: p1(sc, "P1c"), "P2": p2, "P3": p3,
            "P4a": lambda sc: p4(sc, "P4a"), "P4b": lambda sc: p4(sc, "P4b"), "P5": p5}
 
 
 def execute(scenario, args):
-    """Runs the scenario; returns the process's exit status (0 when its verdict is PASS). A signal
+    """Runs the scenario; returns the process's exit status (0 when its verdict is PASS, or OBSERVED for a
+    scenario that is never judged). A signal
     (Ctrl-C, SIGTERM, SIGHUP) stops the scenario; its clean-up and result still run, then it is
     raised again. The clean-up runs whatever happens before it (it notes, and does not obey, a
     signal while it runs)."""
@@ -750,7 +751,7 @@ def execute(scenario, args):
     run.close()
     if stopped is not None:
         raise stopped
-    return 0 if body["verdict"] == stats.PASS else 1
+    return 0 if body["verdict"] in (stats.PASS, stats.OBSERVED) else 1
 
 
 # --- a run's leftovers ------------------------------------------------------------------------------------

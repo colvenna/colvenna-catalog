@@ -187,6 +187,71 @@ class P1Test(unittest.TestCase):
         m = {x["metric"]: x for x in judge.p1b("eks", spec, cs[:600], [], {})}
         self.assertEqual(m["P1b commits done of those offered"]["verdict"], stats.FAIL)
 
+    def test_p1b_load_of_the_terms(self):
+        """#83: P1b at the load the requester confirmed on 2026-11-01: 4 writers on one table every 4 s on the EKS form
+        (1 commit/s) for 20 minutes, every 8 s on the serverless form (0.5/s) for 40 minutes, so that each window
+        offers at least the 1,000 commits a judged percentile needs; the targets unchanged."""
+        p = terms.LOAD["P1b"]
+        self.assertEqual((p["writers"], p["shared"], p["warmup"]), (4, True, 60))
+        self.assertEqual(p["interval"], {"eks": 4000, "serverless": 8000})
+        self.assertEqual(p["duration"], {"eks": 1200, "serverless": 2400})
+        for form in terms.FORMS:
+            spec = {"start": T0, "warmup": p["warmup"], "duration": terms.per_form(p["duration"], form),
+                    "writers": p["writers"], "interval": terms.per_form(p["interval"], form)}
+            with self.subTest(form=form):
+                self.assertEqual(judge.offered(spec), 1200)
+                self.assertGreaterEqual(judge.offered(spec), stats.MIN_SAMPLES)
+                per_writer = (spec["warmup"] + spec["duration"]) * 1000 // spec["interval"] + 1
+                cs = commits(4, per_writer, spec["interval"], T0, 60, commit_ms=800)
+                m = {x["metric"]: x for x in judge.p1b(form, spec, cs, [], {})}
+                self.assertEqual(m["P1b commits done of those offered"]["verdict"], stats.PASS)
+                self.assertEqual(m["P1b whole commit p95 / p99"]["verdict"], stats.PASS)
+                self.assertEqual(m["P1b whole commit p95 / p99"]["measured"]["n"], 1200)
+        self.assertEqual(terms.target("P1", "P1b commits done of those offered").values, {"eks": 0.99, "serverless": 0.99})
+        self.assertEqual(terms.target("P1", "P1b whole commit p95 / p99").values,
+                         {"eks": {"p95": 3000, "p99": 6000}, "serverless": {"p95": 5000, "p99": 10000}})
+
+    def test_p1c_one_tables_capacity_is_observed(self):
+        """#83: the earlier P1b load, 4 writers every 2 s (2 commits/s offered), stays as one table's capacity: reported
+        (commits done per second, done of offered, failed, latencies, conflicts), never judged."""
+        p = terms.LOAD["P1c"]
+        self.assertEqual((p["writers"], p["interval"], p["shared"], p["warmup"], p["duration"]), (4, 2000, True, 60, 600))
+        self.assertIn("P1c", terms.SCENARIOS)
+        self.assertIn("P1c", terms.OBSERVED_SCENARIOS)
+        spec = {"start": T0, "warmup": 60, "duration": 600, "writers": 4, "interval": 2000}
+        cs = commits(4, 330, 2000, T0, 60, commit_ms=2500)
+        cs[300] = dict(cs[300], ok=False, status="RuntimeException")
+        metrics = judge.p1c("eks", spec, cs, [], {}, conflicts=900)
+        self.assertTrue(all(m["verdict"] == stats.OBSERVED for m in metrics), metrics)
+        m = {x["metric"]: x for x in metrics}
+        self.assertEqual(m["P1c commits done per second (one table's capacity)"]["measured"]["value"], round(1199 / 600, 3))
+        self.assertEqual(m["P1c commits done of those offered"]["measured"], {"done": 1199, "offered": 1200, "failed": 1,
+                                                                              "share": round(1199 / 1200, 4)})
+        self.assertEqual(m["conflicts (stale-base refusals, retried by the client)"]["measured"],
+                         {"count": 900, "perCommitDone": round(900 / 1199, 2)})
+        self.assertIn("whole commit (the commit call)", m)
+        self.assertEqual(stats.verdict(metrics), stats.FAIL)  # nothing judged: never a PASS by itself
+
+    def test_an_observed_scenario_s_result(self):
+        """#83: P1c's result is OBSERVED when it ran and cleaned up, FAIL when it did not complete or left something."""
+        class Sc:
+            results = {"eks": [stats.observed("x", {"value": 1})]}
+            load, extra = {}, {}
+            scale = 1
+
+            def reduced(self):
+                return False
+
+        class Run:
+            id, started, harness_dirty = "p1", report.now(), False
+
+        ok = report.result("P1c", Run(), Sc(), {"conditions": {}}, {"status": "PASS"}, "")
+        self.assertEqual((ok["verdict"], ok["forms"]["eks"]["verdict"], ok["reasons"]), (stats.OBSERVED, stats.OBSERVED, []))
+        self.assertEqual(report.result("P1c", Run(), Sc(), {"conditions": {}}, {"status": "FAIL"}, "")["verdict"], stats.FAIL)
+        self.assertEqual(report.result("P1c", Run(), Sc(), {"conditions": {}}, {"status": "PASS"}, "boom")["verdict"], stats.FAIL)
+        # A judged scenario with only observed rows is still no PASS.
+        self.assertEqual(report.result("P1b", Run(), Sc(), {"conditions": {}}, {"status": "PASS"}, "")["verdict"], stats.FAIL)
+
     def test_conflicts(self):
         events = [{"action": "COMMIT", "outcome": "FAILED", "httpStatus": 200, "time": "2025-10-29T20:00:30Z"},
                   {"action": "COMMIT", "outcome": "FAILED", "httpStatus": 503, "time": "2025-10-29T20:00:30Z"},

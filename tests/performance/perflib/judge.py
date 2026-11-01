@@ -44,7 +44,7 @@ def attempt_statuses(lines, access):
     return dict(sorted(out.items()))
 
 
-# --- P1a, P1b, and P5's writers ------------------------------------------------------------------------
+# --- P1a, P1b, P1c, and P5's writers ------------------------------------------------------------------------
 
 def commit_window(spec):
     start = spec["start"]
@@ -123,6 +123,34 @@ def p1b(form, spec, commits, rest, access, conflicts=None):
     ]
     if conflicts is not None:
         metrics.append(stats.observed("conflicts (stale-base refusals, retried by the client)", {"count": conflicts}))
+    return metrics
+
+
+def p1c(form, spec, commits, rest, access, conflicts=None):
+    """P1c's metrics, all observed: one table's capacity under P1b's earlier load (2 commits/s offered), the
+    commits done per second and of those offered, the failed, a whole commit's latency, the conflicts."""
+    window = commit_window(spec)
+    seconds = spec["duration"]
+    inside = [c for c in commits if not c.get("warmup") and in_window(c["due"], window)]
+    ok = [c for c in inside if c.get("ok")]
+    n_offered = offered(spec)
+    lines = [r for r in rest if r["kind"] == "commit" and in_window(r["t"], window)]
+    metrics = [
+        stats.observed("P1c commits done per second (one table's capacity)",
+                       {"value": round(len(ok) / seconds, 3) if seconds else None}, f"{len(ok)} commits in {seconds} s"),
+        stats.observed("P1c commits done of those offered", {"done": len(ok), "offered": n_offered,
+                                                             "failed": len(inside) - len(ok),
+                                                             "share": round(len(ok) / n_offered, 4) if n_offered else None}),
+        stats.observed("errors", {"count": len(inside) - len(ok),
+                                  "byStatus": counts([c for c in inside if not c.get("ok")], "status")}),
+        latency_row("whole commit (the commit call)", [ms(c["commitUs"]) for c in ok], judged=False),
+        latency_row("commit request (client-observed)", [r["ms"] for r in lines], judged=False),
+        latency_row("late start (previous commit still running)", [ms(c["lateUs"]) for c in ok], judged=False),
+        stats.observed("commit request attempts by server status", attempt_statuses(lines, access)),
+    ]
+    if conflicts is not None:
+        metrics.append(stats.observed("conflicts (stale-base refusals, retried by the client)",
+                                      {"count": conflicts, "perCommitDone": round(conflicts / len(ok), 2) if ok else None}))
     return metrics
 
 

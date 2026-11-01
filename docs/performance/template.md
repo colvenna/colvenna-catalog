@@ -14,7 +14,7 @@ issue: 20
 `<PASS | NOT_JUDGED | FAIL>`, by terms.md section 1: `PASS` when every judged metric of every scenario was measured with enough samples and met its target; `NOT_JUDGED` when nothing failed but a judged metric had too few samples; `FAIL` when a judged metric missed its target, an error occurred where none is allowed, or a result is missing. Only `PASS` meets design 9.4, so the release check's performance item is `<met | not met>`.
 
 - What decided it: `<the rows that failed or were not judged, each with its scenario, form, measured value, target and the run that measured it; or "every judged row passed">`.
-- The judged runs: `<one per scenario, its id and verdict: P1a <run> PASS, ...>`. Runs that were stopped or refused, and why: `<none | ...>`. A run is judged once; a later run is another run, and both are reported.
+- The judged runs: `<one per scenario, its id and verdict: P1a <run> PASS, ...>`; P1c's run, observed: `<run> OBSERVED`. Runs that were stopped or refused, and why: `<none | ...>`. A run is judged once; a later run is another run, and both are reported.
 - What the verdict covers: the default sizes of terms.md section 2, the loads of section 4, in `us-west-2`. It is not a capacity limit (section 7).
 
 ## 2. The candidate tested
@@ -73,7 +73,9 @@ As [terms.md](terms.md) section 4 fixes them; the harness ([`tests/performance/R
 | Serverless | Server-side commit latency | | | | | | observed | |
 | Serverless | Whole commit | | | | | | observed | |
 
-### 5.2 P1b: writers on one table
+### 5.2 P1b and P1c: writers on one table
+
+P1b: 4 writers every 4 s on the EKS form (1 commit/s, 20 minutes), every 8 s on the serverless form (0.5/s, 40 minutes), 1,200 commits offered each.
 
 | Form | Metric | Samples | p50 | p95 | p99 | Max | Target | Verdict |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -83,6 +85,15 @@ As [terms.md](terms.md) section 4 fixes them; the harness ([`tests/performance/R
 | Serverless | Commits done of those offered | | | | | | ≥ 99 %, none failed | |
 | Serverless | Whole commit, conflict retries included | | | | | | p95 ≤ 5,000, p99 ≤ 10,000 | |
 | Serverless | Conflicts | | | | | | observed | |
+
+P1c, one table's capacity (observed, never judged; its run is `OBSERVED`): 4 writers every 2 s (2 commits/s offered), 10 minutes.
+
+| Form | Metric | Samples | p50 | p95 | p99 | Max | Target | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| EKS | Commits done per second; done of those offered, failed | | | | | | observed | |
+| EKS | Whole commit, conflict retries included; conflicts per commit done | | | | | | observed | |
+| Serverless | Commits done per second; done of those offered, failed | | | | | | observed | |
+| Serverless | Whole commit, conflict retries included; conflicts per commit done | | | | | | observed | |
 
 ### 5.3 P2: metadata reads
 
@@ -155,6 +166,7 @@ Kept in the private, access-controlled evidence directory `<evidence>/<candidate
 | --- | --- | --- | --- |
 | P1a | `<run>` | `<scenario>/` | |
 | P1b | | | |
+| P1c (observed) | | | `OBSERVED` |
 | P2 | | | |
 | P3 | | | |
 | P4a | | | |

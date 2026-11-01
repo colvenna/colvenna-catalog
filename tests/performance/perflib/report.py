@@ -9,9 +9,13 @@ from .context import iso, now
 
 
 def result(scenario, run, sc, environment, cleanup, error):
+    """The run's result. A scenario that is never judged (terms.OBSERVED_SCENARIOS: P1c) is OBSERVED when it
+    completed and cleaned up, FAIL when not; any other needs a judged metric to pass (stats.verdict)."""
+    observed_only = scenario in terms.OBSERVED_SCENARIOS
     forms = {}
     for form, metrics in sc.results.items():
-        forms[form] = {"verdict": stats.verdict(metrics), "metrics": metrics, "load": sc.load.get(form)}
+        forms[form] = {"verdict": stats.OBSERVED if observed_only else stats.verdict(metrics), "metrics": metrics,
+                       "load": sc.load.get(form)}
     reasons = []
     if error:
         verdict = stats.FAIL
@@ -19,6 +23,8 @@ def result(scenario, run, sc, environment, cleanup, error):
     elif not forms:
         verdict = stats.FAIL
         reasons.append("no result")
+    elif observed_only:
+        verdict = stats.OBSERVED
     else:
         verdict = stats.verdict([{"verdict": f["verdict"]} for f in forms.values()])
         for form, f in forms.items():

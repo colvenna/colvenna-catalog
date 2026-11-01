@@ -16,7 +16,7 @@ import org.apache.paimon.table.sink.StreamTableWrite;
 import org.apache.paimon.table.sink.StreamWriteBuilder;
 
 /**
- * Closed-loop writers (terms.md P1a, P1b, and P5's writers): {@code writers} writers, each with a
+ * Closed-loop writers (terms.md P1a, P1b, P1c, and P5's writers): {@code writers} writers, each with a
  * catalog, a commit user ({@code perf-w<n>}) and a stream writer of its own, as a Flink sink holds
  * them, commit {@code rows} rows (one data file) at a time to the table {@code tables[n]}, or all
  * to {@code tables[0]} with {@code shared=true}.
