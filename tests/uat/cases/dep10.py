@@ -77,8 +77,16 @@ def judge_lists(code, listing):
     return code == 0 and sorted(listing or []) == ["gone", "t1", "t2"], f"install.sh exit {code}; listed {sorted(listing or [])}"
 
 
+def not_compared(a, b):
+    """The reason two records are not compared (one of them incomplete, #64), or None."""
+    missing = lifecycle.incomplete(a, b)
+    return f"not compared, a record is incomplete ({'; '.join(missing)})" if missing else None
+
+
 def judge_reads(at, point):
     """t1 and t2 read as at the point (rows and checksum)."""
+    if not_compared(at, point):
+        return False, not_compared(at, point)
     pairs = {t: (at["tables"].get(t), point["tables"].get(t)) for t in ("t1", "t2")}
     ok = all(a is not None and a == b for a, b in pairs.values())
     return ok, "; ".join(f"{t}: {(a or {}).get('rows')} rows, at the point {(b or {}).get('rows')}" for t, (a, b) in pairs.items())
@@ -86,6 +94,8 @@ def judge_reads(at, point):
 
 def judge_history(at, point):
     """t1's and t2's snapshots, one by one, read as at the point."""
+    if not_compared(at, point):
+        return False, not_compared(at, point)
     t1, t2 = lifecycle.same_snapshots(at, point, "t1"), lifecycle.same_snapshots(at, point, "t2")
     return t1 and t2, f"snapshot by snapshot as at the point: t1 {t1}, t2 {t2}"
 
@@ -118,6 +128,8 @@ def judge_in_line(final):
 
 def judge_history_before(now, before):
     """t1 (its later commit included) and t3 read, snapshot by snapshot, as before the restore."""
+    if not_compared(now, before):
+        return False, not_compared(now, before)
     t1, t3 = lifecycle.same_snapshots(now, before, "t1"), lifecycle.same_snapshots(now, before, "t3")
     return t1 and t3, f"as before the restore: t1 {t1}, t3 {t3}"
 

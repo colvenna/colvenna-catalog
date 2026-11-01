@@ -22,6 +22,12 @@ class Restore(unittest.TestCase):
                        {"t1": {"rows": 11, "checksum": "c"}, "t2": {"rows": 10, "checksum": "b"}})
         self.assertFalse(dep10.judge_reads(other, point)[0])
         self.assertFalse(dep10.judge_history(other, point)[0])
+        # #64: a record whose state tool broke off is not compared, and says so; not even with itself.
+        cut = dict(point, incomplete="the state tool's output ended without its done line (exit 1), 3 reads")
+        for judge in (dep10.judge_reads, dep10.judge_history, dep10.judge_history_before):
+            ok, detail = judge(cut, cut)
+            self.assertFalse(ok, judge.__name__)
+            self.assertIn("not compared", detail)
 
     def test_repointed_needs_the_run_the_new_endpoint_and_the_users_signed_in(self):
         self.assertTrue(dep10.judge_repointed(0, "new.example.com", "new.example.com", (True, "signed in"))[0])
