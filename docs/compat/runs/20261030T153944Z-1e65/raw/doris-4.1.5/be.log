@@ -657,9 +657,9 @@ I20261030 15:44:20.510819 727 heartbeat_server.cpp:69] get heartbeat from FE.hos
 I20261030 15:44:20.510901 727 heartbeat_server.cpp:117] get first heartbeat. update cluster id
 I20261030 15:44:20.512382 727 heartbeat_server.cpp:122] record cluster id. host: 127.0.0.1. port: 9020. cluster id: 655508577. frontend_infos: TFrontendInfo(coordinator_address=TNetworkAddress(hostname=127.0.0.1, port=9020), process_uuid=1793374977354) 
 I20261030 15:44:20.512447 727 heartbeat_server.cpp:199] master change. new master host: 127.0.0.1. port: 9020. epoch: 1
-I20261030 15:44:20.512462 727 heartbeat_server.cpp:222] get token. token: 506699a1-5f4d-48e0-acb7-1ab53aa635cc
+I20261030 15:44:20.512462 727 heartbeat_server.cpp:222] get token. token: <REDACTED>
 I20261030 15:44:20.512471 727 exec_env.cpp:105] A completely new frontend, TFrontendInfo(coordinator_address=TNetworkAddress(hostname=127.0.0.1, port=9020), process_uuid=1793374977354)
-I20261030 15:44:20.512506 727 heartbeat_server.cpp:325] set new auth token: 31b47652-5304-4e95-ae2c-367628ddc639
+I20261030 15:44:20.512506 727 heartbeat_server.cpp:325] set new auth token: <REDACTED>
 I20261030 15:44:20.512526 727 heartbeat_server.cpp:335] Master FE is changed or restarted. report tablet and disk info immediately
 I20261030 15:44:20.512835 727 data_dir.cpp:893] path: /opt/apache-doris/be/storage total capacity: 42869960704, available capacity: 27594014720, usage: 0.356332, in_use: 1
 I20261030 15:44:20.512815 727 dns_cache.cpp:98] update hostname 127.0.0.1's ip to 127.0.0.1

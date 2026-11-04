@@ -56,6 +56,18 @@ class Sanitized(unittest.TestCase):
         self.assertIn("(ak=<REDACTED>, token=<REDACTED>, region=us-west-2)", out)
         self.assertEqual(self.s.text(f"a bare {fake} token"), "a bare <REDACTED> token")
 
+    def test_a_token_after_a_colon_as_doris_logs_it(self):
+        # Doris's BE logs the heartbeat token its FE sends it; made up here, in the same UUID shape.
+        beat = "abcdabcd-abcd-abcd-abcd-abcdabcdabcd"
+        for line in (f"I20261101 04:59:11.180025 748 heartbeat_server.cpp:222] get token. token: {beat}",
+                     f"I20261101 04:59:11.180130 748 heartbeat_server.cpp:325] set new auth token: {beat}"):
+            out = self.s.text(line)
+            self.assertNotIn(beat, out)
+            self.assertTrue(out.endswith("token: <REDACTED>"), out)
+        self.assertEqual(self.s.text("set new auth token: <REDACTED>"), "set new auth token: <REDACTED>")
+        # The word without a value after a colon or "=" stays.
+        self.assertEqual(self.s.text("get token. token is refreshed"), "get token. token is refreshed")
+
     def test_digests_and_commits_stay(self):
         text = "commit d988467c547af9f3c091d96cfc671499022900df image sha256:000fd431958bc81a24abe1e8e5f0f0fd"
         self.assertEqual(self.s.text(text), text)
