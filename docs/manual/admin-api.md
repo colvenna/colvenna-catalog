@@ -6,7 +6,7 @@ Only an admin principal may call it, and every request needs its bearer token. T
 
 ## Before you start
 
-You need `curl` 7.76 or later, `jq`, and `kubectl` access to the cluster the catalog is installed in (in the serverless form, the AWS CLI instead). The examples assume the defaults of `install.sh` in the EKS form: namespace and release `colvenna-catalog`. Change `-n colvenna-catalog` and `svc/colvenna-catalog` if your configuration names them otherwise. In the serverless form only these first steps differ; see [the serverless form](#the-serverless-form).
+You need `curl` 7.76 or later, `jq`, and `kubectl` access to the cluster the catalog is installed in (in the serverless form, the AWS CLI instead): your own, or the installer's, `<checkout>/.tools/kubectl` with `KUBECONFIG=<checkout>/.state/<env>/kubeconfig`. The examples assume the defaults of `install.sh` in the EKS form: namespace and release `colvenna-catalog`. Change `-n colvenna-catalog` and `svc/colvenna-catalog` if your configuration names them otherwise. In the serverless form only these first steps differ; see [the serverless form](#the-serverless-form).
 
 ### Keep the CA and the token in files
 
@@ -28,7 +28,7 @@ kubectl -n colvenna-catalog get secret colvenna-catalog-admin-token -o jsonpath=
 
 ### Reach the API
 
-The API port, 8181, is reachable inside the cluster, and from outside it only through an internal NLB, if the install turned one on. From your workstation, forward a local port to the catalog's Service; `kubectl` authenticates you with IAM and Kubernetes checks that you may port-forward in the namespace (without a `kubectl` of your own for the cluster, use the installer's: `<checkout>/.tools/kubectl`, with `KUBECONFIG=<checkout>/.state/<env>/kubeconfig`):
+The API port, 8181, is reachable inside the cluster, and from outside it only through an internal NLB, if the install turned one on. From your workstation, forward a local port to the catalog's Service; `kubectl` authenticates you with IAM and Kubernetes checks that you may port-forward in the namespace:
 
 ```bash
 kubectl -n colvenna-catalog port-forward svc/colvenna-catalog 8181:8181 >/dev/null &

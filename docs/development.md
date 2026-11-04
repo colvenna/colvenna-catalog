@@ -68,7 +68,7 @@ AWS_PROFILE=<profile> scripts/release/deploy-registry.sh                        
 COLVENNA_RELEASE_PULL_ACCOUNTS=<ACCOUNT_ID>,<ACCOUNT_ID> scripts/release/deploy-registry.sh   # these may pull
 ```
 
-Each deploy sets the list anew, from a clean, committed tree; `COLVENNA_RELEASE_REGION` moves the registry to another Region. The registry's address, `<ACCOUNT_ID>.dkr.ecr.<region>.amazonaws.com`, is never written into the repository: the maintainer gives it to whoever installs.
+Each deploy sets the list anew, from a clean, committed tree; `COLVENNA_RELEASE_REGION` moves the registry to another Region. The registry's address, `<ACCOUNT_ID>.dkr.ecr.<region>.amazonaws.com`, is never written into the repository: the maintainer gives it to whoever installs a candidate. A release is installed from a copy of its public packages instead ([deployment guide](manual/install.md#43-from-a-release-candidate-or-a-release), section 4.3).
 
 ### Making a candidate
 
@@ -240,7 +240,7 @@ crane digest ghcr.io/colvenna/colvenna-catalog:1.0.0                        # = 
 helm pull oci://ghcr.io/colvenna/charts/colvenna-catalog --version 1.0.0    # Digest: chart.digest
 ```
 
-and installs them as the [deployment guide](manual/install.md#43-from-a-release-candidate-or-a-release) says (section 4.3): copied into an ECR registry of the installer's own, then `install.sh --release v1.0.0`.
+and installs them as the [deployment guide](manual/install.md#43-from-a-release-candidate-or-a-release), section 4.3, says: copied into an ECR registry of the installer's own, then `install.sh --release v1.0.0`.
 
 The evidence goes to `.state/release/publish-v1.0.0-<time>/`.
 
@@ -269,9 +269,9 @@ Proven since: `promote.sh` ran against the release registry on 2026-11-01. It pr
 
 Proven at the publication (M3, 2026-11-04, [#3](https://github.com/colvenna/colvenna-catalog/issues/3)):
 
-- `publish-ghcr.sh v1.0.0` ran against GHCR. Its first run checked the release registry's copies, copied both by their digests, and ended with exit 4: the packages were private, as GHCR makes them when they are first published. Once the owner had made both public, a second run kept the copies and exited 0, and anyone pulled the image and the chart by the manifest's digests, with crane and with Helm.
-- Colvenna Lake installs the promoted chart by its digest with its own installer, not `install.sh`. Its release candidate `v1.0.0-rc.7` did so in its UAT in `us-west-2` and `us-east-2`, every case passing ([its report](https://github.com/colvenna/colvenna-lake/blob/main/docs/uat/reports/v1.0.0-rc.7/report.md)). On 2026-11-04 its installer also fetched the release from GHCR anonymously, without installing it.
-- A fresh anonymous clone of the public repository installed `v1.0.0` on the EKS form, in this repository's own test environment in `us-west-2`, as the [deployment guide](manual/install.md#43-from-a-release-candidate-or-a-release) (section 4.3) tells a user to: the image and the chart copied by digest from GHCR into a registry of the installer's own, in `us-east-2`, then `install.sh --release v1.0.0`. Anonymous requests were refused (401) and the admin's answered (200); a table was created, loaded, given per-table credentials and dropped. `uninstall.sh --delete-data` then removed it.
+- `publish-ghcr.sh v1.0.0` ran against GHCR. Its first run checked the release registry's copies, copied both by their digests, and ended with exit 4: the packages were private, as GHCR makes them when they are first published. Once the owner had made both public, a second run kept the copies and exited 0, its anonymous pulls with crane and Helm getting the manifest's digests.
+- Colvenna Lake installs the promoted chart by its digest with its own installer, not `install.sh`. Its release candidate `v1.0.0-rc.7` did so in its UAT in `us-west-2` and `us-east-2`, every case passing ([its report](https://github.com/colvenna/colvenna-lake/blob/da22f742361fc30a8e9eba8addb60c05a28c8dca/docs/uat/reports/v1.0.0-rc.7/report.md)). On 2026-11-04 its installer also fetched the release from GHCR anonymously, without installing it.
+- A fresh anonymous clone of the public repository installed `v1.0.0` on the EKS form, in this repository's own test environment in `us-west-2`, as the [deployment guide](manual/install.md#43-from-a-release-candidate-or-a-release) (section 4.3) tells a user to: the image and the chart copied by digest from GHCR into a registry of the installer's own, in `us-east-2`, then `install.sh --release v1.0.0`. There is one AWS account so far, which also holds the maintainer's release registry; the install read only the copy. Anonymous requests were refused (401) and the admin's answered (200); a table was created, loaded, given per-table credentials and dropped. `uninstall.sh --delete-data` then removed it.
 
 Proven earlier: `v1.0.0-rc.2`'s UAT ran live, in both Regions, what was proven only offline before: the serverless form's `install.sh --release`, the serverless form with `COLVENNA_NETWORK=existing` (onto an existing database), and the EKS form's restore of the metadata database onto a new instance with its guards (UAT-DEP-01, 02, 10; [its report](uat/reports/v1.0.0-rc.2/report.md) gives each run's result). The database refusals that need a database set up wrong (publicly accessible, `rds.force_ssl=0`) are still offline only; those of an Aurora cluster run live in UAT-DEP-05.
 

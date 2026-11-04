@@ -64,7 +64,7 @@ What has run live, in this repository's own test environments, and what only off
   | Maven, with JDK 21 | Maven 3.8, Java 21 | `install.sh --from-source`: the build |
 
   The Helm step also uses `flock` (util-linux), which preflight does not check.
-- **Network access** from the machine: the AWS APIs of the Region; the npm registry (the CDK app's packages); `dl.k8s.io`, `get.helm.sh` and `github.com` (the pinned tools); `truststore.pki.rds.amazonaws.com` (the Region's RDS certificate bundle, EKS form); for `--from-source`, Maven Central and the registries of the Dockerfile's base images; for the EKS form, the cluster's API endpoint.
+- **Network access** from the machine: the AWS APIs of the Region (and of your copy's Region, when you install a release from a copy in another, section 4.3); for a release's copy, `ghcr.io` and `pkg-containers.githubusercontent.com`, where GHCR redirects the downloads; the npm registry (the CDK app's packages); `dl.k8s.io`, `get.helm.sh` and `github.com` (the pinned tools); `truststore.pki.rds.amazonaws.com` (the Region's RDS certificate bundle, EKS form); for `--from-source`, Maven Central and the registries of the Dockerfile's base images; for the EKS form, the cluster's API endpoint.
 - **Local state.** `.state/<env>/` (git ignores it) keeps the install's kubeconfig, the stacks' outputs and the evidence of every run. Install an environment from one checkout at a time: the lock that serializes Helm changes is the checkout's own.
 
 ### 2.2 Account and Region
@@ -210,13 +210,14 @@ A release (`v1.0.0`) is a candidate judged GO and promoted from it, never rebuil
 git fetch origin --tags
 git checkout v1.0.0
 scripts/install-tools.sh                       # the pinned kubectl, Helm and crane, into .tools/
-export AWS_PROFILE=<profile>
+export AWS_PROFILE=<profile>                   # every command below, install.sh too
 region=<region>                                # your registry's Region
 registry=<ACCOUNT_ID>.dkr.ecr.$region.amazonaws.com
 manifest=release/v1.0.0/manifest.json
 for repository in $(jq -r '.image.repository, .chart.repository' "$manifest"); do
-  aws ecr create-repository --region "$region" --repository-name "$repository" \
-    --image-tag-mutability IMMUTABLE >/dev/null
+  aws ecr describe-repositories --region "$region" --repository-names "$repository" >/dev/null 2>&1 \
+    || aws ecr create-repository --region "$region" --repository-name "$repository" \
+         --image-tag-mutability IMMUTABLE >/dev/null
 done
 export DOCKER_CONFIG="$(mktemp -d)"            # crane's login to your registry, not in ~/.docker
 aws ecr get-login-password --region "$region" | .tools/crane auth login "$registry" -u AWS --password-stdin
@@ -229,7 +230,7 @@ rm -rf "$DOCKER_CONFIG"; unset DOCKER_CONFIG
 ./install.sh --config deploy/config/<env>.env --release v1.0.0
 ```
 
-`crane copy` keeps the digests ([crane's documentation](https://github.com/google/go-containerregistry/blob/v0.22.1/cmd/crane/doc/crane_copy.md)), so the copies are the release's, and the install checks them, as below, before it changes anything. Your registry may be in another Region than the install (section 9). Every run of `install.sh --release v1.0.0` reads it, so keep it while the install may run again. The two repositories belong to no stack: `uninstall.sh` leaves them, and `aws ecr delete-repository --force` removes each. A release's install needs no access to the maintainer's release registry, which holds the candidates.
+`crane copy` keeps the digests ([crane's documentation](https://github.com/google/go-containerregistry/blob/v0.22.1/cmd/crane/doc/crane_copy.md)), so the copies are the release's, and the install checks them, as below, before it changes anything. Your registry may be in another Region than the install (section 9). The steps can run again: a repository already there is kept, and so is a tag that holds the digest. Every run of `install.sh --release v1.0.0` reads the copy, so keep it while the install may run again, and an upgrade to a later release (section 6.3) needs that release copied the same way. The two repositories belong to no stack: `uninstall.sh` leaves them, and `aws ecr delete-repository --force` removes each. A release's install needs no access to the maintainer's release registry, which holds the candidates. When the copy is not the release's, preflight refuses with "The release registry lacks what v1.0.0 pins" and advises asking the maintainer for access: that advice is for candidates; for a release, check your copy against the manifest's digests (`.tools/crane digest`), or copy it again.
 
 Its manifest, `release/v1.0.0/manifest.json`, is the candidate's under the release's names, and records under `promotion` which candidate it was promoted from. The tree may differ from the commit the candidate was built from under `release/<candidate>/` and `release/v1.0.0/` alone. Before it changes anything, the install also checks where the release came from (exit 3 when it is not so):
 
@@ -356,7 +357,7 @@ Clients that trust the earlier copy of `ca.crt` keep connecting: the new server 
 
 ### 6.3 Upgrading
 
-First take a manual snapshot of the metadata database ([user manual](user.md#61-what-is-backed-up), section 6.1): it is the way back if the newer version moves the schema forward. Then run `install.sh` with the same configuration from the newer code: a checkout of a newer commit with `--from-source`, or a checkout of a newer candidate's or release's tag with `--release <name>`. Keys the newer version added take their defaults.
+First take a manual snapshot of the metadata database ([user manual](user.md#61-what-is-backed-up), section 6.1): it is the way back if the newer version moves the schema forward. Then run `install.sh` with the same configuration from the newer code: a checkout of a newer commit with `--from-source`, or a checkout of a newer candidate's or release's tag with `--release <name>` (a release copied into your registry first, section 4.3). Keys the newer version added take their defaults.
 
 - **EKS.** The chart rolls the Deployment one pod at a time, never below two ready replicas (`maxUnavailable: 0`). A replaced pod stops so as not to refuse its clients (#64). Kubernetes runs the pod's `preStop` hook before it sends the server SIGTERM, and meanwhile takes the pod out of the Service's endpoints ([pod termination flow](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination-flow)); the hook waits 15 seconds (`shutdown.preStopSeconds`), so that every node's Service rules drop the pod while it still serves. On SIGTERM the server fails its readiness, closes each connection after its answer (the client's next request goes to another replica), takes new connections for 5 more seconds (`COLVENNA_SHUTDOWN_DRAIN`), and then stops taking them and gives the requests in flight up to 20 seconds (`COLVENNA_SHUTDOWN_TIMEOUT`); the pod's grace period is the three plus 10 seconds. The pods being replaced stop as their own version does: an upgrade from a version before #64 still stops its old pods the old way, at once, and a client may then see one request fail. The wait is reckoned for the Service's rules; the internal NLB's deregistration of a target was not measured against it (`shutdown.preStopSeconds` is the chart's value to raise). This ran live on an EKS install in `us-west-2` from one commit with it to a later one (#64): with UAT-DEP-06's loops running, the rolling upgrade, a `helm rollback` and the upgrade again failed none of 719 commits, 2,894 reads and 583 credential requests, and a pod deleted by hand was out of the endpoints at once, got SIGTERM 16 seconds later and stopped taking connections 5 seconds after that. Each new pod migrates the database schema as it starts, under a PostgreSQL advisory lock, so replicas migrate one at a time; old replicas keep serving the migrated schema until they are replaced.
 - **Serverless.** The maintenance function alone takes the new version first and runs `migrate`: `install.sh` updates the deployed `Serverless` stack with only that function (and its role's policy) changed, not with the newer version's whole stack, which would publish a new version of the server function and move the alias `live` (#63). Only once `migrate` has succeeded does the whole stack take the newer version, and the API moves to the server's new version at once (the alias `live`). Upgrading a live serverless install has run live the way before #63, which deployed the whole stack first: from source, and in `v1.0.0-rc.2`'s UAT (UAT-DEP-06, `us-west-2`) from a commit of the early private repository to that candidate; this way has run offline only so far.
