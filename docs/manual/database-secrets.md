@@ -41,7 +41,7 @@ Secrets Manager keeps the value before each change as the version `AWSPREVIOUS` 
    aws secretsmanager put-secret-value --secret-id "$name" --secret-string "file://$work/next.json" >/dev/null
    ```
 
-2. Run `install.sh` again, with the same configuration and the same source (`--from-source` on the same commit, or `--release <candidate>` for the candidate you run). Its `database` step signs in as the master user, sets the new password on the catalog's user, and writes it into the Kubernetes Secret `colvenna-catalog-db`.
+2. Run `install.sh` again, with the same configuration and the same source (`--from-source` on the same commit, or `--release <name>` for the release or candidate you run, a release's copy still in your registry, [deployment guide](install.md#43-from-a-release-candidate-or-a-release), section 4.3). Its `database` step signs in as the master user, sets the new password on the catalog's user, and writes it into the Kubernetes Secret `colvenna-catalog-db`.
 
    ```bash
    ./install.sh --config deploy/config/<env>.env --from-source

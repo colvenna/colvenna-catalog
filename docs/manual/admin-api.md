@@ -6,7 +6,7 @@ Only an admin principal may call it, and every request needs its bearer token. T
 
 ## Before you start
 
-You need `curl` 7.76 or later, `jq`, and `kubectl` access to the cluster the catalog is installed in (in the serverless form, the AWS CLI instead). The examples assume the defaults of `install.sh` in the EKS form: namespace and release `colvenna-catalog`. Change `-n colvenna-catalog` and `svc/colvenna-catalog` if your configuration names them otherwise. In the serverless form only these first steps differ; see [the serverless form](#the-serverless-form).
+You need `curl` 7.76 or later, `jq`, and `kubectl` access to the cluster the catalog is installed in (in the serverless form, the AWS CLI instead): your own, or the installer's, `<checkout>/.tools/kubectl` with `KUBECONFIG=<checkout>/.state/<env>/kubeconfig`. The examples assume the defaults of `install.sh` in the EKS form: namespace and release `colvenna-catalog`. Change `-n colvenna-catalog` and `svc/colvenna-catalog` if your configuration names them otherwise. In the serverless form only these first steps differ; see [the serverless form](#the-serverless-form).
 
 ### Keep the CA and the token in files
 
