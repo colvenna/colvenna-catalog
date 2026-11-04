@@ -36,7 +36,7 @@ ASH_REPO=<ash-repo> scripts/security/scan.sh <out dir>
   - The suppression goes into the scanner's own mechanism (section 1), with the specific reason, and names no line (#72): a suppression pinned to a line stopped matching whenever the code moved.
   - A false positive of one line is marked on that line, and the mark moves with it. For detect-secrets, which checkov's secret checks follow, it is `pragma: allowlist secret - <reason>` in the line's comment; in Java, whose formatter wraps long lines, `pragma: allowlist nextline secret - <reason>` on the line above. detect-secrets reports a value once a file, at its first unmarked line, so each line that holds the value needs its own mark. For bandit, it is `# nosec <rule> - <reason>`. A real secret written on another line is still reported.
   - Only a finding that holds for a whole file has an entry in `.ash/.ash.yaml`, by rule and file. Those are:
-    - the hex-string rule in files that hold digests only (the release manifests, the matrix's run records and pins), where every other secret rule still reports;
+    - the hex-string rule in files that hold digests only (the release manifests, the matrix's run records and pins, and ggshield's ignore SHAs in `.gitguardian.yaml`), where every other secret rule still reports;
     - checkov's checks that judge a Dockerfile, or the `paths` of the admin API's description, as a whole;
     - a dependency's advisory that does not apply where the dependency is used (section 5.3).
   - [`test_ash_config.py`](../../scripts/security/test_ash_config.py) checks that no entry names a line and that each detect-secrets mark gives its reason. It also checks that the premises of those entries hold:
@@ -130,6 +130,33 @@ ASH is not a job of `scripts/ci-local.sh`. It runs in an image of its own, about
 
 Rescanned at this change's head: ASH has 0 actionable findings, and the 13 entries are all in use (`used_suppressions`). The counts are in the pull request.
 
+### 5.4 A GitGuardian alert, and a scan with ggshield ([#111](https://github.com/colvenna/colvenna-catalog/issues/111))
+
+The repository was made public on 2026-11-04 at 04:52 UTC. GitGuardian then reported a "Generic High Entropy Secret", and gave 04:57:39 UTC as the time it was pushed. No commit was pushed at that time: the alert came from GitGuardian's scan of the history.
+
+- **What it found.** Doris BE heartbeat tokens of destroyed test clusters, in 12 versions of the compatibility matrix's raw run logs (`docs/compat/runs/<run>/raw/doris-4.1.5/be.log`). Each log has two `heartbeat_server.cpp` lines: the token the BE got from its FE, and the token it set. The initial commit `c19d86a` added them, and so did the matrix's runs recorded on 2026-10-31 (`ab594c0`) and 2026-11-01 (`867452a`).
+- **What they are.** Each is the internal token that the FE of one test cluster gives its BE in the heartbeat. Each cluster ran in a test environment and was destroyed with it, so these tokens authenticate to nothing that exists. They are not AWS credentials, and they are not catalog tokens.
+- **A scan with ggshield.** The same day, the whole history was scanned with ggshield 1.56.1, GitGuardian's own scanner (secrets engine 2.175.0), with nothing ignored. The release's image and chart were scanned too, and had no findings. The history had 30 findings, each checked by hand. None is a credential:
+
+  | Findings | Detector | What they are |
+  | --- | --- | --- |
+  | 24 | Generic High Entropy Secret | The Doris BE heartbeat tokens above, two in each of the 12 logs |
+  | 1 | Generic Password | `deploy/aws/functions/ops.ts`: a database name, passed where the detector expects a password |
+  | 1 | Generic Password | `src/test/java/com/colvenna/catalog/testing/TestServers.java`: the password of the tests' throwaway Testcontainers PostgreSQL |
+  | 2 | Username Password | `tests/deploy/test_preflight.py` and `tests/deploy/test_serverless.py`: a stubbed AWS CLI answer, with a made-up password |
+  | 1 | Generic High Entropy Secret | `tests/uat/cases/cat06.py`: the name of an option a UAT case looks up, not a value |
+  | 1 | Base64 Basic Authentication | `tests/uat/cases/sec01.py`: a deliberately wrong Basic credential, which the case sends to be refused |
+
+- **The earlier scan.** Before publication, the whole history was scanned with gitleaks over every commit's patch of every ref, and with ASH's detect-secrets over every version of every file. There were no private keys, no real AWS keys (only the tests' made-up access key ids), no catalog tokens and no GitHub tokens. The owner accepted the heartbeat tokens as they are.
+- **Decision (the owner, 2026-11-04): accepted.** The history is not rewritten. The owner is to mark the incident in GitGuardian as a test credential, revoked.
+- **Remediation.**
+  - The sanitizer: since [#108](https://github.com/colvenna/colvenna-catalog/pull/108) (`7b45a98`) it redacts a token written after a colon, as the BE writes this one. The logs in the tree hold `<REDACTED>` in its place.
+  - [`.gitguardian.yaml`](../../.gitguardian.yaml), the settings of ggshield, for anyone who runs it on the repository or its history. Its `ignored_matches` lists each of the 30 findings by its ignore SHA, ggshield's SHA-256 of the matched string and its type ([`get_ignore_sha`](https://github.com/GitGuardian/ggshield/blob/v1.56.1/ggshield/core/filter.py), ggshield 1.56.1), with a name that says what the finding is. The file holds no value. It ignores no path and no detector, so any other value is reported, a new one included. With it, ggshield's scan of the history from the repository's root finds 0 incidents.
+  - `.ash/.ash.yaml` suppresses detect-secrets' hex-string rule in `.gitguardian.yaml`, a file of digests only, as for the release manifests.
+  - GitGuardian documents this file for ggshield only ([configuration](https://docs.gitguardian.com/ggshield-docs/configuration)). For the repositories it monitors, it documents exclusions set in its dashboard ([exclusion rules](https://docs.gitguardian.com/secrets-detection/customize-detection/exclusion-rules)).
+
+Rescanned at this change's head: detect-secrets, through ASH, has 0 actionable findings, and the four hex-string entries of `.ash/.ash.yaml` are all in use, the new one for each of the file's 30 ignore SHAs. Trivy's secret scanner reports nothing. The counts, and those of ggshield, are in the pull request.
+
 ## 6. Open findings and their handling
 
 ### 6.1 Inside Apache Paimon 2.0.0's jars
@@ -184,4 +211,4 @@ For each candidate, on B (the commit its image and chart are built from):
 3. Write `docs/security/<candidate>.md`: B and the scan's date; the tools and databases (`versions.txt`); the summary's counts against the previous record; every finding at MEDIUM and above that is not suppressed, with its handling (section 6's, where it is unchanged); and the owner's decisions.
 4. A finding new since the previous record is fixed, suppressed as a verified false positive, or decided by the owner before the candidate can be GO. The release notes link the record from their verdict.
 
-> Note: the issue and pull request numbers (such as #18) in this document are those of the project's early private repository; this repository has no pages for them.
+> Note: the issue and pull request numbers (such as #18) in this document are those of the project's early private repository; this repository has no pages for them. Linked issue and pull request numbers (such as [#111](https://github.com/colvenna/colvenna-catalog/issues/111)) are this repository's current ones.
