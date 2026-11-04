@@ -28,7 +28,7 @@ kubectl -n colvenna-catalog get secret colvenna-catalog-admin-token -o jsonpath=
 
 ### Reach the API
 
-The API port, 8181, is reachable inside the cluster, and from outside it only through an internal NLB, if the install turned one on. From your workstation, forward a local port to the catalog's Service; `kubectl` authenticates you with IAM and Kubernetes checks that you may port-forward in the namespace:
+The API port, 8181, is reachable inside the cluster, and from outside it only through an internal NLB, if the install turned one on. From your workstation, forward a local port to the catalog's Service; `kubectl` authenticates you with IAM and Kubernetes checks that you may port-forward in the namespace (without a `kubectl` of your own for the cluster, use the installer's: `<checkout>/.tools/kubectl`, with `KUBECONFIG=<checkout>/.state/<env>/kubeconfig`):
 
 ```bash
 kubectl -n colvenna-catalog port-forward svc/colvenna-catalog 8181:8181 >/dev/null &

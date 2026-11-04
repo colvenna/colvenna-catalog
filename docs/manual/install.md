@@ -33,7 +33,7 @@ What has run live, in this repository's own test environments, and what only off
 | Serverless form from source, `COLVENNA_NETWORK=create`, `COLVENNA_DB=create`; run again and upgraded; uninstalled keeping the data, then with `--delete-data` | us-west-2 | |
 | Serverless form with `COLVENNA_NETWORK=create`, pointed at a database restored from a snapshot (`COLVENNA_DB=existing`, [user manual](user.md#62-restoring) 6.2); the refusals of `COLVENNA_DB=existing` without `COLVENNA_BUCKET`, of `COLVENNA_DB=create` after the move, and of `--delete-data` while the restored instance is there | us-west-2 | |
 | Serverless form from a release candidate (`--release`) | us-west-2, us-east-2 (`v1.0.0-rc.2`'s UAT) | |
-| EKS form from a release promoted from a GO candidate (`--release v1.0.0`), uninstalled with `--delete-data` | us-west-2 (the release's smoke install, 2026-11-01) | |
+| EKS form from a release promoted from a GO candidate (`--release v1.0.0`), uninstalled with `--delete-data` | us-west-2: the release's smoke install (2026-11-01); from the public GHCR packages copied into a registry of the installer's own, from a fresh clone of the tag (2026-11-04, section 4.3) | |
 | Serverless form from a release promoted from a GO candidate (`--release v1.0.0`) | | yes |
 | EKS form pointed at a database restored from a snapshot | us-west-2, us-east-2 (`v1.0.0-rc.2`'s UAT-DEP-10) | |
 | Serverless form with `COLVENNA_NETWORK=existing` and `COLVENNA_DB=existing` | us-west-2, us-east-2 (`v1.0.0-rc.2`'s UAT-DEP-02) | |
@@ -85,7 +85,7 @@ Run every command with an explicit profile (`AWS_PROFILE=<profile> ./install.sh 
 - **Who can invoke the serverless form's maintenance and ops functions** can issue an admin token and send requests through the private API with a token. Keep `lambda:InvokeFunction` on them to the account's administrators, as you would `pods/exec` in the catalog's namespace in the EKS form. Who can invoke the purge function can only make it delete, sooner, the files of tables already dropped: it takes nothing from its payload but the command.
 - **Kubernetes** (EKS form). The identity needs access to the cluster (an EKS access entry, or the `aws-auth` ConfigMap) with rights to: list nodes and DaemonSets in every namespace; create and label namespaces; manage Secrets, ConfigMaps, Pods (with `exec`, `logs` and `port-forward`) and Services in the catalog's namespace and in the two namespaces the smoke check creates and deletes (`<namespace>-smoke-client` and `<namespace>-smoke-outsider`); and everything the chart installs.
 - **The database admin secret** (`COLVENNA_DB_ADMIN_SECRET_ARN`, with `COLVENNA_DB=existing`) must be readable, and hold `{"username": ..., "password": ...}` of a user that may create roles and databases.
-- **A release candidate or a release** (`--release`): the maintainer of the release registry lists your account among its pull accounts, and your identity needs `ecr:GetAuthorizationToken`, and `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer` and `ecr:BatchCheckLayerAvailability` on the release's repositories.
+- **A release or a release candidate** (`--release`): your identity needs `ecr:GetAuthorizationToken`, and `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer` and `ecr:BatchCheckLayerAvailability` on the repositories of `COLVENNA_RELEASE_REGISTRY`. For a release, that registry is your own copy of its public packages (section 4.3), and making the copy also needs `ecr:CreateRepository` and pushing to those repositories (`ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload`, `ecr:PutImage`). A candidate is not published: its registry is the maintainer's, who lists your account among its pull accounts.
 
 ### 2.4 For the EKS form
 
@@ -132,7 +132,7 @@ Copy [`deploy/config/example.env`](../../deploy/config/example.env) to `deploy/c
 | `COLVENNA_INTERNAL_NLB`, `COLVENNA_NLB_ALLOWED_CIDRS` | `off` | EKS: the internal NLB, and the client CIDRs it admits (required with `on`) |
 | `COLVENNA_CLIENT_NAMESPACE_LABEL` | `colvenna-catalog/client=true` | EKS: the label of namespaces whose pods may call the API |
 | `COLVENNA_METRICS_NAMESPACE_LABEL` | `colvenna-catalog/monitoring=true` | EKS: the label of namespaces whose pods may scrape the metrics port; its value must be `true` |
-| `COLVENNA_RELEASE_REGISTRY` | | `--release`: the release registry, `<ACCOUNT_ID>.dkr.ecr.<region>.amazonaws.com` |
+| `COLVENNA_RELEASE_REGISTRY` | | `--release`: the ECR registry holding the image and the chart, `<ACCOUNT_ID>.dkr.ecr.<region>.amazonaws.com`: for a release, your copy of its public packages (section 4.3); for a candidate, the maintainer's release registry |
 | `COLVENNA_NETWORK` | `create` | Serverless: `create` or `existing` |
 | `COLVENNA_VPC_CIDR` | `10.80.0.0/16` | Serverless, `create`: the new VPC's range |
 | `COLVENNA_VPC_ID`, `COLVENNA_SUBNET_IDS` | | Serverless, `existing`: your VPC and its private subnets |
@@ -194,7 +194,7 @@ The `Serverless` stack also holds the **purge function**, which `install.sh` run
 
 ### 4.3 From a release candidate or a release
 
-A release candidate (`v1.0.0-rc.<n>`) is installed from a clean checkout of its tag, with `COLVENNA_RELEASE_REGISTRY` in the configuration (the maintainer gives you the registry's address):
+A release candidate (`v1.0.0-rc.<n>`) is installed from a clean checkout of its tag, with `COLVENNA_RELEASE_REGISTRY` in the configuration. Candidates are not published: their registry is the maintainer's release registry, whose address the maintainer gives you:
 
 ```bash
 git fetch origin --tags
@@ -204,13 +204,32 @@ AWS_PROFILE=<profile> ./install.sh --config deploy/config/<env>.env --release <c
 
 Before it changes anything, it checks that the tree is clean and is the candidate's (it differs from the commit the candidate was built from under `release/<candidate>/` alone), that the manifest is valid and pins this checkout's files, that the registry holds the image and the chart by the manifest's digests and that they were built from that commit, and that the candidate is accepted in the configuration's form. Any of these failing refuses the install (exit 3). It then installs as from source, but builds nothing: the CDK app's packages come afresh from the tag's lockfile (`npm ci`), the image is copied by digest into the environment's own repository, and the chart is pulled by digest. `scripts/release/verify-artifacts.sh <candidate>`, with `COLVENNA_RELEASE_REGISTRY` set, makes the same checks and installs nothing. [Releasing](../development.md#releasing) describes candidates. The serverless form's `--release` path ran live in `v1.0.0-rc.2`'s UAT, the first candidate to name that form.
 
-A release (`v1.0.0`) is a candidate judged GO and promoted from it, never rebuilt ([Promoting a GO candidate](../development.md#promoting-a-go-candidate)). It installs the same way, from a clean checkout of its own tag, with the same registry:
+A release (`v1.0.0`) is a candidate judged GO and promoted from it, never rebuilt ([Promoting a GO candidate](../development.md#promoting-a-go-candidate)). It installs the same way, from a clean checkout of its own tag. Its image and chart are public on the GitHub Container Registry, by the digests of its manifest ([Publishing to GHCR](../development.md#publishing-to-ghcr)), and need no credentials to pull. `install.sh --release` reads a release from an ECR registry only, so first copy the two into an ECR registry of your own, under the repository names the manifest gives them (`image.repository` and `chart.repository`), and give that registry as `COLVENNA_RELEASE_REGISTRY`. From the checkout, with the crane that `scripts/install-tools.sh` fetches:
 
 ```bash
 git fetch origin --tags
 git checkout v1.0.0
-AWS_PROFILE=<profile> ./install.sh --config deploy/config/<env>.env --release v1.0.0
+scripts/install-tools.sh                       # the pinned kubectl, Helm and crane, into .tools/
+export AWS_PROFILE=<profile>
+region=<region>                                # your registry's Region
+registry=<ACCOUNT_ID>.dkr.ecr.$region.amazonaws.com
+manifest=release/v1.0.0/manifest.json
+for repository in $(jq -r '.image.repository, .chart.repository' "$manifest"); do
+  aws ecr create-repository --region "$region" --repository-name "$repository" \
+    --image-tag-mutability IMMUTABLE >/dev/null
+done
+export DOCKER_CONFIG="$(mktemp -d)"            # crane's login to your registry, not in ~/.docker
+aws ecr get-login-password --region "$region" | .tools/crane auth login "$registry" -u AWS --password-stdin
+.tools/crane copy "ghcr.io/colvenna/colvenna-catalog@$(jq -r .image.digest "$manifest")" \
+  "$registry/$(jq -r .image.repository "$manifest"):$(jq -r .image.tag "$manifest")"
+.tools/crane copy "ghcr.io/colvenna/charts/colvenna-catalog@$(jq -r .chart.digest "$manifest")" \
+  "$registry/$(jq -r .chart.repository "$manifest"):$(jq -r .chart.version "$manifest")"
+rm -rf "$DOCKER_CONFIG"; unset DOCKER_CONFIG
+# deploy/config/<env>.env: COLVENNA_RELEASE_REGISTRY=<ACCOUNT_ID>.dkr.ecr.<region>.amazonaws.com
+./install.sh --config deploy/config/<env>.env --release v1.0.0
 ```
+
+`crane copy` keeps the digests ([crane's documentation](https://github.com/google/go-containerregistry/blob/v0.22.1/cmd/crane/doc/crane_copy.md)), so the copies are the release's, and the install checks them, as below, before it changes anything. Your registry may be in another Region than the install (section 9). Every run of `install.sh --release v1.0.0` reads it, so keep it while the install may run again. The two repositories belong to no stack: `uninstall.sh` leaves them, and `aws ecr delete-repository --force` removes each. A release's install needs no access to the maintainer's release registry, which holds the candidates.
 
 Its manifest, `release/v1.0.0/manifest.json`, is the candidate's under the release's names, and records under `promotion` which candidate it was promoted from. The tree may differ from the commit the candidate was built from under `release/<candidate>/` and `release/v1.0.0/` alone. Before it changes anything, the install also checks where the release came from (exit 3 when it is not so):
 
@@ -218,7 +237,7 @@ Its manifest, `release/v1.0.0/manifest.json`, is the candidate's under the relea
 - the candidate's manifest there is the one recorded (`promotion.manifest`), and the release's manifest is that one under the release's names: the same image digest, commit, pinned files, UAT cases, performance terms, forms and Regions;
 - the commit whose release notes recorded the candidate's verdict when it was promoted (`promotion.acceptance`; `promote.sh` reads them on `origin/main` unless told otherwise) is in the clone and has the candidate's tag commit, and its `release/<candidate>/notes.md` is the recorded file and gives the release verdict `GO`, beside the same manifest. A clone that lacks that commit, a shallow or single-branch one say, is refused: fetch it (`git fetch origin`).
 
-The image is the candidate's, by the same digest, tagged `v1.0.0` in the environment's repository. The chart, pulled by its own digest, must be version `1.0.0` (appVersion `1.0.0`) and otherwise the candidate's: the chart directory of the commit the candidate was built from, annotated with that commit. The pods carry `colvenna-catalog/release: v1.0.0`. `scripts/release/verify-artifacts.sh v1.0.0` makes the same checks. A release's install has run live once, the EKS form in `us-west-2` (`v1.0.0`'s smoke install, 2026-11-01); the serverless form's only in offline tests.
+The image is the candidate's, by the same digest, tagged `v1.0.0` in the environment's repository. The chart, pulled by its own digest, must be version `1.0.0` (appVersion `1.0.0`) and otherwise the candidate's: the chart directory of the commit the candidate was built from, annotated with that commit. The pods carry `colvenna-catalog/release: v1.0.0`. `scripts/release/verify-artifacts.sh v1.0.0` makes the same checks. A release's install has run live twice, both on the EKS form in `us-west-2`: `v1.0.0`'s smoke install from the maintainer's release registry (2026-11-01), and on 2026-11-04 an install from a fresh anonymous clone of the public repository's tag, with the copies made as above from GHCR ([#3](https://github.com/colvenna/colvenna-catalog/issues/3)). The serverless form's has run only in offline tests.
 
 ### 4.4 Example configurations
 
@@ -432,7 +451,7 @@ The configuration takes any standard Region (`<area>-<name>-<n>`), and refuses t
 - the serverless form: API Gateway's CloudWatch Logs role, which is a setting of each Region; the Lambda concurrency and, with a new network, a VPC to spare there; and two zones offering the `sts`, `cognito-identity` and `execute-api` endpoint services and RDS PostgreSQL on `db.t4g.small`, which `install.sh` picks (the first two by name) and keeps for the life of the `Network` stack;
 - the EKS form: the Region's RDS certificate bundle, which `install.sh` downloads.
 
-The release registry may be in another Region than the install: `crane` copies the image by digest from it. So far the registry and the installs have been in the same Region.
+The release registry, or your copy of a release (section 4.3), may be in another Region than the install: `crane` copies the image by digest from it. That has run live once (2026-11-04): a copy in us-east-2 for an install in us-west-2. The other installs read a registry in their own Region.
 
 Every live install so far ran in us-west-2. A release candidate names the Regions it is accepted in (by default us-west-2 and us-east-2), and its UAT runs every required case in each of them.
 
