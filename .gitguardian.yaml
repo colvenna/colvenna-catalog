@@ -1,0 +1,71 @@
+# ggshield settings (GitGuardian's command-line scanner, configuration version 2):
+# https://docs.gitguardian.com/ggshield-docs/configuration
+# Each finding of ggshield's scan of the whole history (2026-11-04) was checked by hand: none is a
+# credential (docs/security/scans.md, section 5.4; https://github.com/colvenna/colvenna-catalog/issues/111).
+# Each is ignored by its ignore SHA, ggshield's SHA-256 of the matched string and its type
+# (get_ignore_sha, https://github.com/GitGuardian/ggshield/blob/v1.56.1/ggshield/core/filter.py), so
+# this file holds no value. Nothing else is ignored, no path and no detector: any other value is
+# reported. Each name gives the finding's file in the history, not a line.
+version: 2
+secret:
+  ignored_matches:
+    - name: "a database name where the detector expects a password (Generic Password; deploy/aws/functions/ops.ts)"
+      match: 6e0d657eb1f0fbc40cf0b8f3c3873ef627cc9cb7c4108d1c07d979c04bc8a4bb
+    - name: "the password of the tests' throwaway Testcontainers PostgreSQL (Generic Password; src/test/java/com/colvenna/catalog/testing/TestServers.java)"
+      match: cea82ff8c59e3b83b3c1e043395bb878b52e4df8cd9aab330919b2c4819fcd0e
+    - name: "a stubbed AWS CLI answer in a test, with a made-up password (Username Password; tests/deploy/test_preflight.py)"
+      match: b5343dd16e2cdab282658b74ae56ad39acca4ad07882afe6df817dc95080f7ec
+    - name: "a stubbed AWS CLI answer in a test, with a made-up password (Username Password; tests/deploy/test_serverless.py)"
+      match: 7e5d93b3f60b404bb29702a59f136ac218879cf7e4af6117c0102b886fc0d53e
+    - name: "an option's name that a UAT case looks up, no value (Generic High Entropy Secret; tests/uat/cases/cat06.py)"
+      match: d6fdac2e63b5f69f6ab3c87b45dfda3ad5f6d1796749c4c507042e6ff5c2faf6
+    - name: "a deliberately wrong Basic credential that a UAT case sends, to be refused (Base64 Basic Authentication; tests/uat/cases/sec01.py)"
+      match: 2d4499a3fa2bd14848578b6c2f320e63b4f19523557c66c7c05a5019da4bb60b
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261028T100928Z-e326/raw/doris-4.1.5/be.log)"
+      match: a93ea74a8dd6a7af199db3e18dad4c0cf10f88bc620cb0731f753786709b9c01
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261028T100928Z-e326/raw/doris-4.1.5/be.log)"
+      match: 55d314dc78056bd28e6a836234abaaefb363b575780ba9d564d150d10f2aebc7
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261028T120119Z-c93a/raw/doris-4.1.5/be.log)"
+      match: b5e1f974eafd5bee765836676a55d2de1654d1a410806ed21ae6833cdff56a65
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261028T120119Z-c93a/raw/doris-4.1.5/be.log)"
+      match: f1987fc7ac44016b2c89baf6a5acf0a3708177a733ae2c840a292be067f9370c
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261028T122104Z-9305/raw/doris-4.1.5/be.log)"
+      match: 8d9a93ae6e365455dbb2d2e765d032bd25bdc11583019e517e7cb2da5aef1b2f
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261028T122104Z-9305/raw/doris-4.1.5/be.log)"
+      match: 39622f365b60258a3fc9a09499999ca7354c2cc60a57eb150ea738c4aaa49b1d
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261028T122711Z-4166/raw/doris-4.1.5/be.log)"
+      match: 895df891544a7cd2c7ad167c17e20702dd6d23bef82dee5d62eb1901c20b874b
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261028T122711Z-4166/raw/doris-4.1.5/be.log)"
+      match: d9937806e40e24cf23c80b4ae61e456f38816612ac480c4dda3259a2c30f39dd
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261030T150955Z-b7ee/raw/doris-4.1.5/be.log)"
+      match: fd2b4835eba04ba935ee3988f1770bc3896d920ff19d13f1a99e58ded910e7d9
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261030T150955Z-b7ee/raw/doris-4.1.5/be.log)"
+      match: 40f50f3fa9cc274b2612728f8b8aec35c00b33f73ffb47afe315e59098842f92
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261030T151725Z-9b62/raw/doris-4.1.5/be.log)"
+      match: e54c636ed739e94226596a694fc20c92283ac8a83036488ecce53843634227cf
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261030T151725Z-9b62/raw/doris-4.1.5/be.log)"
+      match: 24985d30d28f97847ed75979752e861d9bfe2333a14c45fa8524cf3adf9da967
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261030T153252Z-6867/raw/doris-4.1.5/be.log)"
+      match: 3bc99185625081a283eea9e9da662a22b37f6258bae8f2a33a1da5b6052a0981
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261030T153252Z-6867/raw/doris-4.1.5/be.log)"
+      match: 974825ca355e4d507ba16e55650e3cb76c41795aeb36ad9ca93d42dd53d19dca
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261030T153944Z-1e65/raw/doris-4.1.5/be.log)"
+      match: 44de289cfe895adc43f97c2c81aa8a6be3eb9e456ca7762e4e6c717e4eefa5f4
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261030T153944Z-1e65/raw/doris-4.1.5/be.log)"
+      match: c75a5d9c2a7b7a0bf746e990a38382bc9826a33abf018beac13ccec6cf5e21c4
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261101T045319Z-c4aa/raw/doris-4.1.5/be.log)"
+      match: 9baaa055e73ddc8587741705b40ea81203504bbc5a44ee25244dce0cf5328bf3
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261101T045319Z-c4aa/raw/doris-4.1.5/be.log)"
+      match: 3b167cf7ad9758eb0dad6acc734b55d6004002e2eaefb6ed4bf6fc2731dfca52
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261101T045324Z-9e70/raw/doris-4.1.5/be.log)"
+      match: f4d0cf7854e42ffc1d01885964e543b96d50d45f55905cc4acf85b8df91c54d5
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261101T045324Z-9e70/raw/doris-4.1.5/be.log)"
+      match: a3271e5566857af8c3d3600eb772707d0bb7e2d5813ab57e1d073dbe998b5404
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261101T051511Z-6acf/raw/doris-4.1.5/be.log)"
+      match: fea69d290a4a66dd4d198fb86f056b6c6c0d1db6710e9307153bfa3cccd0de4a
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261101T051511Z-6acf/raw/doris-4.1.5/be.log)"
+      match: c553785b273c337042b1badfce83f9ccc95946b531d7d876a76d4d351c12920a
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261101T051609Z-44be/raw/doris-4.1.5/be.log)"
+      match: fdc97e0e6bee2052eb01f8566417c6953da166b43c6db95523ca949d52e1542d
+    - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261101T051609Z-44be/raw/doris-4.1.5/be.log)"
+      match: 6104d8fbe1f8f477d404e33baf750445525e7b224c34bf9b8067039828181e9b

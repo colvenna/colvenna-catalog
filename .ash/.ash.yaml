@@ -27,6 +27,9 @@ global_settings:
     - rule_id: SECRET-HEX-HIGH-ENTROPY-STRING
       path: tests/compat/cells.json
       reason: "The matrix's pins: the SHA-256 of every jar it downloads, which backends.py checks before using one"
+    - rule_id: SECRET-HEX-HIGH-ENTROPY-STRING
+      path: .gitguardian.yaml
+      reason: "ggshield's ignore SHAs: the SHA-256 of each finding it is to ignore, no value (docs/security/scans.md, section 5.4)"
     # --- checkov: Dockerfiles -------------------------------------------------------------------------
     - rule_id: CKV_DOCKER_2
       path: Dockerfile
