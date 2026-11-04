@@ -13,7 +13,7 @@ date: 2026-10-24
 
 **Apache 2.0 许可，逐个引擎验证过兼容性，无服务器形态空闲时没有常驻的计算资源。在 AWS 上用 Paimon 的团队不必再自研 catalog，也不必把元数据交给另一朵云。**
 
-**[发布日] —** 今天，Colvenna Catalog 项目发布 1.0 版本。Colvenna Catalog 是一个开源的 Apache Paimon REST catalog 服务端，以 Apache License 2.0 发布，元数据存在你自己的 PostgreSQL 里，表数据留在你自己的 S3 里。在 AWS 上使用 Paimon 的团队，用一条命令就能把它装进自己的账号：已有 Amazon EKS 的，装成两个副本的服务；没有 EKS、或想把 catalog 自身的固定成本压到最低的，以无服务器方式运行，没有请求时不占用任何计算资源。Flink 与 Spark 用 Paimon 官方连接器直接连上，就能建表、读写和提交；Doris 与 StarRocks 验证过的版本和接入方式，写在公开的兼容矩阵里。
+**2026 年 11 月 4 日 —** 今天，Colvenna Catalog 项目发布 1.0 版本。Colvenna Catalog 是一个开源的 Apache Paimon REST catalog 服务端，以 Apache License 2.0 发布，元数据存在你自己的 PostgreSQL 里，表数据留在你自己的 S3 里。在 AWS 上使用 Paimon 的团队，用一条命令就能把它装进自己的账号：已有 Amazon EKS 的，装成两个副本的服务；没有 EKS、或想把 catalog 自身的固定成本压到最低的，以无服务器方式运行，没有请求时不占用任何计算资源。Flink 与 Spark 用 Paimon 官方连接器直接连上，就能建表、读写和提交；Doris 与 StarRocks 验证过的版本和接入方式，写在公开的兼容矩阵里。
 
 ### 问题
 
