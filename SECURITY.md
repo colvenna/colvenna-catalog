@@ -2,7 +2,9 @@
 
 ## Supported versions
 
-Colvenna Catalog is in development toward 1.0, and no release candidate has been accepted for release yet. Security fixes are made on `main` and ship in the next release candidate. A candidate never changes once made (its tag, image and chart never move; see [Releasing](docs/development.md#releasing)), so an earlier candidate does not get the fix. Before 1.0, a new version does not guarantee an upgrade from, or a rollback to, an older one ([1.0 design](docs/design/v1.0-design.md), section 3, in Chinese).
+Colvenna Catalog 1.0.0 is its first release, promoted from the release candidate `v1.0.0-rc.4` without a rebuild ([release notes](release/v1.0.0/notes.md)). Security fixes are made for the latest release only. A fix is made on `main` and ships in a new patch release (1.0.1, then 1.0.2, ...), which is accepted and promoted from its own release candidate as 1.0.0 was ([Releasing](docs/development.md#releasing)). A release never changes once made: its tag, image and chart never move, so an earlier release, and any release candidate, does not get the fix. The patch release's image and chart are published to the GitHub Container Registry, `ghcr.io/colvenna/colvenna-catalog` and `ghcr.io/colvenna/charts/colvenna-catalog`, as 1.0.0's are ([Publishing to GHCR](docs/development.md#publishing-to-ghcr)).
+
+Upgrades in 1.x: a release upgrades online from the release before it, in both forms, and its candidate's UAT runs that upgrade and the way back (UAT-DEP-06 and 07 of the [UAT cases](docs/uat/cases.md)). Its release notes name any step of its own ([deployment guide](docs/manual/install.md#63-upgrading), section 6.3). An upgrade that skips a release is not tested.
 
 How the server authenticates, authorizes, audits and issues per-table credentials is in the [LLD](docs/design/colvenna-catalog-lld.md) (in Chinese). The security scans a release depends on, their baseline and the findings left visible are in [docs/security/scans.md](docs/security/scans.md).
 
@@ -10,13 +12,13 @@ How the server authenticates, authorizes, audits and issues per-table credential
 
 Do not put tokens, passwords, keys, cloud credentials, deployment values (account IDs, domains, ARNs, internal addresses) or exploit details in an ordinary issue or pull request.
 
-For a confidential report, use GitHub's **Report a vulnerability** feature, on the repository's Security tab, when it is enabled for this repository. If it is not, contact the repository owner through an existing private channel before you share any detail. Name the deployment form (EKS or serverless), the release candidate or commit, the endpoint or component affected, and the steps to reproduce.
+For a confidential report, use GitHub's private vulnerability reporting: **Report a vulnerability** on the repository's [Security tab](https://github.com/colvenna/colvenna-catalog/security). Only the reporter and the maintainers see the report. Name the deployment form (EKS or serverless), the release or commit, the endpoint or component affected, and the steps to reproduce.
 
 ## How a report is handled
 
-- The maintainers acknowledge the report, reproduce it, and agree with the reporter when it is disclosed. No response time is guaranteed. Please do not disclose a vulnerability before its fix is in a release candidate, or before a date agreed with the maintainers.
-- The fix is delivered as any change is ([CONTRIBUTING.md](CONTRIBUTING.md)): its own issue and pull request, review, and CI on the exact commit merged. Until the fix is in a release candidate, they describe the problem without exploit details.
-- The next release candidate's security record, `docs/security/<candidate>.md`, which its release notes link, names the fix.
+- The maintainers acknowledge the report, reproduce it, and agree with the reporter when it is disclosed. No response time is guaranteed. Please do not disclose a vulnerability before its fix is released, or before a date agreed with the maintainers.
+- The fix is delivered as any change is ([CONTRIBUTING.md](CONTRIBUTING.md)): its own issue and pull request, review, and CI on the exact commit merged. Until the fix is released, they describe the problem without exploit details.
+- The patch release's notes and its candidate's security record, `docs/security/<candidate>.md`, name the fix, and the security advisory the report opened is published with the release.
 
 ## Security model in brief
 

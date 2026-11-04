@@ -7,7 +7,12 @@
 
 An open, Apache-2.0 REST catalog server for [Apache Paimon](https://paimon.apache.org/), backed by PostgreSQL, for teams running Paimon on AWS. It implements the REST catalog contract of Apache Paimon 2.0.0, so engines connect with Paimon's own `RESTCatalog` client, and it runs in your own AWS account: the metadata stays in your PostgreSQL and the tables in your S3 bucket.
 
-**Status: in development toward 1.0.** It installs into your AWS account in two forms, on Amazon EKS or serverless on AWS Lambda, from one image. Release candidates are under [`release/`](release/); none has been accepted for release yet.
+**Status: 1.0.0 released** ([release notes](release/v1.0.0/notes.md)), the release candidate `v1.0.0-rc.4` promoted without a rebuild. It installs into your AWS account in two forms, on Amazon EKS or serverless on AWS Lambda, from one image. The image and the Helm chart are on the GitHub Container Registry, by the digests of [`release/v1.0.0/manifest.json`](release/v1.0.0/manifest.json), and anyone can pull them:
+
+```bash
+docker pull ghcr.io/colvenna/colvenna-catalog:1.0.0
+helm pull oci://ghcr.io/colvenna/charts/colvenna-catalog --version 1.0.0
+```
 
 ## What it does
 
@@ -19,7 +24,7 @@ An open, Apache-2.0 REST catalog server for [Apache Paimon](https://paimon.apach
 
 ## Install
 
-`install.sh` installs into your AWS account, in either form, from a clean checkout (`--from-source`), or the tag of a release candidate or of a release promoted from one (`--release <candidate>` or `--release v1.0.0`; a release's install has run in offline tests only); `uninstall.sh` removes it and keeps the database and the bucket unless given `--delete-data`. Copy [`deploy/config/example.env`](deploy/config/example.env), which lists every key, to `deploy/config/<env>.env` (git ignores it) and set `COLVENNA_FORM`:
+`install.sh` installs into your AWS account, in either form, from a clean checkout (`--from-source`), or the tag of a release candidate or of a release promoted from one (`--release <candidate>` or `--release v1.0.0`; a release's install has run live on the EKS form, and on the serverless form in offline tests); `uninstall.sh` removes it and keeps the database and the bucket unless given `--delete-data`. Copy [`deploy/config/example.env`](deploy/config/example.env), which lists every key, to `deploy/config/<env>.env` (git ignores it) and set `COLVENNA_FORM`:
 
 - `eks`: two catalog pods in your EKS cluster, behind a Service that only labelled namespaces reach (and, if asked, an internal NLB).
 - `serverless`: the same image on AWS Lambda, behind a private REST API that only your VPC's `execute-api` endpoints reach, with a bearer-token authorizer in front of the server's own check, and no compute running while idle. `COLVENNA_NETWORK=create` makes a VPC with no internet path and the endpoints it needs; `existing` uses yours. The functions sign in to PostgreSQL with RDS IAM tokens, so no password is stored in them. The [LLD](docs/design/colvenna-catalog-lld.md#部署) has the details. The serverless form's `--release` path and `COLVENNA_NETWORK=existing` (with an existing database) ran live in `v1.0.0-rc.2`'s UAT, in both Regions (UAT-DEP-01 and 02 of the [UAT cases](docs/uat/cases.md); [the report](docs/uat/reports/v1.0.0-rc.2/report.md)).

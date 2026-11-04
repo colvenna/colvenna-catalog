@@ -25,8 +25,11 @@ PATTERNS = [
     (re.compile(r"\bcolvenna_(?!catalog_[a-z_]+(?![A-Za-z0-9_-]))[A-Za-z0-9_-]{16,}"), "<TOKEN>"),
     # An STS session token wherever it stands (Doris's BE logs one with each S3 client it makes).
     (re.compile(r"\b(?:IQoJ|FwoG)[A-Za-z0-9+/=]{40,}"), "<REDACTED>"),
-    # Short credential keys and their values, as engines log them: (ak=..., token=...).
-    (re.compile(r"(?i)\b((?:ak|sk|token|access_?key|secret_?key)\s*=\s*)[^\s,;)}\]\"']{6,}"), r"\1<REDACTED>"),
+    # Short credential keys and their values, as engines log them: (ak=..., token=...), and a token
+    # after a colon, as Doris's BE logs its heartbeat token ("get token. token: <uuid>", "set new
+    # auth token: <uuid>").
+    (re.compile(r"(?i)\b((?:ak|sk|access_?key|secret_?key)\s*=\s*|token\s*[=:]\s*)[^\s,;)}\]\"']{6,}"),
+     r"\1<REDACTED>"),
     # A credential printed as a key and its value (fs.s3a.secret.key=..., "s3.session-token": "...").
     (re.compile(r"(?i)((?:secret[-._]?(?:access[-._]?)?key|session[-._]?token|password)[\"']?\s*[=:]\s*[\"']?)"
                 r"[^\s\"',;}]{8,}"), r"\1<REDACTED>"),
