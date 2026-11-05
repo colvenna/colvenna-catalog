@@ -338,6 +338,32 @@ class ExclusionTest(unittest.TestCase):
 
             self.assertEqual(found, [("vendor/中文.py", "ggshield's default exclusions")])
 
+    def test_a_path_that_only_a_merge_commit_adds_is_matched(self):
+        with tempfile.TemporaryDirectory() as work:
+            def git(*args):
+                subprocess.run(["git", "-C", work, "-c", "user.name=test", "-c", "user.email=test@example.com",
+                                *args], check=True, capture_output=True)
+
+            subprocess.run(["git", "init", "--quiet", "--initial-branch=main", work], check=True)
+            git("commit", "--quiet", "--allow-empty", "-m", "root")
+            git("checkout", "--quiet", "-b", "side")
+            Path(work, "b.txt").write_text("b\n")
+            git("add", "b.txt")
+            git("commit", "--quiet", "-m", "side")
+            git("checkout", "--quiet", "main")
+            Path(work, "a.txt").write_text("a\n")
+            git("add", "a.txt")
+            git("commit", "--quiet", "-m", "a")
+            git("merge", "--quiet", "--no-ff", "--no-commit", "side")
+            Path(work, "vendor").mkdir()
+            Path(work, "vendor", "settings.py").write_text("x = 1\n")
+            git("add", "vendor")
+            git("commit", "--quiet", "-m", "merge, with a file of its own")
+
+            found = ggshield_scan.excluded_history_paths(work, lambda path: path.startswith("vendor/"))
+
+            self.assertEqual(found, [("vendor/settings.py", "ggshield's default exclusions")])
+
 
 class OutputTest(unittest.TestCase):
     def test_an_output_directory_that_ggshield_would_exclude_is_refused(self):

@@ -38,7 +38,7 @@ python3 scripts/security/ggshield_scan.py --output <new private directory>
 - It scans what the public can fetch, not `HEAD`, and sends it to GitGuardian's API under the maintainer's key: a full scan uses about 500 of the workspace's API calls (`ggshield quota`).
 - It needs the pinned ggshield (`scripts/security/ggshield-requirements.lock`), gh, crane and, for the image, Docker.
 - Its `summary.txt` gives the date, the commit whose `.gitguardian.yaml` it used, the refs and commits of the history, the ggshield version, the quota, the packages' digests, each release's image and chart on GHCR, and each scan's count, and no value. It ends with `VERDICT: CLEAN` (exit 0) only when every scan is complete and finds 0. The record of a release, or of a repository made public, gives that summary's counts.
-- Before a release is published to GHCR, it scans the release's image and chart, pulled from the release registry by their digests (`--path`); after, it scans them again from GHCR, and its summary must say that each release's image and chart were scanned ([Publishing to GHCR](../development.md#publishing-to-ghcr)).
+- Before a release is published to GHCR, it scans the release's image and chart, pulled from the release registry by their digests (`--path`); after, it scans them again from GHCR, and its summary must say that each release's image and chart were scanned. It reads the releases from `release/` of the branch it scans, so that scan runs once the release's pull request has merged, or with `--branch release-<release>` ([Publishing to GHCR](../development.md#publishing-to-ghcr)).
 
 ## 3. How a finding is handled
 
@@ -250,5 +250,6 @@ For each candidate, on B (the commit its image and chart are built from):
 2. Run `scripts/security/scan.sh` on a clean checkout of B.
 3. Write `docs/security/<candidate>.md`: B and the scan's date; the tools and databases (`versions.txt`); the summary's counts against the previous record; every finding at MEDIUM and above that is not suppressed, with its handling (section 6's, where it is unchanged); and the owner's decisions.
 4. A finding new since the previous record is fixed, suppressed as a verified false positive, or decided by the owner before the candidate can be GO. The release notes link the record from their verdict.
+5. Run the publication scan with the candidate's image and chart, pulled from the release registry by their digests (`--path`, section 2), and give its summary's counts in the record. It must end `VERDICT: CLEAN` before the candidate can be GO (design 9.4). A promoted release keeps the image's digest; its chart, re-versioned at promotion, is scanned again before it is published (section 2).
 
 > Note: the issue and pull request numbers (such as #18) in this document are those of the project's early private repository; this repository has no pages for them. Linked issue and pull request numbers (such as [#111](https://github.com/colvenna/colvenna-catalog/issues/111)) are this repository's current ones.

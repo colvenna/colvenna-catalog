@@ -136,7 +136,7 @@ export PATH="$HOME/.venvs/ggshield/bin:$PATH" GITGUARDIAN_API_KEY=...  # or: ggs
 
   It exits 0 only when every scan is complete and finds 0 incidents. The summary counts the binary files that ggshield cannot decode, and those over 1 MiB. The reports in `--output` contain the matched values, so keep that directory private. The summary has no values. It records the date, the commit whose `.gitguardian.yaml` it used, the refs and commits of the history, the ggshield version, the quota, the packages' digests (and whether each release's image and chart, by the digests of its `release/<release>/manifest.json`, are among them), and each finding's location and ignore SHA.
 
-  A release's image and chart are scanned before `scripts/release/publish-ghcr.sh` makes them public, from the release registry by the digests of `release/<release>/manifest.json`, and scanned again from GHCR afterwards, when the summary must also say that each release's image and chart were scanned ([Publishing to GHCR](docs/development.md#publishing-to-ghcr)):
+  A release's image and chart are scanned before `scripts/release/publish-ghcr.sh` makes them public, from the release registry by the digests of `release/<release>/manifest.json`, and scanned again from GHCR afterwards, when the summary must also say that each release's image and chart were scanned. That scan reads the releases from `release/` of the branch it uses, so it runs once the release's pull request has merged, or with `--branch release-<release>` ([Publishing to GHCR](docs/development.md#publishing-to-ghcr)):
 
   ```bash
   crane pull <release registry>/colvenna-catalog@<image digest> <directory>/image.tar

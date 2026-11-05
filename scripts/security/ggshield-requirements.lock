@@ -1,6 +1,7 @@
-# ggshield, GitGuardian's command-line scanner, and what it needs (#113): scripts/security/ggshield_scan.py, the
-# ggshield pre-commit hooks and the ggshield CI job install it from this file only. CPython 3.12 on Linux, arm64 or
-# x86_64 (glibc): each line has the SHA-256 of every wheel PyPI serves for the pin that pip can install there.
+# ggshield, GitGuardian's command-line scanner, and what it needs (#113). The ggshield CI job installs it from this
+# file; scripts/security/ggshield_scan.py and the ggshield pre-commit hooks refuse any ggshield but this file's
+# version (install it from here, CONTRIBUTING.md#secret-scanning). CPython 3.12 on Linux, arm64 or x86_64 (glibc):
+# each line has the SHA-256 of every wheel PyPI serves for the pin that pip can install there.
 #   python3.12 -m venv <venv>
 #   <venv>/bin/python -m pip install --require-hashes --only-binary=:all: -r scripts/security/ggshield-requirements.lock
 annotated-types==0.8.0 --hash=sha256:f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0

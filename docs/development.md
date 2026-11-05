@@ -207,7 +207,7 @@ The release registry is the one `make-manifest.sh` uses: the caller's account's 
 
 Once both repositories' releases are GO (M3, design 9.4), the release's image and chart are published to the GitHub Container Registry (GHCR) by the same digests. They are never published to AWS ECR Public: the requester decided on 2026-10-30 that public artifacts go to GHCR only.
 
-Before they are published, the publication scan must find 0 in the release's image and chart, pulled from the release registry by their digests; after, the whole publication scan, which fetches them from GHCR, must find 0 too ([Secret scanning](../CONTRIBUTING.md#secret-scanning)).
+Before they are published, the publication scan must find 0 in the release's image and chart, pulled from the release registry by their digests (the image's is the candidate's, scanned for its record; the chart was re-versioned at promotion, so it is scanned again). After, the whole publication scan, which fetches them from GHCR, must find 0 too, and its summary must say that the release's image and chart were scanned. It reads the releases from `release/` of its branch, so it runs once the release's pull request has merged, or with `--branch release-<release>` ([Secret scanning](../CONTRIBUTING.md#secret-scanning)).
 
 ```bash
 git fetch origin --tags

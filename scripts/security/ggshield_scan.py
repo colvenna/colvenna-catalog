@@ -333,9 +333,10 @@ def ggshield_rules(binary):
 
 
 def excluded_history_paths(clone, excluded):
-    """(path, why) of each path any commit of the clone touches that ggshield's default exclusions skip
-    (unquoted, so that a non-ASCII path is matched as ggshield sees it)."""
-    listing = run([*GIT, "-C", str(clone), "-c", "core.quotePath=false", "log", "-z", "--all", "--format=",
+    """(path, why) of each path any commit of the clone touches that ggshield's default exclusions skip:
+    unquoted, so that a non-ASCII path is matched as ggshield sees it, and merge commits' paths included
+    (-m: against each parent, a superset of the combined diff ggshield scans)."""
+    listing = run([*GIT, "-C", str(clone), "-c", "core.quotePath=false", "log", "-m", "-z", "--all", "--format=",
                    "--name-only"])
     paths = {path.strip("\n") for path in listing.split("\0")} - {""}
     return [(path, "ggshield's default exclusions") for path in sorted(paths) if excluded(path)]
@@ -363,6 +364,14 @@ def slug(scope):
     return re.sub(r"[^A-Za-z0-9.@_-]+", "-", scope)
 
 
+def owner_and_name(repository):
+    """The owner and the name of a repository given as OWNER/NAME."""
+    owner, _, name = repository.partition("/")
+    if not owner or not name or "/" in name:
+        sys.exit(f"{repository}: give the repository as OWNER/NAME")
+    return owner, name
+
+
 def mirror(url, clone, failure=None):
     run([*GIT, "clone", "--quiet", "--mirror", url, str(clone)], failure=failure, env=ANONYMOUS_GIT)
     run([*GIT, "-C", str(clone), "remote", "set-url", "--push", "origin", "no-push://read-only"])
@@ -370,7 +379,7 @@ def mirror(url, clone, failure=None):
 
 def fetch_force_pushed(repository, clone):
     """Fetch into the clone each replaced pull-request head GitHub still serves; count them by outcome."""
-    owner, name = repository.split("/", 1)
+    owner, name = owner_and_name(repository)
     pages, cursor = [], None
     while True:
         args = ["gh", "api", "graphql", "-f", "query=" + FORCE_PUSHES, "-F", "owner=" + owner, "-F", "name=" + name]
@@ -449,7 +458,7 @@ def download_github_text(repository, out):
 def repository_packages(packages, repository):
     """The names of the packages ({name, repository}) that are the repository's: linked to it, or named after
     it (<name>, charts/<name>) though not linked."""
-    name = repository.split("/", 1)[1]
+    name = owner_and_name(repository)[1]
     return [package["name"] for package in packages
             if package["repository"] == repository or package["name"] in (name, f"charts/{name}")]
 
@@ -457,7 +466,7 @@ def repository_packages(packages, repository):
 def package_versions(repository):
     """(package, version digest, tags) of every version of each GHCR container package of the repository,
     tagged or not (anyone can pull a public package's version by its digest)."""
-    owner = repository.split("/", 1)[0]
+    owner = owner_and_name(repository)[0]
     listed = run(["gh", "api", "--paginate", f"orgs/{owner}/packages?package_type=container&per_page=100",
                   "--jq", ".[] | {name, repository: .repository.full_name}"])
     for package in repository_packages([json.loads(line) for line in listed.splitlines()], repository):
@@ -484,7 +493,7 @@ def sha256_file(path):
     with open(path, "rb") as stream:
         for chunk in iter(lambda: stream.read(1 << 20), b""):
             digest.update(chunk)
-    return "sha256:" + digest.hexdigest()
+    return digest.hexdigest()
 
 
 def digest_hex(digest):
@@ -505,18 +514,20 @@ def fetch_artifact(crane, image, digest, out, seen):
         return []
     seen.add(digest)
     data = run([crane, "manifest", f"{image}@{digest}"], text=False)
-    if hashlib.sha256(data).hexdigest() != digest_hex(digest):
+    expected = digest_hex(digest)
+    if hashlib.sha256(data).hexdigest() != expected:
         sys.exit(f"{image}@{digest}: the registry served a manifest of another digest")
-    (out / f"{digest_hex(digest)}.manifest.json").write_bytes(data)
+    (out / f"{expected}.manifest.json").write_bytes(data)
     manifest = json.loads(data)
     if "manifests" in manifest:
         return [found for child in manifest["manifests"]
                 for found in fetch_artifact(crane, image, child["digest"], out, seen)]
     for blob in [manifest["config"], *manifest.get("layers", [])]:
-        target = out / (digest_hex(blob["digest"]) + blob_suffix(blob.get("mediaType", "")))
+        expected = digest_hex(blob["digest"])
+        target = out / (expected + blob_suffix(blob.get("mediaType", "")))
         if not target.exists():
             download([crane, "blob", f"{image}@{blob['digest']}"], target)
-            if sha256_file(target) != blob["digest"]:
+            if sha256_file(target) != expected:
                 sys.exit(f"{image}@{blob['digest']}: the registry served a blob of another digest")
             if target.name.endswith(TAR_SUFFIXES) and not tarfile.is_tarfile(target):
                 sys.exit(f"{image}@{blob['digest']}: a layer of media type {blob['mediaType']} is not a tar archive")
@@ -529,7 +540,7 @@ def fetch_packages(repository, crane, out):
     """Download every version of each GHCR package of the repository into out. Returns the image manifests
     to scan with Docker, a line for the summary per version, and the versions' digests."""
     out.mkdir(parents=True)
-    owner = repository.split("/", 1)[0]
+    owner = owner_and_name(repository)[0]
     images, described, digests = [], [], set()
     for name, digest, tags in package_versions(repository):
         image = f"ghcr.io/{owner}/{name}".lower()
