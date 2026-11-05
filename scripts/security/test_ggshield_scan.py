@@ -371,9 +371,9 @@ class ExclusionTest(unittest.TestCase):
             self.assertEqual(found, [("vendor/settings.py", "ggshield's default exclusions")])
 
 
-class HistoryMessagesTest(unittest.TestCase):
+class HistoryObjectsTest(unittest.TestCase):
     def test_each_commit_message_and_annotated_tag_is_written_to_its_own_file(self):
-        with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as messages:
+        with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as objects:
             git = new_repository(work)
             git("commit", "--quiet", "--allow-empty", "-m", "first", "-m", "token: made-up-0123")
             git("commit", "--quiet", "--allow-empty", "-m", "second")
@@ -381,9 +381,9 @@ class HistoryMessagesTest(unittest.TestCase):
             git("tag", "-a", "signed-again", "-m", "a tag of a tag", "v1.0.0")
             git("tag", "-d", "v1.0.0")  # the inner tag is reached through the outer one only
             git("tag", "light")
-            out = Path(messages, "repository")
+            out = Path(objects, "repository")
 
-            unscanned = ggshield_scan.write_history_messages(work, out)
+            unscanned = ggshield_scan.write_history_objects(work, out)
 
             written = {path.name: path.read_text() for path in out.iterdir()}
             self.assertEqual(unscanned, [])
@@ -393,21 +393,21 @@ class HistoryMessagesTest(unittest.TestCase):
             self.assertIn("a tag of a tag", "".join(written.values()))
 
     def test_a_ref_that_names_no_commit_makes_the_history_incomplete(self):
-        with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as messages:
+        with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as objects:
             git = new_repository(work)
             git("commit", "--quiet", "--allow-empty", "-m", "first")
             blob = git("hash-object", "-w", "--stdin", input="a value no commit holds\n")
             git("tag", "-a", "a-blob", "-m", "a tag of a blob", blob)
             git("update-ref", "refs/notes-like/blob", blob)
 
-            unscanned = ggshield_scan.write_history_messages(work, Path(messages, "repository"))
+            unscanned = ggshield_scan.write_history_objects(work, Path(objects, "repository"))
 
             self.assertEqual(unscanned, [("refs/notes-like/blob", "names a blob, not a commit"),
                                          ("refs/tags/a-blob", "names a blob, not a commit")])
 
     def test_a_replaced_commit_is_read_as_it_is(self):
         # A pushed refs/replace/<sha> makes git show another commit in its place; GitHub serves the original.
-        with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as messages:
+        with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as objects:
             git = new_repository(work)
             git("commit", "--quiet", "--allow-empty", "-m", "the original, token: made-up-8901")
             original = git("rev-parse", "HEAD")
@@ -415,15 +415,15 @@ class HistoryMessagesTest(unittest.TestCase):
             replacement = git("rev-parse", "HEAD")
             git("replace", original, replacement)
 
-            ggshield_scan.write_history_messages(work, Path(messages, "repository"))
+            ggshield_scan.write_history_objects(work, Path(objects, "repository"))
 
-            texts = {path.name: path.read_text() for path in Path(messages, "repository").iterdir()}
+            texts = {path.name: path.read_text() for path in Path(objects, "repository").iterdir()}
             self.assertIn("the original, token: made-up-8901", texts[f"commit-{original}.txt"])
             self.assertNotIn("the replacement", texts[f"commit-{original}.txt"])
             self.assertIn("the replacement", texts[f"commit-{replacement}.txt"])
 
     def test_a_commit_is_written_whole_its_headers_and_a_message_past_a_nul_byte(self):
-        with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as messages:
+        with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as objects:
             git = new_repository(work)
             git("commit", "--quiet", "--allow-empty", "-m", "first")
             tree, parent = git("rev-parse", "HEAD^{tree}"), git("rev-parse", "HEAD")
@@ -433,9 +433,9 @@ class HistoryMessagesTest(unittest.TestCase):
             odd = git("hash-object", "-t", "commit", "-w", "--stdin", "--literally", input=raw)
             git("update-ref", "refs/heads/odd", odd)
 
-            ggshield_scan.write_history_messages(work, Path(messages, "repository"))
+            ggshield_scan.write_history_objects(work, Path(objects, "repository"))
 
-            written = Path(messages, "repository", f"commit-{odd}.txt").read_bytes()
+            written = Path(objects, "repository", f"commit-{odd}.txt").read_bytes()
             self.assertEqual(written, raw.encode())
 
 

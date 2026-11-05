@@ -7,8 +7,8 @@ before it finds 0 (CONTRIBUTING.md#secret-scanning).
 It scans:
   - history: an anonymous `git clone --mirror` (every branch, tag and refs/pull/*), plus each pull-request
     head that a force push replaced and GitHub still serves by its SHA; and the wiki, when it is enabled.
-    ggshield's history scan reads the commits' changes only, so their messages and the annotated tags are
-    scanned as files of their own;
+    ggshield's history scan reads the commits' changes only, so each commit as git stores it (its headers
+    and its whole message) and each annotated tag is scanned as a file of its own;
   - the GHCR packages of the repository (the image and the chart), every version: each manifest and blob
     fetched by its digest and checked against it, each tag checked to resolve to its version's digest.
     An image is scanned with `ggshield secret scan docker` too, with an empty layer cache;
@@ -361,7 +361,7 @@ def git_objects(git, shas):
     return objects
 
 
-def write_history_messages(clone, out):
+def write_history_objects(clone, out):
     """Write each commit of the clone as git stores it (its headers, a mergetag's tag among them, and its whole
     message) and each annotated tag, a tag that a tag names among them, to a file of its own in out: ggshield's
     history scan skips a commit's header, its message included (PatchHeader in core/scan/commit_utils.py at
@@ -643,10 +643,10 @@ class Ggshield:
         stderr = report.with_suffix(".stderr").read_text(encoding="utf-8", errors="replace")
         return Scan(scope, returncode, data, stderr, list(unscanned))
 
-    def history(self, scope, clone, messages, excluded):
+    def history(self, scope, clone, objects, excluded):
         """ggshield's scan of a clone's history, with what it leaves out: the paths its default exclusions
-        match, and the refs that name no commit. The commits' messages and the tags go into messages."""
-        unscanned = excluded_history_paths(clone, excluded) + write_history_messages(clone, messages)
+        match, and the refs that name no commit. The commits and the tags, whole, are written into objects."""
+        unscanned = excluded_history_paths(clone, excluded) + write_history_objects(clone, objects)
         return self.scan(scope, "repo", str(clone), unscanned=unscanned)
 
     def docker(self, image):
@@ -705,8 +705,8 @@ def main(argv=None):
                                            "own configuration"))
     header.append(f"configuration: .gitguardian.yaml of {args.branch} {branch_sha}")
 
-    messages_dir = out / "history-messages"
-    scans = [ggshield.history("history", clone, messages_dir / "repository", rules.excluded)]
+    objects_dir = out / "history-objects"
+    scans = [ggshield.history("history", clone, objects_dir / "repository", rules.excluded)]
     settings = json.loads(run(["gh", "api", f"repos/{args.repository}"]))
     if settings["has_discussions"]:
         sys.exit("the repository's discussions are enabled, and the scan does not fetch them: disable them, or "
@@ -716,7 +716,7 @@ def main(argv=None):
         mirror(f"https://github.com/{args.repository}.wiki.git", wiki,
                failure="the wiki is enabled but has no clone to scan: disable it, or add a page and scan again")
         header.append(f"wiki: {describe_refs(wiki)}")
-        scans.append(ggshield.history("wiki", wiki, messages_dir / "wiki", rules.excluded))
+        scans.append(ggshield.history("wiki", wiki, objects_dir / "wiki", rules.excluded))
     images, described, digests = fetch_packages(args.repository, args.crane, out / "packages")
     header.append("packages: " + ("; ".join(described) or "none"))
     header += releases_on_ghcr(clone, branch_sha, digests)
@@ -724,7 +724,7 @@ def main(argv=None):
     download_releases(args.repository, out / "releases")
     download_workflow_artifacts(args.repository, out / "workflow-artifacts")
     texts = download_github_text(args.repository, out / "github-text")
-    groups = [("history messages", [messages_dir]), ("release assets", [out / "releases"]),
+    groups = [("history objects", [objects_dir]), ("release assets", [out / "releases"]),
               ("workflow artifacts", [out / "workflow-artifacts"]), ("packages", [out / "packages"]),
               ("GitHub text", [out / "github-text"])]
     groups += [("paths", args.path)] if args.path else []
