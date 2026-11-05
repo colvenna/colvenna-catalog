@@ -3,14 +3,14 @@
 # Each finding of ggshield's scan of the whole history (2026-11-04) was checked by hand: none is a
 # credential (docs/security/scans.md, section 5.4; https://github.com/colvenna/colvenna-catalog/issues/111).
 # So was each finding of the publication scan of 2026-11-05, which opened every layer of the image:
-# third-party files of its Ubuntu base, each identical to its Ubuntu package, or the base image's own
-# install logs (section 5.5; https://github.com/colvenna/colvenna-catalog/issues/113).
+# third-party files of its Ubuntu base, each identical to its Ubuntu package, or the base image's
+# own install logs (section 5.5; https://github.com/colvenna/colvenna-catalog/issues/113).
 # Each is ignored by its ignore SHA, ggshield's SHA-256 of the matched string and its type
 # (get_ignore_sha, https://github.com/GitGuardian/ggshield/blob/v1.56.1/ggshield/core/filter.py), so
 # this file holds no value. Nothing else is ignored, no path and no detector: any other value is
 # reported. Each name gives the finding's file, in the history or in the image, not a line. Add an
-# entry only for a value checked by hand and reviewed in its pull request (CONTRIBUTING.md#secret-scanning,
-# #113); a real credential is revoked or rotated, never ignored.
+# entry only for a value checked by hand and reviewed in its pull request
+# (CONTRIBUTING.md#secret-scanning, #113); a real credential is revoked or rotated, never ignored.
 version: 2
 # The pre-push hook scans at most this many commits of a push (ggshield's default is 50).
 max_commits_for_hook: 1000
