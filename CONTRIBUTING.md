@@ -166,8 +166,8 @@ export PATH="$HOME/.venvs/ggshield/bin:$PATH" GITGUARDIAN_API_KEY=...  # or: ggs
   ```bash
   ACCOUNT=<your deployment account ID>; DIR=<the scan's output directory>
   histories() { for git in "$DIR"/mirror.git "$DIR"/wiki.git; do if [ -d "$git" ]; then git -C "$git" log --all -p; fi; done; }
-  # every file of history-objects is a commit or a tag, text that may hold a NUL byte: -a, not -I, reads it
-  first_party() { histories; grep -rha '' "$DIR/unpacked/history-objects"; grep -rhI '' "$DIR/unpacked/release-assets" "$DIR/unpacked/GitHub-text"; }
+  # every file of history-objects is a commit or a tag, text that may hold a NUL byte: read with -a, NULs as newlines
+  first_party() { histories; grep -rha '' "$DIR/unpacked/history-objects" | tr '\0' '\n'; grep -rhI '' "$DIR/unpacked/release-assets" "$DIR/unpacked/GitHub-text"; }
   { first_party; grep -rhI '' "$DIR/unpacked/packages" "$DIR/unpacked/workflow-artifacts"; } | grep -c "$ACCOUNT"  # must be 0
   first_party | grep -oE 'arn:aws[a-z-]*:[a-z0-9-]*:[a-z0-9-]*:[0-9]{12}:' | grep -oE '[0-9]{12}' | sort | uniq -c
   first_party | grep -oE '[a-z0-9.-]+\.(amazonaws\.com|cloudfront\.net|awsapps\.com)' | sort | uniq -c
