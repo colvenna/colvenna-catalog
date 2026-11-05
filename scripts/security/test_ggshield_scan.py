@@ -418,8 +418,39 @@ class HistoryMessagesTest(unittest.TestCase):
             ggshield_scan.write_history_messages(work, Path(messages, "repository"))
 
             texts = {path.name: path.read_text() for path in Path(messages, "repository").iterdir()}
-            self.assertEqual(texts[f"commit-{original}.txt"], "the original, token: made-up-8901")
-            self.assertEqual(texts[f"commit-{replacement}.txt"], "the replacement")
+            self.assertIn("the original, token: made-up-8901", texts[f"commit-{original}.txt"])
+            self.assertNotIn("the replacement", texts[f"commit-{original}.txt"])
+            self.assertIn("the replacement", texts[f"commit-{replacement}.txt"])
+
+    def test_a_commit_is_written_whole_its_headers_and_a_message_past_a_nul_byte(self):
+        with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as messages:
+            git = new_repository(work)
+            git("commit", "--quiet", "--allow-empty", "-m", "first")
+            tree, parent = git("rev-parse", "HEAD^{tree}"), git("rev-parse", "HEAD")
+            raw = (f"tree {tree}\nparent {parent}\nauthor test <test@example.com> 0 +0000\n"
+                   "committer test <test@example.com> 0 +0000\nmergetag object " + "0" * 40 + "\n"
+                   " tag notes: made-up-2345\n\nbefore\0after: made-up-6789\n")
+            odd = git("hash-object", "-t", "commit", "-w", "--stdin", "--literally", input=raw)
+            git("update-ref", "refs/heads/odd", odd)
+
+            ggshield_scan.write_history_messages(work, Path(messages, "repository"))
+
+            written = Path(messages, "repository", f"commit-{odd}.txt").read_bytes()
+            self.assertEqual(written, raw.encode())
+
+
+class GgshieldTest(unittest.TestCase):
+    def test_ggshield_runs_without_replace_objects(self):
+        with tempfile.TemporaryDirectory() as work:
+            fake = Path(work, "ggshield")
+            fake.write_text("#!/bin/sh\n"
+                            'printf \'{"total_incidents": 0, "replace": "%s"}\\n\' "$GIT_NO_REPLACE_OBJECTS"\n')
+            fake.chmod(0o755)
+            runner = ggshield_scan.Ggshield(str(fake), Path(work, "gitguardian.yaml"), Path(work))
+
+            scan = runner.scan("history", "repo", work)
+
+            self.assertEqual(scan.report, {"total_incidents": 0, "replace": "1"})
 
 
 class RepositoryTest(unittest.TestCase):

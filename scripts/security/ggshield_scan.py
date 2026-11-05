@@ -277,7 +277,7 @@ FORCE_PUSHES = """query($owner: String!, $name: String!, $cursor: String) {
 # Each commit as it is: a pushed refs/replace/<sha> would make git, and ggshield's `git show`, read another
 # commit's content in its place, while GitHub still serves the original by its SHA.
 NO_REPLACE = {"GIT_NO_REPLACE_OBJECTS": "1"}
-ANONYMOUS_GIT = {**os.environ, **NO_REPLACE, "GIT_TERMINAL_PROMPT": "0"}  # never prompt; no credential helper
+ANONYMOUS_GIT = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}  # never prompt; no credential helper either
 GIT = ["git", "--no-replace-objects", "-c", "credential.helper="]
 
 
@@ -349,17 +349,28 @@ def excluded_history_paths(clone, excluded):
     return [(path, "ggshield's default exclusions") for path in sorted(paths) if excluded(path)]
 
 
+def git_objects(git, shas):
+    """(sha, content) of each object, as `git cat-file --batch` gives it: every byte, NULs included."""
+    data = run([*git, "cat-file", "--batch"], input="".join(f"{sha}\n" for sha in shas).encode(), text=False)
+    objects, at = [], 0
+    while at < len(data):
+        end = data.index(b"\n", at)
+        sha, _, size = data[at:end].decode().split(" ")
+        objects.append((sha, data[end + 1:end + 1 + int(size)]))
+        at = end + 1 + int(size) + 1  # the object, then a newline
+    return objects
+
+
 def write_history_messages(clone, out):
-    """Write each commit's message and each annotated tag of the clone, a tag that a tag names among them, to
-    a file of its own in out: ggshield's history scan skips a commit's header, its message included
-    (PatchHeader in core/scan/commit_utils.py at v1.56.1), and walks commits only (`git rev-list`,
-    utils/git_shell.py). Returns (ref, why) of each ref that names no commit, whose content is not scanned."""
+    """Write each commit of the clone as git stores it (its headers, a mergetag's tag among them, and its whole
+    message) and each annotated tag, a tag that a tag names among them, to a file of its own in out: ggshield's
+    history scan skips a commit's header, its message included (PatchHeader in core/scan/commit_utils.py at
+    v1.56.1), and walks commits only (`git rev-list`, utils/git_shell.py). Returns (ref, why) of each ref that
+    names no commit, whose content is not scanned."""
     out.mkdir(parents=True, exist_ok=True)
     git = [*GIT, "-C", str(clone)]
-    for record in run([*git, "log", "--all", "-z", "--format=%H%n%B"], text=False).split(b"\0"):
-        sha, _, message = record.strip(b"\n").partition(b"\n")
-        if sha:
-            (out / f"commit-{sha.decode()}.txt").write_bytes(message)
+    for sha, content in git_objects(git, run([*git, "rev-list", "--all"]).split()):
+        (out / f"commit-{sha}.txt").write_bytes(content)
     unscanned = []
     for line in run([*git, "for-each-ref", "--format=%(objecttype) %(objectname) %(refname)"]).splitlines():
         kind, sha, ref = line.split(" ", 2)
