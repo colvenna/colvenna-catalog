@@ -153,6 +153,30 @@ class UnpackTest(unittest.TestCase):
             names = sorted(path.name for path in out.rglob("*") if path.is_file())
             self.assertEqual(names, ["guide_mdx.txt", "notes.md"])
 
+    def test_content_over_the_document_limit_that_is_not_utf8_is_decoded_or_counted_as_binary(self):
+        # ggshield skips such content as "content is over" without reading it (over 4 MiB, before decoding):
+        # ggshield's decoder (encoding) decides first. Text is stored as UTF-8 parts, binary content counted.
+        original, ggshield_scan.DOCUMENT_BYTES = ggshield_scan.DOCUMENT_BYTES, 64
+        self.addCleanup(setattr, ggshield_scan, "DOCUMENT_BYTES", original)
+        latin = ("prix: 10 \u20ac, caf\u00e9\n" * 20).encode("cp1252")
+        binary = bytes(range(256))
+        with tempfile.TemporaryDirectory() as work:
+            Path(work, "notes.txt").write_bytes(latin)
+            Path(work, "libjvm.so").write_bytes(binary)
+            Path(work, "small.bin").write_bytes(b"\xff\xfe\x00")
+            out = Path(work, "unpacked")
+
+            result = ggshield_scan.unpack([Path(work)], out, part_chars=100, overlap_chars=20,
+                                          encoding=lambda data: "cp1252" if data == latin else None)
+
+            stored = stored_files(out)
+            self.assertNotIn(binary, stored)
+            self.assertIn(b"\xff\xfe\x00", stored)  # under the limit: ggshield itself decides
+            text = [data.decode("utf-8") for data in stored if data != b"\xff\xfe\x00"]
+            self.assertGreater(len(text), 2)
+            self.assertTrue(all("\u20ac" in part for part in text))
+            self.assertEqual((result.files, result.distinct, result.large_binary), (3, 3, 1))
+
     def test_an_archive_nested_too_deep_is_counted_and_makes_the_scan_incomplete(self):
         archive = zip_bytes({"settings.properties": b"deep = 1\n"})
         for depth in range(ggshield_scan.MAX_DEPTH):
@@ -171,23 +195,25 @@ class UnpackTest(unittest.TestCase):
             self.assertIn("  - not scanned: 1 archives nested deeper than 6 (not opened)", text)
 
 
+def page(*pulls):
+    return {"data": {"repository": {"pullRequests": {"nodes": [
+        {"number": number, "timelineItems": {"pageInfo": {"hasNextPage": more}, "nodes": events}}
+        for number, events, more in pulls]}}}}
+
+
 class ForcePushedHeadsTest(unittest.TestCase):
     def test_lists_each_replaced_head_once_across_pages(self):
-        def page(nodes):
-            return {"data": {"repository": {"pullRequests": {"nodes": nodes}}}}
-
         pages = [
-            page([{"number": 3, "timelineItems": {"nodes": [
-                {"beforeCommit": {"oid": "a" * 40}},
-                {"beforeCommit": None},
-            ]}}, {"number": 4, "timelineItems": {"nodes": []}}]),
-            page([{"number": 9, "timelineItems": {"nodes": [
-                {"beforeCommit": {"oid": "d" * 40}},
-                {"beforeCommit": {"oid": "a" * 40}},
-            ]}}]),
+            page((3, [{"beforeCommit": {"oid": "a" * 40}}, {"beforeCommit": None}], False), (4, [], False)),
+            page((9, [{"beforeCommit": {"oid": "d" * 40}}, {"beforeCommit": {"oid": "a" * 40}}], False)),
         ]
 
         self.assertEqual(ggshield_scan.force_pushed_heads(pages), ["a" * 40, "d" * 40])
+
+    def test_a_pull_request_with_more_force_pushes_than_a_page_is_refused(self):
+        with self.assertRaises(SystemExit) as refused:
+            ggshield_scan.force_pushed_heads([page((7, [{"beforeCommit": {"oid": "b" * 40}}], True))])
+        self.assertIn("pull request #7", str(refused.exception))
 
 
 # A made-up value: the summary must never print what ggshield matched.
@@ -441,10 +467,36 @@ class PackagesTest(unittest.TestCase):
         self.assertIn("GitHub lists the tag", str(refused.exception))
 
         self.registry.tag("1.0.0", digest)
-        images, described = ggshield_scan.fetch_packages("example/app", str(self.registry.crane),
-                                                         Path(self.work.name, "fetched-again"))
+        images, described, digests = ggshield_scan.fetch_packages("example/app", str(self.registry.crane),
+                                                                  Path(self.work.name, "fetched-again"))
         self.assertEqual(images, [f"ghcr.io/example/colvenna-catalog@{digest}"])
         self.assertEqual(described, [f"ghcr.io/example/colvenna-catalog@{digest} (1.0.0; 1 images)"])
+        self.assertEqual(digests, {digest})
+
+
+class ReleasesTest(unittest.TestCase):
+    def test_each_release_but_no_candidate_is_matched_to_the_versions_scanned(self):
+        def manifest(image, chart):
+            return json.dumps({"image": {"digest": image}, "chart": {"digest": chart}})
+
+        with tempfile.TemporaryDirectory() as work:
+            git = ["git", "-C", work, "-c", "user.name=test", "-c", "user.email=test@example.com"]
+            subprocess.run(["git", "init", "--quiet", work], check=True)
+            for release, image, chart in (("v1.0.0", "sha256:" + "1" * 64, "sha256:" + "2" * 64),
+                                          ("v1.0.1", "sha256:" + "3" * 64, "sha256:" + "4" * 64),
+                                          ("v1.0.0-rc.1", "sha256:" + "5" * 64, "sha256:" + "6" * 64)):
+                Path(work, "release", release).mkdir(parents=True)
+                Path(work, "release", release, "manifest.json").write_text(manifest(image, chart))
+            subprocess.run([*git, "add", "."], check=True)
+            subprocess.run([*git, "commit", "--quiet", "-m", "releases"], check=True)
+            sha = subprocess.run([*git, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+
+            lines = ggshield_scan.releases_on_ghcr(work, sha, {"sha256:" + "1" * 64, "sha256:" + "2" * 64,
+                                                               "sha256:" + "3" * 64})
+
+        self.assertEqual(lines, [
+            f"release v1.0.0: image sha256:{'1' * 64} scanned, chart sha256:{'2' * 64} scanned",
+            f"release v1.0.1: image sha256:{'3' * 64} scanned, chart sha256:{'4' * 64} NOT on GHCR"])
 
 
 class HookTest(unittest.TestCase):

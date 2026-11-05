@@ -57,7 +57,8 @@ jobs:
   # the Helm recovery, the entry points' arguments and the release install, with stub commands where
   # AWS or Kubernetes would be; the release manifest's schema and validation, the third-party record
   # (THIRD_PARTY_NOTICES.md against the tree) and the links (scripts/release); and the security scans'
-  # own helper (scripts/security).
+  # own helpers (scripts/security): the Paimon listing, the ASH settings' checks, and the publication scan
+  # and the ggshield hooks (#113).
   deploy-test:
     runs-on: ubuntu-latest
     steps:

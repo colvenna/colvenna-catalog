@@ -2,7 +2,8 @@
 # everything. CI runs the same configuration (.github/workflows/ci.yml), as does scripts/ci-local.sh,
 # both with SKIP=ggshield: the ggshield workflow scans their commits instead.
 # pre-commit install puts in the commit-msg hook too: a commit message holds no deployment value (#99);
-# and the pre-push hook: the commits about to be pushed are checked, ggshield among the hooks (#113).
+# and the pre-push hook (#113): the hooks that run at pre-push check what a push changes, ggshield-push
+# its commits.
 default_install_hook_types: [pre-commit, commit-msg, pre-push]
 # Only the hooks that say so run on a commit message (the redaction check); the rest on files.
 default_stages: [pre-commit, pre-push, manual]

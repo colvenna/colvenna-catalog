@@ -126,13 +126,15 @@ export PATH="$HOME/.venvs/ggshield/bin:$PATH" GITGUARDIAN_API_KEY=...  # or: ggs
 
   ggshield 1.56.1 would leave some content out without notice, so the scan prepares it first, or fails:
   - ggshield exits 0 even when part of a scan failed. An `errors` entry in its report, or "Scanning failed" in its output, makes the scan fail.
-  - A text over ggshield's 1 MiB limit is scanned in overlapping parts. Any other file that ggshield skips, except a binary one, makes the scan fail.
+  - A text over ggshield's 1 MiB limit is scanned in overlapping parts. ggshield skips content over 4 MiB without reading it, so for content over 1 MiB that is not UTF-8 the scan asks ggshield's decoder first: what it finds text in is scanned in parts, and binary content is counted. Any other file that ggshield skips, except a binary one, makes the scan fail.
   - ggshield's path scan drops files by extension unread (for example `.svg`, `.pdf` and `.jar`), so such a file is scanned under a `.txt` name, and ggshield's decoder decides whether it is text.
   - ggshield's default exclusions (for example `vendor/`, `node_modules/`, `.venv/`, `*.mdx` and `*.sops`) apply to every scan, and its `--ignore-default-excludes` has no effect. Unpacked files that they match are scanned under a neutral name. Any path in the history that they match makes the scan fail, and so does an output directory under such a path.
   - `ggshield secret scan docker` reads only the layers that `COPY` or `ADD` made. It skips system paths (`usr/`, `lib/`, `bin/` and others) and binary files, the image's jars among them, and it skips a layer it found clean before. So the scan opens every layer in full as well, and a layer skipped as scanned before makes it fail.
   - An archive nested more than 6 deep makes the scan fail.
 
-  It exits 0 only when every scan is complete and finds 0 incidents. The summary counts the binary files that ggshield cannot decode. The reports in `--output` contain the matched values, so keep that directory private. The summary has no values. It records the date, the scanned commit, the ggshield version, the quota, the packages' digests, and each finding's location and ignore SHA.
+  The sources of these facts, in ggshield's code at `v1.56.1`, are in [the security scans](docs/security/scans.md), section 4.
+
+  It exits 0 only when every scan is complete and finds 0 incidents. The summary counts the binary files that ggshield cannot decode, and those over 1 MiB. The reports in `--output` contain the matched values, so keep that directory private. The summary has no values. It records the date, the commit whose `.gitguardian.yaml` it used, the refs and commits of the history, the ggshield version, the quota, the packages' digests (and whether each release's image and chart, by the digests of its `release/<release>/manifest.json`, are among them), and each finding's location and ignore SHA.
 
   A release's image and chart are scanned before `scripts/release/publish-ghcr.sh` makes them public, from the release registry by the digests of `release/<release>/manifest.json`, and scanned again from GHCR afterwards ([Publishing to GHCR](docs/development.md#publishing-to-ghcr)):
 
@@ -142,11 +144,11 @@ export PATH="$HOME/.venvs/ggshield/bin:$PATH" GITGUARDIAN_API_KEY=...  # or: ggs
   python3 scripts/security/ggshield_scan.py --output <new private directory> --path <directory>
   ```
 
-- **Each commit and each push (best effort):** `pre-commit install` enables the [ggshield hooks](.pre-commit-config.yaml), with the other hooks. They use the `ggshield` on `PATH` and refuse any version other than the one in the lock file.
+- **Each commit and each push (best effort):** `pre-commit install` enables the [ggshield hooks](.pre-commit-config.yaml) with the others, the pre-push hook among them, so the hooks that run at pre-push (the deployment-values and old-name checks too) check the files a push changes. The ggshield hooks use the `ggshield` on `PATH` and refuse any version other than the one in the lock file.
   - The `ggshield` hook scans the staged changes.
   - The `ggshield-push` hook scans the commits about to be published. It covers at most `max_commits_for_hook` commits of a push (1000, set in `.gitguardian.yaml`), and ggshield lets a push through with only a warning when it cannot work out the commit range. When one push updates several refs (`git push --all`, or several branches or tags), pre-commit hands ggshield only the first, so push them one at a time.
   - Without an API key, they stop with ggshield's error.
-  - `SKIP=ggshield,ggshield-push` or `git push --no-verify` skips them. The ggshield workflow and the publication scan still apply; they cannot be skipped.
+  - `SKIP=ggshield,ggshield-push`, or `--no-verify` on `git commit` or `git push`, skips them. The ggshield workflow and the publication scan still apply; they cannot be skipped.
 - **Each push and pull request:** the [ggshield workflow](.github/workflows/ggshield.yml) runs `ggshield secret scan ci` on the new commits, with the `GITGUARDIAN_API_KEY` Actions secret, which the repository's owner sets. A manual run scans the whole history. Its check, `ggshield`, is one of those the ruleset on `main` requires ([CI](#ci)). Pull requests from forks get no secrets, so for them the job only notes this, and a maintainer scans such a change before merging it.
 - **A finding:**
   - A real credential is revoked or rotated first, then the history is reviewed. It is never ignored.

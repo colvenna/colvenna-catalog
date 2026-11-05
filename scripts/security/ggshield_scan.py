@@ -6,15 +6,15 @@ made public, and no release is made, before it finds 0 (CONTRIBUTING.md#secret-s
 It scans:
   - history: an anonymous `git clone --mirror` (every branch, tag and refs/pull/*), plus each pull-request
     head that a force push replaced and GitHub still serves by its SHA; and the wiki, when it is enabled;
-  - the GHCR packages linked to the repository (the image and the chart), every version: each manifest and
-    blob fetched by its digest and checked against it, each tag checked to resolve to its version's digest.
+  - the GHCR packages of the repository (the image and the chart), every version: each manifest and blob
+    fetched by its digest and checked against it, each tag checked to resolve to its version's digest.
     An image is scanned with `ggshield secret scan docker` too, with an empty layer cache;
   - release assets and workflow artifacts as published, the packages' blobs, and any local --path: each
     archive opened recursively (zip, jar, wheel, tar, gzip; the image's layers and the chart among them),
     each distinct file scanned once;
   - the GitHub text: issues and pull requests with their comments, reviews and review comments, release
     notes and commit comments.
-Reports with matched values stay in --output, which must be private and outside the repository; the
+Reports with matched values stay in --output, which must be private and outside any git work tree; the
 summary holds none. It exits 0 only when every scan is complete and finds 0 incidents.
 
 usage: scripts/security/ggshield_scan.py --output DIR [--repository OWNER/NAME] [--branch BRANCH]
@@ -38,7 +38,7 @@ import zlib
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-from ggshield_pin import installed_version, pinned_version
+from ggshield_pin import require_pinned
 
 ROOT = Path(__file__).resolve().parents[2]
 ZIP_SUFFIXES = (".zip", ".whl", ".jar")
@@ -47,6 +47,7 @@ MAX_DEPTH = 6
 # ggshield skips a document over 1 MiB (its API's limit) and a request body over 2.5 MiB, in which JSON
 # escaping can grow text up to 6 times; parts of 200,000 characters (at most 800 kB of UTF-8) stay under
 # both. Parts overlap, so a value that crosses a cut is whole in one of them.
+DOCUMENT_BYTES = 1_048_576
 PART_CHARS = 200_000
 OVERLAP_CHARS = 4_096
 
@@ -55,6 +56,7 @@ OVERLAP_CHARS = 4_096
 class Unpacked:
     files: int = 0
     distinct: int = 0
+    large_binary: int = 0  # over DOCUMENT_BYTES and no text to ggshield's decoder: not sent, as ggshield would skip it
     too_deep: int = 0  # archives nested deeper than MAX_DEPTH, not opened: the scan is then incomplete
 
 
@@ -62,19 +64,24 @@ ARCHIVE_ERRORS = (OSError, EOFError, zlib.error, zipfile.BadZipFile, tarfile.Tar
 
 
 def unpack(sources, out, part_chars=PART_CHARS, overlap_chars=OVERLAP_CHARS, skip_extensions=frozenset(),
-           excluded=lambda path: False):
+           excluded=lambda path: False, encoding=lambda data: None):
     """Open each source and every archive nested in it (zip, jar, wheel, tar, gzip); store each distinct file
-    content once under out. A UTF-8 text longer than part_chars is stored as overlapping parts, each in a
-    folder that records its number and the line it starts in. ggshield's path scan drops files by extension
-    (skip_extensions) without reading them, so such a file gets ".txt" appended, and ggshield's own decoder
-    decides whether it is text. A file ggshield would exclude by name (excluded, given the stored path) is
-    stored under a neutral name instead. A damaged archive is stored as a file."""
+    content once under out.
+    - A text longer than part_chars is stored as overlapping parts, each in a folder that records its number
+      and the line it starts in. Content that is not UTF-8 and over ggshield's document limit, which ggshield
+      would skip unread, is decoded as encoding(data) finds (ggshield's decoder): text is stored in parts
+      as UTF-8, and binary content is counted, not stored.
+    - ggshield's path scan drops files by extension (skip_extensions) without reading them, so such a file
+      gets ".txt" appended, and ggshield's decoder decides whether it is text.
+    - A file ggshield would exclude by name (excluded, given the stored path) is stored under a neutral name.
+    - A damaged archive is stored as a file."""
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     result = Unpacked()
     seen = set()
 
-    def opened(name, data, depth):
+    def expand(name, data, depth):
+        """Visit the members of an archive; False when name is no archive this opens, or it is damaged."""
         lower = name.lower()
         if not lower.endswith((*ZIP_SUFFIXES, *TAR_SUFFIXES, ".gz")):
             return False
@@ -99,7 +106,7 @@ def unpack(sources, out, part_chars=PART_CHARS, overlap_chars=OVERLAP_CHARS, ski
         return True
 
     def visit(name, data, depth):
-        if opened(name, data, depth):
+        if expand(name, data, depth):
             return
         result.files += 1
         digest = hashlib.sha256(data).hexdigest()
@@ -111,6 +118,13 @@ def unpack(sources, out, part_chars=PART_CHARS, overlap_chars=OVERLAP_CHARS, ski
             text = data.decode("utf-8")
         except UnicodeDecodeError:
             text = None
+        if text is None and len(data) > DOCUMENT_BYTES:
+            found = encoding(data)
+            if found is None:
+                result.large_binary += 1
+                return
+            text = data.decode(found, errors="replace")
+            data = text.encode()
         name = Path(name).name or "file"
         if Path(name).suffix.lower()[1:] in skip_extensions:
             name += ".txt"
@@ -130,8 +144,8 @@ def unpack(sources, out, part_chars=PART_CHARS, overlap_chars=OVERLAP_CHARS, ski
 
 
 def parts(data, text, part_chars, overlap_chars):
-    """(first line, bytes) of data itself, or of windows of a UTF-8 text longer than part_chars that overlap
-    by overlap_chars."""
+    """(first line, bytes) of data itself, or of windows of a text longer than part_chars that overlap by
+    overlap_chars, as UTF-8."""
     if text is None or len(text) <= part_chars:
         return [(1, data)]
     step = part_chars - overlap_chars
@@ -146,13 +160,20 @@ def file_line(path, line):
     return f"{digest}/{path.name}", line + int(first or 1) - 1
 
 
+def pull_requests(page):
+    return page["data"]["repository"]["pullRequests"]
+
+
 def force_pushed_heads(pages):
-    """The head SHA each force push in the GraphQL pages replaced, each once.
+    """The head SHA each force push in the GraphQL pages replaced, each once. Exits if a pull request has
+    more force pushes than one page holds, which the query does not page through.
 
     GitHub keeps serving such a commit by its SHA once the repository is public, though no ref reaches it."""
     heads = []
     for page in pages:
-        for pull in page["data"]["repository"]["pullRequests"]["nodes"]:
+        for pull in pull_requests(page)["nodes"]:
+            if pull["timelineItems"]["pageInfo"]["hasNextPage"]:
+                sys.exit(f"pull request #{pull['number']} has more force pushes than the scan pages through")
             for event in pull["timelineItems"]["nodes"]:
                 sha = (event.get("beforeCommit") or {}).get("oid")
                 if sha and sha not in heads:
@@ -242,7 +263,8 @@ FORCE_PUSHES = """query($owner: String!, $name: String!, $cursor: String) {
   repository(owner: $owner, name: $name) {
     pullRequests(first: 50, after: $cursor) {
       pageInfo { hasNextPage endCursor }
-      nodes { timelineItems(first: 100, itemTypes: [HEAD_REF_FORCE_PUSHED_EVENT]) {
+      nodes { number timelineItems(first: 100, itemTypes: [HEAD_REF_FORCE_PUSHED_EVENT]) {
+        pageInfo { hasNextPage }
         nodes { ... on HeadRefForcePushedEvent { beforeCommit { oid } } } } }
     }
   }
@@ -251,18 +273,44 @@ ANONYMOUS_GIT = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}  # never prompt; no c
 GIT = ["git", "-c", "credential.helper="]
 
 
-def run(command, failure=None, **options):
+def run(command, failure=None, text=True, **options):
     """The command's output; on failure, exit with failure (or the command and its stderr)."""
-    done = subprocess.run(command, capture_output=True, text=True, **options)
+    done = subprocess.run(command, capture_output=True, text=text, **options)
     if done.returncode:
-        sys.exit(failure or f"{' '.join(command[:4])} ... failed ({done.returncode}): {done.stderr.strip()}")
+        error = done.stderr if text else done.stderr.decode(errors="replace")
+        sys.exit(failure or f"{' '.join(command[:4])} ... failed ({done.returncode}): {error.strip()}")
     return done.stdout
 
 
+def download(command, target):
+    """Write the command's output to target; on failure, exit with the command and its stderr."""
+    with open(target, "wb") as stream:
+        done = subprocess.run(command, stdout=stream, stderr=subprocess.PIPE)
+    if done.returncode:
+        sys.exit(f"{' '.join(command[:4])} ... failed ({done.returncode}): "
+                 f"{done.stderr.decode(errors='replace').strip()}")
+
+
+@dataclass
+class Rules:
+    """What ggshield 1.56.1 leaves out without saying so, read from the Python of ggshield's environment."""
+    python: str
+    skip_extensions: set  # the extensions its path scan drops unread
+    patterns: list  # its default exclusions, which apply to every scan, history included
+
+    def excluded(self, path):
+        return any(pattern.search(PurePosixPath(path).as_posix()) for pattern in self.patterns)
+
+    def encoding(self, data):
+        """The encoding ggshield's decoder (charset_normalizer) finds in data, or None: then it is binary."""
+        code = "import sys, charset_normalizer\nm = charset_normalizer.from_bytes(sys.stdin.buffer.read()).best()\n" \
+               "print(m.encoding if m else '')"
+        return run([self.python, "-c", code], input=data, text=False).decode().strip() or None
+
+
 def ggshield_rules(binary):
-    """What ggshield 1.56.1 leaves out without saying so, read from the Python of ggshield's environment: the
-    extensions its path scan drops unread, and a predicate for the paths its default exclusions skip (in
-    every scan, history included). --ignore-default-excludes is accepted but has no effect in 1.56.1."""
+    """The Rules of the ggshield at binary. --ignore-default-excludes is accepted but has no effect in
+    1.56.1, so the default exclusions cannot be turned off."""
     folder = Path(shutil.which(binary) or binary).resolve().parent
     code = ("import json\n"
             "from ggshield.cmd.secret.scan.secret_scan_common_options import IGNORED_DEFAULT_WILDCARDS as W\n"
@@ -273,14 +321,13 @@ def ggshield_rules(binary):
         done = subprocess.run([str(python), "-c", code], capture_output=True, text=True) if python.exists() else None
         if done and done.returncode == 0:
             extensions, patterns = json.loads(done.stdout)
-            regexes = [re.compile(pattern) for pattern in patterns]
-            return set(extensions), lambda path: any(r.search(PurePosixPath(path).as_posix()) for r in regexes)
+            return Rules(str(python), set(extensions), [re.compile(pattern) for pattern in patterns])
     sys.exit(f"cannot read what ggshield leaves out: no Python beside {folder / Path(binary).name} imports ggshield")
 
 
 def excluded_history_paths(clone, excluded):
-    """The paths any commit of the clone touches that ggshield's default exclusions skip (unquoted, so that a
-    non-ASCII path is matched as ggshield sees it)."""
+    """(path, why) of each path any commit of the clone touches that ggshield's default exclusions skip
+    (unquoted, so that a non-ASCII path is matched as ggshield sees it)."""
     listing = run([*GIT, "-C", str(clone), "-c", "core.quotePath=false", "log", "-z", "--all", "--format=",
                    "--name-only"])
     paths = {path.strip("\n") for path in listing.split("\0")} - {""}
@@ -309,9 +356,8 @@ def slug(scope):
     return re.sub(r"[^A-Za-z0-9.@_-]+", "-", scope)
 
 
-def mirror(repository, clone):
-    run([*GIT, "clone", "--quiet", "--mirror", f"https://github.com/{repository}.git", str(clone)],
-        env=ANONYMOUS_GIT)
+def mirror(url, clone, failure=None):
+    run([*GIT, "clone", "--quiet", "--mirror", url, str(clone)], failure=failure, env=ANONYMOUS_GIT)
     run([*GIT, "-C", str(clone), "remote", "set-url", "--push", "origin", "no-push://read-only"])
 
 
@@ -322,7 +368,7 @@ def fetch_force_pushed(repository, clone):
     while True:
         args = ["gh", "api", "graphql", "-f", "query=" + FORCE_PUSHES, "-F", "owner=" + owner, "-F", "name=" + name]
         pages.append(json.loads(run(args + (["-F", "cursor=" + cursor] if cursor else []))))
-        info = pages[-1]["data"]["repository"]["pullRequests"]["pageInfo"]
+        info = pull_requests(pages[-1])["pageInfo"]
         if not info["hasNextPage"]:
             break
         cursor = info["endCursor"]
@@ -360,9 +406,7 @@ def download_workflow_artifacts(repository, out):
     artifact_ids = run(["gh", "api", "--paginate", f"repos/{repository}/actions/artifacts?per_page=100",
                         "--jq", ".artifacts[] | select(.expired | not) | .id"])
     for artifact_id in artifact_ids.split():
-        with open(out / f"{artifact_id}.zip", "wb") as stream:
-            subprocess.run(["gh", "api", f"repos/{repository}/actions/artifacts/{artifact_id}/zip"],
-                           check=True, stdout=stream)
+        download(["gh", "api", f"repos/{repository}/actions/artifacts/{artifact_id}/zip"], out / f"{artifact_id}.zip")
 
 
 GITHUB_TEXT = [  # (API path, jq that emits one {name, text} object a line)
@@ -396,17 +440,20 @@ def download_github_text(repository, out):
 
 
 def package_versions(repository):
-    """(package, version digest, tags) of every version of each GHCR container package linked to the
-    repository, tagged or not: anyone can pull a public package's version by its digest."""
-    owner = repository.split("/", 1)[0]
+    """(package, version digest, tags) of every version of each GHCR container package of the repository,
+    tagged or not (anyone can pull a public package's version by its digest). A package is the repository's
+    when it is linked to it, or named after it (<name>, charts/<name>) though not linked."""
+    owner, name = repository.split("/", 1)
+    select = (f'.[] | select(.repository.full_name == "{repository}" or .name == "{name}" '
+              f'or .name == "charts/{name}") | .name')
     names = run(["gh", "api", "--paginate", f"orgs/{owner}/packages?package_type=container&per_page=100",
-                 "--jq", f'.[] | select(.repository.full_name == "{repository}") | .name']).split()
-    for name in names:
-        path = f"orgs/{owner}/packages/container/{urllib.parse.quote(name, safe='')}/versions?per_page=100"
+                 "--jq", select]).split()
+    for package in names:
+        path = f"orgs/{owner}/packages/container/{urllib.parse.quote(package, safe='')}/versions?per_page=100"
         for line in run(["gh", "api", "--paginate", path, "--jq",
                          '.[] | "\\(.name) \\(.metadata.container.tags | join(","))"']).splitlines():
             digest, _, tags = line.partition(" ")
-            yield name, digest, [tag for tag in tags.split(",") if tag]
+            yield package, digest, [tag for tag in tags.split(",") if tag]
 
 
 def blob_suffix(media_type):
@@ -428,13 +475,6 @@ def sha256_file(path):
     return "sha256:" + digest.hexdigest()
 
 
-def crane_output(crane, *args):
-    done = subprocess.run([crane, *args], capture_output=True)
-    if done.returncode:
-        sys.exit(f"crane {' '.join(args)} failed ({done.returncode}): {done.stderr.decode(errors='replace').strip()}")
-    return done.stdout
-
-
 IMAGE_CONFIGS = ("application/vnd.docker.container.image.v1+json", "application/vnd.oci.image.config.v1+json")
 
 
@@ -444,22 +484,18 @@ def fetch_artifact(crane, image, digest, out, seen):
     if digest in seen:
         return []
     seen.add(digest)
-    data = crane_output(crane, "manifest", f"{image}@{digest}")
+    data = run([crane, "manifest", f"{image}@{digest}"], text=False)
     if "sha256:" + hashlib.sha256(data).hexdigest() != digest:
         sys.exit(f"{image}@{digest}: the registry served a manifest of another digest")
     (out / f"{digest[7:]}.manifest.json").write_bytes(data)
     manifest = json.loads(data)
     if "manifests" in manifest:
-        return [found for child in manifest["manifests"] for found in fetch_artifact(crane, image, child["digest"],
-                                                                                        out, seen)]
+        return [found for child in manifest["manifests"]
+                for found in fetch_artifact(crane, image, child["digest"], out, seen)]
     for blob in [manifest["config"], *manifest.get("layers", [])]:
         target = out / (blob["digest"][7:] + blob_suffix(blob.get("mediaType", "")))
         if not target.exists():
-            with open(target, "wb") as stream:
-                done = subprocess.run([crane, "blob", f"{image}@{blob['digest']}"], stdout=stream,
-                                      stderr=subprocess.PIPE)
-            if done.returncode:
-                sys.exit(f"crane blob {image}@{blob['digest']} failed: {done.stderr.decode(errors='replace').strip()}")
+            download([crane, "blob", f"{image}@{blob['digest']}"], target)
             if sha256_file(target) != blob["digest"]:
                 sys.exit(f"{image}@{blob['digest']}: the registry served a blob of another digest")
             if target.name.endswith(TAR_SUFFIXES) and not tarfile.is_tarfile(target):
@@ -470,55 +506,76 @@ def fetch_artifact(crane, image, digest, out, seen):
 
 
 def fetch_packages(repository, crane, out):
-    """Download every version of each GHCR package of the repository into out; the image manifests to scan
-    with Docker, and a line for the summary per version."""
+    """Download every version of each GHCR package of the repository into out. Returns the image manifests
+    to scan with Docker, a line for the summary per version, and the versions' digests."""
     out.mkdir(parents=True)
     owner = repository.split("/", 1)[0]
-    images, described = [], []
+    images, described, digests = [], [], set()
     for name, digest, tags in package_versions(repository):
         image = f"ghcr.io/{owner}/{name}".lower()
         for tag in tags:
-            served = crane_output(crane, "digest", f"{image}:{tag}").decode().strip()
+            served = run([crane, "digest", f"{image}:{tag}"]).strip()
             if served != digest:
                 sys.exit(f"{image}:{tag} is {served}, but GitHub lists the tag on {digest}")
         held = fetch_artifact(crane, image, digest, out, set())
         images += [f"{image}@{found}" for found in held]
+        digests.add(digest)
         described.append(f"{image}@{digest} ({', '.join(tags) or 'untagged'}; {len(held)} images)")
-    return images, described
+    return images, described, digests
 
 
-def ggshield(binary, config, out, scope, *command, env=None):
-    report = out / f"{slug(scope)}.json"
-    with open(report, "wb") as stdout, open(report.with_suffix(".stderr"), "wb") as stderr:
-        # In out, so that ggshield's cache file (.cache_ggshield, which holds findings) stays there.
-        returncode = subprocess.run([binary, "--config-path", str(config), "secret", "scan", *command, "--json"],
-                                    stdout=stdout, stderr=stderr, cwd=out, env=env).returncode
-    try:
-        data = json.loads(report.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        data = {}
-    return Scan(scope, returncode, data, report.with_suffix(".stderr").read_text(encoding="utf-8", errors="replace"))
+def releases_on_ghcr(clone, sha, digests):
+    """For each release the branch at sha records (release/v<x.y.z>/manifest.json; not a candidate's), whether
+    the image and the chart it names, by digest, are among the GHCR versions scanned."""
+    names = run([*GIT, "-C", str(clone), "ls-tree", "--name-only", f"{sha}:release"],
+                failure=f"{sha} has no release/ directory").split()
+    lines = []
+    for release in sorted(name for name in names if re.fullmatch(r"v\d+\.\d+\.\d+", name)):
+        manifest = json.loads(run([*GIT, "-C", str(clone), "show", f"{sha}:release/{release}/manifest.json"]))
+        state = {part: "scanned" if manifest[part]["digest"] in digests else "NOT on GHCR"
+                 for part in ("image", "chart")}
+        lines.append(f"release {release}: image {manifest['image']['digest']} {state['image']}, "
+                     f"chart {manifest['chart']['digest']} {state['chart']}")
+    return lines
 
 
-def docker_scan(binary, config, out, image):
-    """`ggshield secret scan docker` of an image, with an empty layer cache (GG_CACHE_DIR). It reads only the
-    layers that COPY or ADD made and skips system paths (usr/, lib/, ...) and binary files, the jars among
-    them: unpack() covers all of those."""
-    if not shutil.which("docker"):
-        sys.exit(f"Docker is needed to scan {image} with ggshield secret scan docker")
-    present = subprocess.run(["docker", "image", "inspect", image], capture_output=True).returncode == 0
-    cache = out / "ggshield-cache" / slug(image)
-    cache.mkdir(parents=True)
-    scan = ggshield(binary, config, out, f"image {image}", "docker", image,
-                    env={**os.environ, "GG_CACHE_DIR": str(cache)})
-    if not present:
-        subprocess.run(["docker", "image", "rm", image], capture_output=True)
-    return scan
+@dataclass
+class Ggshield:
+    """ggshield at binary, with the configuration config, writing its reports into out."""
+    binary: str
+    config: Path
+    out: Path
 
+    def scan(self, scope, *command, env=None, unscanned=()):
+        report = self.out / f"{slug(scope)}.json"
+        with open(report, "wb") as stdout, open(report.with_suffix(".stderr"), "wb") as stderr:
+            # In out, so that ggshield's cache file (.cache_ggshield, which holds findings) stays there.
+            returncode = subprocess.run([self.binary, "--config-path", str(self.config), "secret", "scan", *command,
+                                         "--json"], stdout=stdout, stderr=stderr, cwd=self.out, env=env).returncode
+        try:
+            data = json.loads(report.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            data = {}
+        stderr = report.with_suffix(".stderr").read_text(encoding="utf-8", errors="replace")
+        return Scan(scope, returncode, data, stderr, list(unscanned))
 
-def quota(binary):
-    done = subprocess.run([binary, "quota"], capture_output=True, text=True)
-    return done.stdout.splitlines()[0] if done.returncode == 0 and done.stdout else "unavailable"
+    def docker(self, image):
+        """`ggshield secret scan docker` of an image, with an empty layer cache (GG_CACHE_DIR). It reads only
+        the layers that COPY or ADD made, and skips system paths (usr/, lib/, ...) and binary files, the jars
+        among them: unpack() covers all of those."""
+        if not shutil.which("docker"):
+            sys.exit(f"Docker is needed to scan {image} with ggshield secret scan docker")
+        present = subprocess.run(["docker", "image", "inspect", image], capture_output=True).returncode == 0
+        cache = self.out / "ggshield-cache" / slug(image)
+        cache.mkdir(parents=True)
+        scan = self.scan(f"image {image}", "docker", image, env={**os.environ, "GG_CACHE_DIR": str(cache)})
+        if not present:
+            subprocess.run(["docker", "image", "rm", image], capture_output=True)
+        return scan
+
+    def quota(self):
+        done = subprocess.run([self.binary, "quota"], capture_output=True, text=True)
+        return done.stdout.splitlines()[0] if done.returncode == 0 and done.stdout else "unavailable"
 
 
 def default_crane():
@@ -536,47 +593,42 @@ def main(argv=None):
     parser.add_argument("--crane", default=default_crane(), help="crane (default: scripts/install-tools.sh's)")
     args = parser.parse_args(argv)
 
-    want, have = pinned_version(), installed_version(args.ggshield)
-    if have != want:  # the completeness checks read this version's messages
-        sys.exit(f"the scan needs ggshield {want}, installed from scripts/security/ggshield-requirements.lock "
-                 f"(found: {have})")
-    skip_extensions, excluded = ggshield_rules(args.ggshield)
+    version = require_pinned(args.ggshield, "the scan")  # its completeness checks read this version's messages
+    rules = ggshield_rules(args.ggshield)
     out = args.output.resolve()  # ggshield reports the paths it was given; file_line() maps absolute ones
-    check_output(out, excluded)
+    check_output(out, rules.excluded)
     out.mkdir(mode=0o700, parents=True)
+    ggshield = Ggshield(args.ggshield, out / "gitguardian.yaml", out)
     header = [f"date: {datetime.datetime.now(datetime.timezone.utc):%Y-%m-%dT%H:%M:%SZ}",
-              f"repository: {args.repository}", f"ggshield: {have}", f"quota before: {quota(args.ggshield)}"]
+              f"repository: {args.repository}", f"ggshield: {version}", f"quota before: {ggshield.quota()}"]
 
     clone = out / "mirror.git"
-    mirror(args.repository, clone)
+    mirror(f"https://github.com/{args.repository}.git", clone)
     pushed = fetch_force_pushed(args.repository, clone)
     header.append(f"refs: {describe_refs(clone)}; force-pushed heads: "
                   + ", ".join(f"{number} {outcome}" for outcome, number in pushed.items()))
     branch_sha = run([*GIT, "-C", str(clone), "rev-parse", "--verify", f"refs/heads/{args.branch}"],
                      failure=f"the repository has no branch {args.branch}").strip()
-    config = out / "gitguardian.yaml"
-    config.write_text(run([*GIT, "-C", str(clone), "show", f"{branch_sha}:.gitguardian.yaml"],
-                          failure=f"{args.branch} has no .gitguardian.yaml: the scan uses the repository's own "
-                                  "configuration"))
+    ggshield.config.write_text(run([*GIT, "-C", str(clone), "show", f"{branch_sha}:.gitguardian.yaml"],
+                                   failure=f"{args.branch} has no .gitguardian.yaml: the scan uses the repository's "
+                                           "own configuration"))
     header.append(f"configuration: .gitguardian.yaml of {args.branch} {branch_sha}")
 
-    scans = [ggshield(args.ggshield, config, out, "history", "repo", str(clone))]
-    scans[-1].unscanned = excluded_history_paths(clone, excluded)
+    scans = [ggshield.scan("history", "repo", str(clone), unscanned=excluded_history_paths(clone, rules.excluded))]
     settings = json.loads(run(["gh", "api", f"repos/{args.repository}"]))
     if settings["has_discussions"]:
         sys.exit("the repository's discussions are enabled, and the scan does not fetch them: disable them, or "
                  "extend the scan")
     if settings["has_wiki"]:
         wiki = out / "wiki.git"
-        run([*GIT, "clone", "--quiet", "--mirror", f"https://github.com/{args.repository}.wiki.git", str(wiki)],
-            failure="the wiki is enabled but has no clone to scan: disable it, or add a page and scan again",
-            env=ANONYMOUS_GIT)
+        mirror(f"https://github.com/{args.repository}.wiki.git", wiki,
+               failure="the wiki is enabled but has no clone to scan: disable it, or add a page and scan again")
         header.append(f"wiki: {describe_refs(wiki)}")
-        scans.append(ggshield(args.ggshield, config, out, "wiki", "repo", str(wiki)))
-        scans[-1].unscanned = excluded_history_paths(wiki, excluded)
-    images, described = fetch_packages(args.repository, args.crane, out / "packages")
+        scans.append(ggshield.scan("wiki", "repo", str(wiki), unscanned=excluded_history_paths(wiki, rules.excluded)))
+    images, described, digests = fetch_packages(args.repository, args.crane, out / "packages")
     header.append("packages: " + ("; ".join(described) or "none"))
-    scans += [docker_scan(args.ggshield, config, out, image) for image in images]
+    header += releases_on_ghcr(clone, branch_sha, digests)
+    scans += [ggshield.docker(image) for image in images]
     download_releases(args.repository, out / "releases")
     download_workflow_artifacts(args.repository, out / "workflow-artifacts")
     texts = download_github_text(args.repository, out / "github-text")
@@ -585,16 +637,19 @@ def main(argv=None):
     groups += [("paths", args.path)] if args.path else []
     for scope, sources in groups:
         unpacked = out / "unpacked" / slug(scope)
-        stats = unpack(sources, unpacked, skip_extensions=skip_extensions, excluded=excluded)
-        header.append(f"{scope}: {stats.files} files, {stats.distinct} distinct contents scanned"
-                      + (f" ({texts} documents)" if scope == "GitHub text" else ""))
+        stats = unpack(sources, unpacked, skip_extensions=rules.skip_extensions, excluded=rules.excluded,
+                       encoding=rules.encoding)
+        header.append(f"{scope}: {stats.files} files, {stats.distinct} distinct contents"
+                      + (f" ({texts} documents)" if scope == "GitHub text" else "")
+                      + (f"; {stats.large_binary} binary files over 1 MiB not sent (ggshield's decoder finds no "
+                         "text in them)" if stats.large_binary else ""))
         if stats.files:
-            scans.append(ggshield(args.ggshield, config, out, scope, "path", "--recursive", "--yes", str(unpacked)))
-            if stats.too_deep:
-                scans[-1].unscanned = [(f"{stats.too_deep} archives nested deeper than {MAX_DEPTH}", "not opened")]
+            too_deep = [(f"{stats.too_deep} archives nested deeper than {MAX_DEPTH}", "not opened")]
+            scans.append(ggshield.scan(scope, "path", "--recursive", "--yes", str(unpacked),
+                                       unscanned=too_deep if stats.too_deep else ()))
 
     text, clean = summarize(scans)
-    header.append(f"quota after: {quota(args.ggshield)}")
+    header.append(f"quota after: {ggshield.quota()}")
     report = "\n".join(header) + "\n" + text
     (out / "summary.txt").write_text(report)
     print(report + f"reports: {out}")
