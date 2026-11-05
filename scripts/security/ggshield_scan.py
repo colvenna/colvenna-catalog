@@ -274,8 +274,11 @@ FORCE_PUSHES = """query($owner: String!, $name: String!, $cursor: String) {
     }
   }
 }"""
-ANONYMOUS_GIT = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}  # never prompt; no credential helper either
-GIT = ["git", "-c", "credential.helper="]
+# Each commit as it is: a pushed refs/replace/<sha> would make git, and ggshield's `git show`, read another
+# commit's content in its place, while GitHub still serves the original by its SHA.
+NO_REPLACE = {"GIT_NO_REPLACE_OBJECTS": "1"}
+ANONYMOUS_GIT = {**os.environ, **NO_REPLACE, "GIT_TERMINAL_PROMPT": "0"}  # never prompt; no credential helper
+GIT = ["git", "--no-replace-objects", "-c", "credential.helper="]
 
 
 def exit_if_failed(command, done, failure=None):
@@ -346,7 +349,7 @@ def excluded_history_paths(clone, excluded):
     return [(path, "ggshield's default exclusions") for path in sorted(paths) if excluded(path)]
 
 
-def history_messages(clone, out):
+def write_history_messages(clone, out):
     """Write each commit's message and each annotated tag of the clone, a tag that a tag names among them, to
     a file of its own in out: ggshield's history scan skips a commit's header, its message included
     (PatchHeader in core/scan/commit_utils.py at v1.56.1), and walks commits only (`git rev-list`,
@@ -363,9 +366,9 @@ def history_messages(clone, out):
         while kind == "tag":
             tag = run([*git, "cat-file", "tag", sha], text=False)
             (out / f"tag-{sha}.txt").write_bytes(tag)
-            headers = tag.split(b"\n\n", 1)[0].decode().splitlines()
-            fields = dict(header.split(" ", 1) for header in headers if " " in header)
-            sha, kind = fields["object"], fields["type"]
+            headers = tag.split(b"\n\n", 1)[0].splitlines()  # bytes: a tagger's name need not be UTF-8
+            fields = dict(header.split(b" ", 1) for header in headers if b" " in header)
+            sha, kind = fields[b"object"].decode(), fields[b"type"].decode()
         if kind != "commit":
             unscanned.append((ref, f"names a {kind}, not a commit"))
     return unscanned
@@ -620,13 +623,20 @@ class Ggshield:
         with open(report, "wb") as stdout, open(report.with_suffix(".stderr"), "wb") as stderr:
             # In out, so that ggshield's cache file (.cache_ggshield, which holds findings) stays there.
             returncode = subprocess.run([self.binary, "--config-path", str(self.config), "secret", "scan", *command,
-                                         "--json"], stdout=stdout, stderr=stderr, cwd=self.out, env=env).returncode
+                                         "--json"], stdout=stdout, stderr=stderr, cwd=self.out,
+                                        env={**(env or os.environ), **NO_REPLACE}).returncode
         try:
             data = json.loads(report.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             data = {}
         stderr = report.with_suffix(".stderr").read_text(encoding="utf-8", errors="replace")
         return Scan(scope, returncode, data, stderr, list(unscanned))
+
+    def history(self, scope, clone, messages, excluded):
+        """ggshield's scan of a clone's history, with what it leaves out: the paths its default exclusions
+        match, and the refs that name no commit. The commits' messages and the tags go into messages."""
+        unscanned = excluded_history_paths(clone, excluded) + write_history_messages(clone, messages)
+        return self.scan(scope, "repo", str(clone), unscanned=unscanned)
 
     def docker(self, image):
         """`ggshield secret scan docker` of an image, with an empty layer cache (GG_CACHE_DIR). It reads only
@@ -684,9 +694,8 @@ def main(argv=None):
                                            "own configuration"))
     header.append(f"configuration: .gitguardian.yaml of {args.branch} {branch_sha}")
 
-    messages = out / "history-messages"
-    unscanned = excluded_history_paths(clone, rules.excluded) + history_messages(clone, messages / "repository")
-    scans = [ggshield.scan("history", "repo", str(clone), unscanned=unscanned)]
+    messages_dir = out / "history-messages"
+    scans = [ggshield.history("history", clone, messages_dir / "repository", rules.excluded)]
     settings = json.loads(run(["gh", "api", f"repos/{args.repository}"]))
     if settings["has_discussions"]:
         sys.exit("the repository's discussions are enabled, and the scan does not fetch them: disable them, or "
@@ -696,8 +705,7 @@ def main(argv=None):
         mirror(f"https://github.com/{args.repository}.wiki.git", wiki,
                failure="the wiki is enabled but has no clone to scan: disable it, or add a page and scan again")
         header.append(f"wiki: {describe_refs(wiki)}")
-        unscanned = excluded_history_paths(wiki, rules.excluded) + history_messages(wiki, messages / "wiki")
-        scans.append(ggshield.scan("wiki", "repo", str(wiki), unscanned=unscanned))
+        scans.append(ggshield.history("wiki", wiki, messages_dir / "wiki", rules.excluded))
     images, described, digests = fetch_packages(args.repository, args.crane, out / "packages")
     header.append("packages: " + ("; ".join(described) or "none"))
     header += releases_on_ghcr(clone, branch_sha, digests)
@@ -705,7 +713,7 @@ def main(argv=None):
     download_releases(args.repository, out / "releases")
     download_workflow_artifacts(args.repository, out / "workflow-artifacts")
     texts = download_github_text(args.repository, out / "github-text")
-    groups = [("history messages", [messages]), ("release assets", [out / "releases"]),
+    groups = [("history messages", [messages_dir]), ("release assets", [out / "releases"]),
               ("workflow artifacts", [out / "workflow-artifacts"]), ("packages", [out / "packages"]),
               ("GitHub text", [out / "github-text"])]
     groups += [("paths", args.path)] if args.path else []

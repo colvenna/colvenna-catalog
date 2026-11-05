@@ -324,16 +324,25 @@ class SummarizeTest(unittest.TestCase):
         self.assertTrue(text.rstrip().endswith("VERDICT: FINDINGS"))
 
 
+def new_repository(work):
+    """git init work; returns a function that runs git there as a test author, and returns its output."""
+    subprocess.run(["git", "init", "--quiet", "--initial-branch=main", work], check=True)
+
+    def git(*args, **options):
+        return subprocess.run(["git", "-C", work, "-c", "user.name=test", "-c", "user.email=test@example.com", *args],
+                              check=True, capture_output=True, text=True, **options).stdout.strip()
+    return git
+
+
 class ExclusionTest(unittest.TestCase):
     def test_history_paths_are_matched_unquoted_even_when_not_ascii(self):
         with tempfile.TemporaryDirectory() as work:
-            git = ["git", "-C", work, "-c", "user.name=test", "-c", "user.email=test@example.com"]
-            subprocess.run(["git", "init", "--quiet", work], check=True)
+            git = new_repository(work)
             for path in ("vendor/中文.py", "src/app.py"):
                 Path(work, path).parent.mkdir(exist_ok=True)
                 Path(work, path).write_text("x = 1\n")
-            subprocess.run([*git, "add", "."], check=True)
-            subprocess.run([*git, "commit", "--quiet", "-m", "files"], check=True)
+            git("add", ".")
+            git("commit", "--quiet", "-m", "files")
 
             found = ggshield_scan.excluded_history_paths(work, lambda path: path.startswith("vendor/"))
 
@@ -341,11 +350,7 @@ class ExclusionTest(unittest.TestCase):
 
     def test_a_path_that_only_a_merge_commit_adds_is_matched(self):
         with tempfile.TemporaryDirectory() as work:
-            def git(*args):
-                subprocess.run(["git", "-C", work, "-c", "user.name=test", "-c", "user.email=test@example.com",
-                                *args], check=True, capture_output=True)
-
-            subprocess.run(["git", "init", "--quiet", "--initial-branch=main", work], check=True)
+            git = new_repository(work)
             git("commit", "--quiet", "--allow-empty", "-m", "root")
             git("checkout", "--quiet", "-b", "side")
             Path(work, "b.txt").write_text("b\n")
@@ -369,11 +374,7 @@ class ExclusionTest(unittest.TestCase):
 class HistoryMessagesTest(unittest.TestCase):
     def test_each_commit_message_and_annotated_tag_is_written_to_its_own_file(self):
         with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as messages:
-            def git(*args):
-                return subprocess.run(["git", "-C", work, "-c", "user.name=test", "-c", "user.email=test@example.com",
-                                       *args], check=True, capture_output=True, text=True).stdout.strip()
-
-            subprocess.run(["git", "init", "--quiet", work], check=True)
+            git = new_repository(work)
             git("commit", "--quiet", "--allow-empty", "-m", "first", "-m", "token: made-up-0123")
             git("commit", "--quiet", "--allow-empty", "-m", "second")
             git("tag", "-a", "v1.0.0", "-m", "release v1.0.0, notes: made-up-4567")
@@ -382,7 +383,7 @@ class HistoryMessagesTest(unittest.TestCase):
             git("tag", "light")
             out = Path(messages, "repository")
 
-            unscanned = ggshield_scan.history_messages(work, out)
+            unscanned = ggshield_scan.write_history_messages(work, out)
 
             written = {path.name: path.read_text() for path in out.iterdir()}
             self.assertEqual(unscanned, [])
@@ -393,20 +394,32 @@ class HistoryMessagesTest(unittest.TestCase):
 
     def test_a_ref_that_names_no_commit_makes_the_history_incomplete(self):
         with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as messages:
-            def git(*args, **options):
-                return subprocess.run(["git", "-C", work, "-c", "user.name=test", "-c", "user.email=test@example.com",
-                                       *args], check=True, capture_output=True, text=True, **options).stdout.strip()
-
-            subprocess.run(["git", "init", "--quiet", work], check=True)
+            git = new_repository(work)
             git("commit", "--quiet", "--allow-empty", "-m", "first")
             blob = git("hash-object", "-w", "--stdin", input="a value no commit holds\n")
             git("tag", "-a", "a-blob", "-m", "a tag of a blob", blob)
             git("update-ref", "refs/notes-like/blob", blob)
 
-            unscanned = ggshield_scan.history_messages(work, Path(messages, "repository"))
+            unscanned = ggshield_scan.write_history_messages(work, Path(messages, "repository"))
 
             self.assertEqual(unscanned, [("refs/notes-like/blob", "names a blob, not a commit"),
                                          ("refs/tags/a-blob", "names a blob, not a commit")])
+
+    def test_a_replaced_commit_is_read_as_it_is(self):
+        # A pushed refs/replace/<sha> makes git show another commit in its place; GitHub serves the original.
+        with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as messages:
+            git = new_repository(work)
+            git("commit", "--quiet", "--allow-empty", "-m", "the original, token: made-up-8901")
+            original = git("rev-parse", "HEAD")
+            git("commit", "--quiet", "--allow-empty", "-m", "the replacement")
+            replacement = git("rev-parse", "HEAD")
+            git("replace", original, replacement)
+
+            ggshield_scan.write_history_messages(work, Path(messages, "repository"))
+
+            texts = {path.name: path.read_text() for path in Path(messages, "repository").iterdir()}
+            self.assertEqual(texts[f"commit-{original}.txt"], "the original, token: made-up-8901")
+            self.assertEqual(texts[f"commit-{replacement}.txt"], "the replacement")
 
 
 class RepositoryTest(unittest.TestCase):
@@ -578,16 +591,15 @@ class ReleasesTest(unittest.TestCase):
             return json.dumps({"image": {"digest": image}, "chart": {"digest": chart}})
 
         with tempfile.TemporaryDirectory() as work:
-            git = ["git", "-C", work, "-c", "user.name=test", "-c", "user.email=test@example.com"]
-            subprocess.run(["git", "init", "--quiet", work], check=True)
+            git = new_repository(work)
             for release, image, chart in (("v1.0.0", "sha256:" + "1" * 64, "sha256:" + "2" * 64),
                                           ("v1.0.1", "sha256:" + "3" * 64, "sha256:" + "4" * 64),
                                           ("v1.0.0-rc.1", "sha256:" + "5" * 64, "sha256:" + "6" * 64)):
                 Path(work, "release", release).mkdir(parents=True)
                 Path(work, "release", release, "manifest.json").write_text(manifest(image, chart))
-            subprocess.run([*git, "add", "."], check=True)
-            subprocess.run([*git, "commit", "--quiet", "-m", "releases"], check=True)
-            sha = subprocess.run([*git, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+            git("add", ".")
+            git("commit", "--quiet", "-m", "releases")
+            sha = git("rev-parse", "HEAD")
 
             lines = ggshield_scan.releases_on_ghcr(work, sha, {"sha256:" + "1" * 64, "sha256:" + "2" * 64,
                                                                "sha256:" + "3" * 64})
