@@ -347,22 +347,28 @@ def excluded_history_paths(clone, excluded):
 
 
 def history_messages(clone, out):
-    """Write each commit's message and each annotated tag of the clone to a file of its own in out, and
-    count them: ggshield's history scan skips a commit's header, its message included (PatchHeader in
-    core/scan/commit_utils.py at v1.56.1), and reads no tag."""
+    """Write each commit's message and each annotated tag of the clone, a tag that a tag names among them, to
+    a file of its own in out: ggshield's history scan skips a commit's header, its message included
+    (PatchHeader in core/scan/commit_utils.py at v1.56.1), and walks commits only (`git rev-list`,
+    utils/git_shell.py). Returns (ref, why) of each ref that names no commit, whose content is not scanned."""
     out.mkdir(parents=True, exist_ok=True)
-    count = 0
-    log = run([*GIT, "-C", str(clone), "log", "--all", "-z", "--format=%H%n%B"], text=False)
-    for record in log.split(b"\0"):
+    git = [*GIT, "-C", str(clone)]
+    for record in run([*git, "log", "--all", "-z", "--format=%H%n%B"], text=False).split(b"\0"):
         sha, _, message = record.strip(b"\n").partition(b"\n")
         if sha:
             (out / f"commit-{sha.decode()}.txt").write_bytes(message)
-            count += 1
-    refs = run([*GIT, "-C", str(clone), "for-each-ref", "--format=%(objecttype) %(objectname)"]).split("\n")
-    for sha in sorted({line.split(" ")[1] for line in refs if line.startswith("tag ")}):
-        (out / f"tag-{sha}.txt").write_bytes(run([*GIT, "-C", str(clone), "cat-file", "tag", sha], text=False))
-        count += 1
-    return count
+    unscanned = []
+    for line in run([*git, "for-each-ref", "--format=%(objecttype) %(objectname) %(refname)"]).splitlines():
+        kind, sha, ref = line.split(" ", 2)
+        while kind == "tag":
+            tag = run([*git, "cat-file", "tag", sha], text=False)
+            (out / f"tag-{sha}.txt").write_bytes(tag)
+            headers = tag.split(b"\n\n", 1)[0].decode().splitlines()
+            fields = dict(header.split(" ", 1) for header in headers if " " in header)
+            sha, kind = fields["object"], fields["type"]
+        if kind != "commit":
+            unscanned.append((ref, f"names a {kind}, not a commit"))
+    return unscanned
 
 
 def check_output(out, excluded):
@@ -678,8 +684,9 @@ def main(argv=None):
                                            "own configuration"))
     header.append(f"configuration: .gitguardian.yaml of {args.branch} {branch_sha}")
 
-    scans = [ggshield.scan("history", "repo", str(clone), unscanned=excluded_history_paths(clone, rules.excluded))]
-    messages = history_messages(clone, out / "history-messages" / "repository")
+    messages = out / "history-messages"
+    unscanned = excluded_history_paths(clone, rules.excluded) + history_messages(clone, messages / "repository")
+    scans = [ggshield.scan("history", "repo", str(clone), unscanned=unscanned)]
     settings = json.loads(run(["gh", "api", f"repos/{args.repository}"]))
     if settings["has_discussions"]:
         sys.exit("the repository's discussions are enabled, and the scan does not fetch them: disable them, or "
@@ -689,9 +696,8 @@ def main(argv=None):
         mirror(f"https://github.com/{args.repository}.wiki.git", wiki,
                failure="the wiki is enabled but has no clone to scan: disable it, or add a page and scan again")
         header.append(f"wiki: {describe_refs(wiki)}")
-        scans.append(ggshield.scan("wiki", "repo", str(wiki), unscanned=excluded_history_paths(wiki, rules.excluded)))
-        messages += history_messages(wiki, out / "history-messages" / "wiki")
-    header.append(f"history messages: {messages} commit messages and annotated tags")
+        unscanned = excluded_history_paths(wiki, rules.excluded) + history_messages(wiki, messages / "wiki")
+        scans.append(ggshield.scan("wiki", "repo", str(wiki), unscanned=unscanned))
     images, described, digests = fetch_packages(args.repository, args.crane, out / "packages")
     header.append("packages: " + ("; ".join(described) or "none"))
     header += releases_on_ghcr(clone, branch_sha, digests)
@@ -699,7 +705,7 @@ def main(argv=None):
     download_releases(args.repository, out / "releases")
     download_workflow_artifacts(args.repository, out / "workflow-artifacts")
     texts = download_github_text(args.repository, out / "github-text")
-    groups = [("history messages", [out / "history-messages"]), ("release assets", [out / "releases"]),
+    groups = [("history messages", [messages]), ("release assets", [out / "releases"]),
               ("workflow artifacts", [out / "workflow-artifacts"]), ("packages", [out / "packages"]),
               ("GitHub text", [out / "github-text"])]
     groups += [("paths", args.path)] if args.path else []

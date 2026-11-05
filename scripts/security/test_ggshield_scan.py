@@ -377,16 +377,36 @@ class HistoryMessagesTest(unittest.TestCase):
             git("commit", "--quiet", "--allow-empty", "-m", "first", "-m", "token: made-up-0123")
             git("commit", "--quiet", "--allow-empty", "-m", "second")
             git("tag", "-a", "v1.0.0", "-m", "release v1.0.0, notes: made-up-4567")
+            git("tag", "-a", "signed-again", "-m", "a tag of a tag", "v1.0.0")
+            git("tag", "-d", "v1.0.0")  # the inner tag is reached through the outer one only
             git("tag", "light")
             out = Path(messages, "repository")
 
-            count = ggshield_scan.history_messages(work, out)
+            unscanned = ggshield_scan.history_messages(work, out)
 
             written = {path.name: path.read_text() for path in out.iterdir()}
-            self.assertEqual(count, 3)
-            self.assertEqual(sorted(name.split("-")[0] for name in written), ["commit", "commit", "tag"])
+            self.assertEqual(unscanned, [])
+            self.assertEqual(sorted(name.split("-")[0] for name in written), ["commit", "commit", "tag", "tag"])
             self.assertIn("first\n\ntoken: made-up-0123", "".join(written.values()))
             self.assertIn("release v1.0.0, notes: made-up-4567", "".join(written.values()))
+            self.assertIn("a tag of a tag", "".join(written.values()))
+
+    def test_a_ref_that_names_no_commit_makes_the_history_incomplete(self):
+        with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as messages:
+            def git(*args, **options):
+                return subprocess.run(["git", "-C", work, "-c", "user.name=test", "-c", "user.email=test@example.com",
+                                       *args], check=True, capture_output=True, text=True, **options).stdout.strip()
+
+            subprocess.run(["git", "init", "--quiet", work], check=True)
+            git("commit", "--quiet", "--allow-empty", "-m", "first")
+            blob = git("hash-object", "-w", "--stdin", input="a value no commit holds\n")
+            git("tag", "-a", "a-blob", "-m", "a tag of a blob", blob)
+            git("update-ref", "refs/notes-like/blob", blob)
+
+            unscanned = ggshield_scan.history_messages(work, Path(messages, "repository"))
+
+            self.assertEqual(unscanned, [("refs/notes-like/blob", "names a blob, not a commit"),
+                                         ("refs/tags/a-blob", "names a blob, not a commit")])
 
 
 class RepositoryTest(unittest.TestCase):
@@ -395,8 +415,11 @@ class RepositoryTest(unittest.TestCase):
         for wrong in ("colvenna", "colvenna/", "/colvenna-catalog", "colvenna/colvenna-catalog/extra"):
             with self.assertRaises(ValueError):
                 ggshield_scan.owner_and_name(wrong)
-        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+        stderr = io.StringIO()
+        with self.assertRaises(SystemExit) as refused, contextlib.redirect_stderr(stderr):
             ggshield_scan.main(["--output", "/nonexistent/scan", "--repository", "colvenna"])
+        self.assertEqual(refused.exception.code, 2)  # argparse's refusal, before anything else runs
+        self.assertIn("give the repository as OWNER/NAME", stderr.getvalue())
 
 
 class OutputTest(unittest.TestCase):

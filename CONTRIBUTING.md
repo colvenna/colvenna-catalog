@@ -117,7 +117,7 @@ export PATH="$HOME/.venvs/ggshield/bin:$PATH" GITGUARDIAN_API_KEY=...  # or: ggs
   ```
 
   It scans everything the public can fetch:
-  - an anonymous mirror clone (every branch, tag and `refs/pull/*`), plus each pull-request head that a force push replaced and GitHub still serves; and the wiki when it is enabled. ggshield's history scan reads the commits' changes only, so each commit's message and each annotated tag is scanned as a file of its own. An enabled wiki that cannot be cloned makes the scan fail, and so do enabled discussions, which it does not fetch;
+  - an anonymous mirror clone (every branch, tag and `refs/pull/*`), plus each pull-request head that a force push replaced and GitHub still serves; and the wiki when it is enabled. ggshield's history scan reads the commits' changes only, so each commit's message and each annotated tag is scanned as a file of its own, and a ref that names no commit makes the scan fail. An enabled wiki that cannot be cloned makes the scan fail, and so do enabled discussions, which it does not fetch;
   - every version of the repository's GHCR packages (those linked to it, and those named after it), the image `ghcr.io/colvenna/colvenna-catalog` and the chart `ghcr.io/colvenna/charts/colvenna-catalog`. Each manifest and blob is fetched by its digest and checked against it, and each tag must resolve to its version's digest. Each image is also scanned with `ggshield secret scan docker`, with an empty layer cache;
   - the release assets and workflow artifacts as published, the packages' layers, and any `--path`, with every archive opened (zip, jar, wheel, tar, gzip);
   - the GitHub text: issues, pull requests, comments, reviews, release notes and commit comments.
@@ -136,7 +136,7 @@ export PATH="$HOME/.venvs/ggshield/bin:$PATH" GITGUARDIAN_API_KEY=...  # or: ggs
 
   It exits 0 only when every scan is complete and finds 0 incidents. The summary counts the binary files that ggshield cannot decode, and those over 1 MiB. The reports in `--output` contain the matched values, so keep that directory private. The summary has no values. It records the date, the commit whose `.gitguardian.yaml` it used, the refs and commits of the history, the ggshield version, the quota, the packages' digests (and whether each release's image and chart, by the digests of its `release/<release>/manifest.json`, are among them), and each finding's location and ignore SHA.
 
-  A release's image and chart are scanned before `scripts/release/publish-ghcr.sh` makes them public, from the release registry by the digests of `release/<release>/manifest.json`, and scanned again from GHCR afterwards, when the summary must also say that each release's image and chart were scanned. That scan reads the releases from `release/` of the branch it uses, so it runs once the release's pull request has merged, or with `--branch release-<release>`. The counts of both summaries go on the release's pull request, the second as a comment if it has merged by then ([Publishing to GHCR](docs/development.md#publishing-to-ghcr)):
+  A release's image and chart are scanned before `scripts/release/publish-ghcr.sh` makes them public, from the release registry by the digests of `release/<release>/manifest.json`, and scanned again from GHCR afterwards, when the summary must also say that each release's image and chart were scanned. That scan reads the releases from `release/` of the branch it uses, so it runs once the release's pull request has merged, or with `--branch release-<release>`. For both, the summary's date, commit, ggshield version and counts, and how any finding was handled go on the release's pull request, the second as a comment if it has merged by then ([Publishing to GHCR](docs/development.md#publishing-to-ghcr)):
 
   ```bash
   crane pull <release registry>/colvenna-catalog@<image digest> <directory>/image.tar
@@ -157,7 +157,7 @@ export PATH="$HOME/.venvs/ggshield/bin:$PATH" GITGUARDIAN_API_KEY=...  # or: ggs
   - A tracked file's name should avoid credential words such as "secret", "token" or "password" where a file pairs it with a hash, as a manifest of paths and their SHA-256 does: ggshield 1.56.1 has reported a path with "secret" in it, paired with its SHA-256, as a secret. Rename the file rather than ignore the pair, which would need a new entry each time the file changed.
 - **Deployment values:** ggshield does not look for account IDs, ARNs, endpoints or internal addresses. The `deployment-values` hooks ([Placeholders only](docs/development.md#placeholders-only)) check the tracked files and the commit messages; for what the publication scan fetched, a maintainer searches its output too:
   - Each account that a deployment of yours used must appear 0 times anywhere.
-  - In the first-party content, list the accounts named in ARNs, the AWS endpoint hosts and the private IPv4 addresses, and review each one. The first-party content is the histories, the release assets and the GitHub text.
+  - In the first-party content, list the accounts named in ARNs, the AWS endpoint hosts and the private IPv4 addresses, and review each one. The first-party content is the histories, their commit messages and tags, the release assets and the GitHub text.
   - The packages' layers carry third-party software (Ubuntu, the JRE, the jars), which names documentation and AWS-owned accounts and endpoints, so only your account is searched there. What the image adds of this repository's own is built from the tracked tree, which the hooks check.
 
   Expected hits are documentation examples (such as `123456789012` and `example.com`), accounts and endpoints that AWS owns, and example addresses:
@@ -165,7 +165,7 @@ export PATH="$HOME/.venvs/ggshield/bin:$PATH" GITGUARDIAN_API_KEY=...  # or: ggs
   ```bash
   ACCOUNT=<your deployment account ID>; DIR=<the scan's output directory>
   histories() { for git in "$DIR"/mirror.git "$DIR"/wiki.git; do if [ -d "$git" ]; then git -C "$git" log --all -p; fi; done; }
-  first_party() { histories; grep -rhI '' "$DIR/unpacked/release-assets" "$DIR/unpacked/GitHub-text"; }
+  first_party() { histories; grep -rhI '' "$DIR/unpacked/history-messages" "$DIR/unpacked/release-assets" "$DIR/unpacked/GitHub-text"; }
   { first_party; grep -rhI '' "$DIR/unpacked/packages" "$DIR/unpacked/workflow-artifacts"; } | grep -c "$ACCOUNT"  # must be 0
   first_party | grep -oE 'arn:aws[a-z-]*:[a-z0-9-]*:[a-z0-9-]*:[0-9]{12}:' | grep -oE '[0-9]{12}' | sort | uniq -c
   first_party | grep -oE '[a-z0-9.-]+\.(amazonaws\.com|cloudfront\.net|awsapps\.com)' | sort | uniq -c
