@@ -1,7 +1,8 @@
 # ggshield settings (GitGuardian's command-line scanner, configuration version 2):
 # https://docs.gitguardian.com/ggshield-docs/configuration
 # Each finding of ggshield's scan of the whole history (2026-11-04) was checked by hand: none is a
-# credential (docs/security/scans.md, section 5.4; https://github.com/colvenna/colvenna-catalog/issues/111).
+# credential (docs/security/scans.md, section 5.4;
+# https://github.com/colvenna/colvenna-catalog/issues/111).
 # So was each finding of the publication scan of 2026-11-05, which opened every layer of the image:
 # third-party files of its Ubuntu base, each identical to its Ubuntu package, or the base image's
 # own install logs (section 5.5; https://github.com/colvenna/colvenna-catalog/issues/113).
