@@ -37,8 +37,8 @@ python3 scripts/security/ggshield_scan.py --output <new private directory>
 
 - It scans what the public can fetch, not `HEAD`, and sends it to GitGuardian's API under the maintainer's key: a full scan uses about 500 of the workspace's API calls (`ggshield quota`).
 - It needs the pinned ggshield (`scripts/security/ggshield-requirements.lock`), gh, crane and, for the image, Docker.
-- Its `summary.txt` gives the date, the scanned commit, the ggshield version, the quota, the packages' digests and each scan's count, and no value. It ends with `VERDICT: CLEAN` (exit 0) only when every scan is complete and finds 0. The record of a release, or of a repository made public, gives that summary's counts.
-- Before a release is published to GHCR, it scans the release's image and chart, pulled from the release registry by their digests (`--path`); after, it scans them again from GHCR ([Publishing to GHCR](../development.md#publishing-to-ghcr)).
+- Its `summary.txt` gives the date, the commit whose `.gitguardian.yaml` it used, the refs and commits of the history, the ggshield version, the quota, the packages' digests, each release's image and chart on GHCR, and each scan's count, and no value. It ends with `VERDICT: CLEAN` (exit 0) only when every scan is complete and finds 0. The record of a release, or of a repository made public, gives that summary's counts.
+- Before a release is published to GHCR, it scans the release's image and chart, pulled from the release registry by their digests (`--path`); after, it scans them again from GHCR, and its summary must say that each release's image and chart were scanned ([Publishing to GHCR](../development.md#publishing-to-ghcr)).
 
 ## 3. How a finding is handled
 
@@ -195,7 +195,7 @@ Issue #113 makes that gate permanent:
 - The hooks `ggshield` and `ggshield-push` ([`.pre-commit-config.yaml`](../../.pre-commit-config.yaml)) scan each commit and each push, as a best effort, with the ggshield that [`ggshield-requirements.lock`](../../scripts/security/ggshield-requirements.lock) pins and hash-locks; `.gitguardian.yaml` raises their limit to 1000 commits a push.
 - The `ggshield` check ([`ggshield.yml`](../../.github/workflows/ggshield.yml)) scans each push and pull request, with the `GITGUARDIAN_API_KEY` Actions secret. The ruleset on `main` requires it with `ci.yml`'s eight jobs, from #113's merge on ([CI](../../CONTRIBUTING.md#ci)).
 
-Before #113 merged, the publication scan ran on its pull request's head, with that head's `.gitguardian.yaml`. Its summary's counts are in the pull request and on #113.
+The publication scan of #113's pull request at its final head, with that head's `.gitguardian.yaml`, is recorded in the pull request and on #113: the date, the commit, the ggshield version and each scan's count.
 
 ## 6. Open findings and their handling
 

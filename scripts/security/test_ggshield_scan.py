@@ -5,7 +5,6 @@ import hashlib
 import io
 import json
 import os
-import re
 import subprocess
 import sys
 import tarfile
@@ -16,6 +15,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import ggshield_pin  # noqa: E402
 import ggshield_scan  # noqa: E402
 
 
@@ -455,6 +455,21 @@ class PackagesTest(unittest.TestCase):
             ggshield_scan.fetch_artifact(str(self.registry.crane), "ghcr.io/example/app", digest, self.out, set())
         self.assertIn("is not a tar archive", str(refused.exception))
 
+    def test_the_repositorys_packages_are_those_linked_to_it_or_named_after_it(self):
+        packages = [{"name": "colvenna-catalog", "repository": "colvenna/colvenna-catalog"},
+                    {"name": "charts/colvenna-catalog", "repository": None},
+                    {"name": "tools", "repository": "colvenna/colvenna-catalog"},
+                    {"name": "colvenna-lake", "repository": "colvenna/colvenna-lake"},
+                    {"name": "charts/colvenna-lake", "repository": None}]
+
+        self.assertEqual(ggshield_scan.repository_packages(packages, "colvenna/colvenna-catalog"),
+                         ["colvenna-catalog", "charts/colvenna-catalog", "tools"])
+
+    def test_only_sha256_digests_are_accepted(self):
+        self.assertEqual(ggshield_scan.digest_hex("sha256:" + "a" * 64), "a" * 64)
+        with self.assertRaises(SystemExit):
+            ggshield_scan.digest_hex("sha512:" + "a" * 128)
+
     def test_a_tag_must_resolve_to_its_versions_digest(self):
         digest = self.registry.manifest(self.IMAGE, [(self.LAYER, tar_bytes({"etc/motd": b"hello\n"}))])
         self.registry.tag("1.0.0", "sha256:" + "f" * 64)
@@ -513,10 +528,10 @@ class HookTest(unittest.TestCase):
                                   text=True, env={**os.environ, "PATH": f"{work}:/usr/bin:/bin"})
 
     def test_the_pinned_version_scans_the_staged_changes_or_the_pushed_commits(self):
-        pinned = re.search(r"^ggshield==(\S+) ", (HERE / "ggshield-requirements.lock").read_text(), re.M)[1]
+        self.assertEqual(ggshield_pin.pinned_version(), "1.56.1")  # the version whose messages the scan reads
 
         for mode in ("pre-commit", "pre-push"):
-            done = self.run_hook(pinned, mode)
+            done = self.run_hook(ggshield_pin.pinned_version(), mode)
 
             self.assertEqual((done.returncode, done.stdout), (3, f"ran: secret scan {mode}\n"))
 

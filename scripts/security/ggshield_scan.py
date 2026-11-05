@@ -44,9 +44,11 @@ ROOT = Path(__file__).resolve().parents[2]
 ZIP_SUFFIXES = (".zip", ".whl", ".jar")
 TAR_SUFFIXES = (".tar", ".tar.gz", ".tgz")
 MAX_DEPTH = 6
-# ggshield skips a document over 1 MiB (its API's limit) and a request body over 2.5 MiB, in which JSON
-# escaping can grow text up to 6 times; parts of 200,000 characters (at most 800 kB of UTF-8) stay under
-# both. Parts overlap, so a value that crosses a cut is whole in one of them.
+# ggshield skips a document over 1 MiB (its API's limit), and one whose JSON for the request is over
+# 2.5 MiB (pygitguardian's MAXIMUM_PAYLOAD_SIZE; ggshield's secret_scanner.py, _document_payload_size), in
+# which ASCII escaping takes a code point to at most 12 characters (a surrogate pair). Parts of 200,000
+# characters stay under both: at most 800 kB of UTF-8, 2.4 MB of JSON. Parts overlap, so a value that
+# crosses a cut is whole in one of them.
 DOCUMENT_BYTES = 1_048_576
 PART_CHARS = 200_000
 OVERLAP_CHARS = 4_096
@@ -273,12 +275,17 @@ ANONYMOUS_GIT = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}  # never prompt; no c
 GIT = ["git", "-c", "credential.helper="]
 
 
+def exit_if_failed(command, done, failure=None):
+    """Exit with failure, or the command and its stderr, if the finished command failed."""
+    if done.returncode:
+        error = done.stderr if isinstance(done.stderr, str) else done.stderr.decode(errors="replace")
+        sys.exit(failure or f"{' '.join(command[:4])} ... failed ({done.returncode}): {error.strip()}")
+
+
 def run(command, failure=None, text=True, **options):
     """The command's output; on failure, exit with failure (or the command and its stderr)."""
     done = subprocess.run(command, capture_output=True, text=text, **options)
-    if done.returncode:
-        error = done.stderr if text else done.stderr.decode(errors="replace")
-        sys.exit(failure or f"{' '.join(command[:4])} ... failed ({done.returncode}): {error.strip()}")
+    exit_if_failed(command, done, failure)
     return done.stdout
 
 
@@ -286,14 +293,13 @@ def download(command, target):
     """Write the command's output to target; on failure, exit with the command and its stderr."""
     with open(target, "wb") as stream:
         done = subprocess.run(command, stdout=stream, stderr=subprocess.PIPE)
-    if done.returncode:
-        sys.exit(f"{' '.join(command[:4])} ... failed ({done.returncode}): "
-                 f"{done.stderr.decode(errors='replace').strip()}")
+    exit_if_failed(command, done)
 
 
 @dataclass
-class Rules:
-    """What ggshield 1.56.1 leaves out without saying so, read from the Python of ggshield's environment."""
+class GgshieldRules:
+    """How ggshield 1.56.1 decides what to leave out without saying so, read from the Python of ggshield's
+    environment: the extensions it drops, its default exclusions, and its decoder."""
     python: str
     skip_extensions: set  # the extensions its path scan drops unread
     patterns: list  # its default exclusions, which apply to every scan, history included
@@ -305,12 +311,12 @@ class Rules:
         """The encoding ggshield's decoder (charset_normalizer) finds in data, or None: then it is binary."""
         code = "import sys, charset_normalizer\nm = charset_normalizer.from_bytes(sys.stdin.buffer.read()).best()\n" \
                "print(m.encoding if m else '')"
-        return run([self.python, "-c", code], input=data, text=False).decode().strip() or None
+        return run([self.python, "-I", "-c", code], input=data, text=False).decode().strip() or None
 
 
 def ggshield_rules(binary):
-    """The Rules of the ggshield at binary. --ignore-default-excludes is accepted but has no effect in
-    1.56.1, so the default exclusions cannot be turned off."""
+    """The GgshieldRules of the ggshield at binary. --ignore-default-excludes is accepted but has no effect
+    in 1.56.1, so the default exclusions cannot be turned off."""
     folder = Path(shutil.which(binary) or binary).resolve().parent
     code = ("import json\n"
             "from ggshield.cmd.secret.scan.secret_scan_common_options import IGNORED_DEFAULT_WILDCARDS as W\n"
@@ -318,10 +324,11 @@ def ggshield_rules(binary):
             "from ggshield.utils._binary_extensions import BINARY_EXTENSIONS as B\n"
             "print(json.dumps([sorted(B), sorted(r.pattern for r in init_exclusion_regexes(set(W)))]))")
     for python in (folder / "python3", folder / "python"):
-        done = subprocess.run([str(python), "-c", code], capture_output=True, text=True) if python.exists() else None
+        done = subprocess.run([str(python), "-I", "-c", code], capture_output=True, text=True) \
+            if python.exists() else None
         if done and done.returncode == 0:
             extensions, patterns = json.loads(done.stdout)
-            return Rules(str(python), set(extensions), [re.compile(pattern) for pattern in patterns])
+            return GgshieldRules(str(python), set(extensions), [re.compile(pattern) for pattern in patterns])
     sys.exit(f"cannot read what ggshield leaves out: no Python beside {folder / Path(binary).name} imports ggshield")
 
 
@@ -439,16 +446,21 @@ def download_github_text(repository, out):
     return len(documents)
 
 
+def repository_packages(packages, repository):
+    """The names of the packages ({name, repository}) that are the repository's: linked to it, or named after
+    it (<name>, charts/<name>) though not linked."""
+    name = repository.split("/", 1)[1]
+    return [package["name"] for package in packages
+            if package["repository"] == repository or package["name"] in (name, f"charts/{name}")]
+
+
 def package_versions(repository):
     """(package, version digest, tags) of every version of each GHCR container package of the repository,
-    tagged or not (anyone can pull a public package's version by its digest). A package is the repository's
-    when it is linked to it, or named after it (<name>, charts/<name>) though not linked."""
-    owner, name = repository.split("/", 1)
-    select = (f'.[] | select(.repository.full_name == "{repository}" or .name == "{name}" '
-              f'or .name == "charts/{name}") | .name')
-    names = run(["gh", "api", "--paginate", f"orgs/{owner}/packages?package_type=container&per_page=100",
-                 "--jq", select]).split()
-    for package in names:
+    tagged or not (anyone can pull a public package's version by its digest)."""
+    owner = repository.split("/", 1)[0]
+    listed = run(["gh", "api", "--paginate", f"orgs/{owner}/packages?package_type=container&per_page=100",
+                  "--jq", ".[] | {name, repository: .repository.full_name}"])
+    for package in repository_packages([json.loads(line) for line in listed.splitlines()], repository):
         path = f"orgs/{owner}/packages/container/{urllib.parse.quote(package, safe='')}/versions?per_page=100"
         for line in run(["gh", "api", "--paginate", path, "--jq",
                          '.[] | "\\(.name) \\(.metadata.container.tags | join(","))"']).splitlines():
@@ -475,6 +487,14 @@ def sha256_file(path):
     return "sha256:" + digest.hexdigest()
 
 
+def digest_hex(digest):
+    """The hexadecimal part of an OCI digest, "sha256:<hex>", which names a stored blob."""
+    algorithm, _, hexadecimal = digest.partition(":")
+    if algorithm != "sha256":
+        sys.exit(f"{digest}: only sha256 digests are checked")
+    return hexadecimal
+
+
 IMAGE_CONFIGS = ("application/vnd.docker.container.image.v1+json", "application/vnd.oci.image.config.v1+json")
 
 
@@ -485,15 +505,15 @@ def fetch_artifact(crane, image, digest, out, seen):
         return []
     seen.add(digest)
     data = run([crane, "manifest", f"{image}@{digest}"], text=False)
-    if "sha256:" + hashlib.sha256(data).hexdigest() != digest:
+    if hashlib.sha256(data).hexdigest() != digest_hex(digest):
         sys.exit(f"{image}@{digest}: the registry served a manifest of another digest")
-    (out / f"{digest[7:]}.manifest.json").write_bytes(data)
+    (out / f"{digest_hex(digest)}.manifest.json").write_bytes(data)
     manifest = json.loads(data)
     if "manifests" in manifest:
         return [found for child in manifest["manifests"]
                 for found in fetch_artifact(crane, image, child["digest"], out, seen)]
     for blob in [manifest["config"], *manifest.get("layers", [])]:
-        target = out / (blob["digest"][7:] + blob_suffix(blob.get("mediaType", "")))
+        target = out / (digest_hex(blob["digest"]) + blob_suffix(blob.get("mediaType", "")))
         if not target.exists():
             download([crane, "blob", f"{image}@{blob['digest']}"], target)
             if sha256_file(target) != blob["digest"]:
@@ -517,10 +537,10 @@ def fetch_packages(repository, crane, out):
             served = run([crane, "digest", f"{image}:{tag}"]).strip()
             if served != digest:
                 sys.exit(f"{image}:{tag} is {served}, but GitHub lists the tag on {digest}")
-        held = fetch_artifact(crane, image, digest, out, set())
-        images += [f"{image}@{found}" for found in held]
+        image_digests = fetch_artifact(crane, image, digest, out, set())
+        images += [f"{image}@{found}" for found in image_digests]
         digests.add(digest)
-        described.append(f"{image}@{digest} ({', '.join(tags) or 'untagged'}; {len(held)} images)")
+        described.append(f"{image}@{digest} ({', '.join(tags) or 'untagged'}; {len(image_digests)} images)")
     return images, described, digests
 
 
