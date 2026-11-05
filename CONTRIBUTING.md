@@ -37,7 +37,9 @@ The exceptions are the release pull requests. A release candidate's branch is `r
 
 ## CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) defines eight jobs: `pre-commit`, `shellcheck`, `aws-test`, `deploy-test`, `verify`, `compat-test`, `uat-test` and `perf-test`. GitHub Actions runs them on every pull request and on `main`, and it is the CI of record: a pull request merges only when every one of these checks has succeeded on its exact head SHA, unless Actions cannot run at all and the waiver below is recorded.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) defines eight jobs: `pre-commit`, `shellcheck`, `aws-test`, `deploy-test`, `verify`, `compat-test`, `uat-test` and `perf-test`. GitHub Actions runs them on every pull request and on `main`; [`.github/workflows/ggshield.yml`](.github/workflows/ggshield.yml) runs a ninth, `ggshield`, on every push and pull request ([Secret scanning](#secret-scanning)). Actions is the CI of record: a pull request merges only when every one of these checks has succeeded on its exact head SHA, unless Actions cannot run at all and the waiver below is recorded.
+
+A ruleset on `main` enforces this. It requires a pull request, and the nine checks (`pre-commit`, `shellcheck`, `aws-test`, `deploy-test`, `verify`, `compat-test`, `uat-test`, `perf-test` and `ggshield`, each from GitHub Actions) passing on a branch up to date with `main`. It also blocks force pushes to `main` and its deletion. No one can bypass it. So under a waiver, when the checks cannot pass, a pull request merges only after the repository's owner has changed the ruleset, and the waiver records the change.
 
 [`scripts/ci-local.sh`](scripts/ci-local.sh) runs the same eight jobs on `HEAD`, on your own host:
 
@@ -45,13 +47,14 @@ The exceptions are the release pull requests. A release candidate's branch is `r
 scripts/ci-local.sh
 ```
 
-It is a supplement: run it before you push, or beside Actions when you want a second run; you may post its output, which names the SHA, on the pull request. Only when Actions cannot run (its minutes used up, or an outage) does it become the CI of record ([CI](docs/development.md#ci) has the rule): then it runs on the pull request's exact head SHA, its output is posted on the pull request, and the waiver, `WAIVED` with its reason, is recorded there, never as a GitHub pass. Run it with a clean tree; HEAD must be the same when it ends as when it began. It refuses to run (exit 2) on a dirty tree, when a tool the jobs need is missing, or without a running Docker, and fails (exit 1) if a job fails or leaves changes behind. It needs JDK 21 (`JAVA_HOME` pointing at a 21), Maven, Docker, Node.js with npm, Python 3, pre-commit, ShellCheck, `curl` and `jq`; `scripts/install-tools.sh`, which the jobs run, fetches the pinned kubectl, Helm and crane into `.tools/`. Local CI is no substitute for UAT or the performance acceptance.
+It is a supplement: run it before you push, or beside Actions when you want a second run; you may post its output, which names the SHA, on the pull request. Only when Actions cannot run (its minutes used up, or an outage) does it become the CI of record ([CI](docs/development.md#ci) has the rule): then it runs on the pull request's exact head SHA, its output is posted on the pull request, and the waiver, `WAIVED` with its reason, is recorded there, never as a GitHub pass. Run it with a clean tree; HEAD must be the same when it ends as when it began. It refuses to run (exit 2) on a dirty tree, when a tool the jobs need is missing, or without a running Docker, and fails (exit 1) if a job fails or leaves changes behind. It needs JDK 21 (`JAVA_HOME` pointing at a 21), Maven, Docker, Node.js with npm, Python 3, pre-commit, ShellCheck, `curl` and `jq`; `scripts/install-tools.sh`, which the jobs run, fetches the pinned kubectl, Helm and crane into `.tools/`. It does not run the `ggshield` check, which needs a GitGuardian API key: under a waiver, scan the pull request's commits with the pinned ggshield instead (`ggshield secret scan commit-range origin/main..HEAD`), and post its result with the waiver. Local CI is no substitute for UAT or the performance acceptance.
 
 While working, run the jobs for what you changed; these are the commands `scripts/ci-local.sh` runs:
 
 ```bash
 # pre-commit: file checks, markdownlint, actionlint, the rename gate and the deployment-values check, then their own tests
-pre-commit run --all-files --show-diff-on-failure
+# (SKIP=ggshield: the ggshield hook scans staged changes, and the ggshield workflow the commits)
+SKIP=ggshield pre-commit run --all-files --show-diff-on-failure
 python3 -m unittest discover -s scripts/rename -p 'test_*.py'
 python3 -m unittest discover -s scripts/redaction -p 'test_*.py'
 # shellcheck: every tracked shell script
@@ -59,6 +62,7 @@ git ls-files -z '*.sh' | xargs -0 -r shellcheck -x
 # aws-test: the CDK app's types and tests, every stack synthesized (cdk-nag and the guard), helm lint
 scripts/aws-test.sh
 # deploy-test: the deployment scripts, the release, license and link checks, the security scans' helpers
+# (the publication scan's and the ggshield hooks' among them)
 scripts/install-tools.sh
 python3 -m unittest discover -s tests/deploy
 python3 -m unittest discover -s scripts/release -p 'test_*.py'
@@ -85,6 +89,7 @@ Judge a Maven build by its `[INFO] BUILD SUCCESS` line, never by `mvn -q` and a 
 
 ## Rules for every change
 
+- **No secrets.** ggshield scans every commit before it is pushed and after, and everything public before a release ([Secret scanning](#secret-scanning)).
 - **Placeholders only.** Do not include credentials, tokens, AWS account IDs, ARNs, real domains, internal addresses, or the role or instance that ran an install, in files, issues, pull requests or commit messages. Use placeholders (`<ACCOUNT_ID>`, `<ARN>`, `example.com`). An install's own values live only in its git-ignored `deploy/config/<env>.env` and `.state/`. The pre-commit hooks `deployment-values` and `deployment-values-in-commit-message` ([`scripts/redaction/redaction.py`](scripts/redaction/redaction.py)) refuse those values, read from the local files and `.state/redaction-values`, and, whatever the values, account IDs, ARNs and registries of real accounts, internal addresses and public IPv4 addresses ([Placeholders only](docs/development.md#placeholders-only)).
 - **No anonymous entry, no Lambda function URL.** Every endpoint that can be reached requires authentication (IAM authentication counts), and every entry is tested with unauthenticated and over-privileged requests. Lambda function URLs are never used, whether through CDK, CloudFormation, the CLI or a third-party tool: the CDK app's guard refuses them when it synthesizes, and a review greps for `FunctionUrl` and `Lambda::Url`.
 - **The rename gate.** The product's former name and identifiers (see the [README](README.md#naming)) stay gone. The pre-commit hook `old-name` ([`scripts/rename/old_name.py`](scripts/rename/old_name.py)) refuses them in any tracked file's text or path, except on the lines [`scripts/rename/exceptions.tsv`](scripts/rename/exceptions.tsv) allows, each with its reason: the naming history, the import's provenance, the plans executed before the rename, the rename record itself ([`docs/rename.md`](docs/rename.md)), the serverless spike's raw results, and the check's own files. Rename anything else rather than adding an exception. `python3 scripts/rename/old_name.py --all` checks every tracked file.
@@ -92,6 +97,78 @@ Judge a Maven build by its `[INFO] BUILD SUCCESS` line, never by `mvn -q` and a 
 - **Third-party licenses.** A new or re-pinned dependency, image or tool updates [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). A change to `pom.xml` or the CDK app's lockfile fails CI until the license scan (`python3 scripts/release/licenses.py scan --update`) has rewritten the record. A jar without a license file of its own needs its license text in [`licenses/`](licenses/) and a row in the record's table of license texts in the image ([Licenses](docs/development.md#licenses)).
 - **Links.** No tracked file links to another repository of the series, which are private until each goes public, and every relative link of the Markdown files resolves; the tests in `scripts/release/` check both.
 - **No compatibility commitment before 1.0.** A change may break the upgrade from an earlier version. The server keeps Colvenna Lake's HTTP contract, settings, metrics and migration chain exactly, so that Colvenna Lake can run its releases.
+
+## Secret scanning
+
+Nothing is made public before [ggshield](https://docs.gitguardian.com/ggshield-docs/getting-started), GitGuardian's command-line scanner, finds 0 incidents in it with this repository's [`.gitguardian.yaml`](.gitguardian.yaml) (#113). That holds for the history, the GHCR image and chart, the release assets and the GitHub text. The repository is public, so a push publishes its commits. The hooks below are a best-effort check before that, and the ggshield workflow scans each push again afterwards. The publication scan is the gate before a release, and before anything else is made public. ggshield is installed from a hash-locked file, for CPython 3.12 on Linux (arm64 or x86_64):
+
+```bash
+python3.12 -m venv ~/.venvs/ggshield
+~/.venvs/ggshield/bin/python -m pip install --require-hashes --only-binary=:all: \
+  -r scripts/security/ggshield-requirements.lock
+export PATH="$HOME/.venvs/ggshield/bin:$PATH" GITGUARDIAN_API_KEY=...  # or: ggshield auth login
+```
+
+- **Before a release, and before anything is made public**, a maintainer runs the publication scan, then records its summary ([the security scans](docs/security/scans.md), section 2). Check the remaining API quota first with `ggshield quota`: a full scan uses about 500 calls.
+
+  ```bash
+  scripts/install-tools.sh  # crane, which fetches the packages
+  python3 scripts/security/ggshield_scan.py --output <new private directory> [--path <file or directory>]
+  ```
+
+  It scans everything the public can fetch:
+  - an anonymous mirror clone (every branch, tag and `refs/pull/*`), plus each pull-request head that a force push replaced and GitHub still serves; and the wiki when it is enabled. An enabled wiki that cannot be cloned makes the scan fail, and so do enabled discussions, which it does not fetch;
+  - every version of the GHCR packages linked to the repository, the image `ghcr.io/colvenna/colvenna-catalog` and the chart `ghcr.io/colvenna/charts/colvenna-catalog`. Each manifest and blob is fetched by its digest and checked against it, and each tag must resolve to its version's digest. Each image is also scanned with `ggshield secret scan docker`, with an empty layer cache;
+  - the release assets and workflow artifacts as published, the packages' layers, and any `--path`, with every archive opened (zip, jar, wheel, tar, gzip);
+  - the GitHub text: issues, pull requests, comments, reviews, release notes and commit comments.
+
+  It uses the `.gitguardian.yaml` of `main`; `--branch` selects another branch. It refuses any ggshield version other than the one in the lock file, because its checks read that version's messages. It also refuses an output directory that exists or is inside a git work tree.
+
+  ggshield 1.56.1 would leave some content out without notice, so the scan prepares it first, or fails:
+  - ggshield exits 0 even when part of a scan failed. An `errors` entry in its report, or "Scanning failed" in its output, makes the scan fail.
+  - A text over ggshield's 1 MiB limit is scanned in overlapping parts. Any other file that ggshield skips, except a binary one, makes the scan fail.
+  - ggshield's path scan drops files by extension unread (for example `.svg`, `.pdf` and `.jar`), so such a file is scanned under a `.txt` name, and ggshield's decoder decides whether it is text.
+  - ggshield's default exclusions (for example `vendor/`, `node_modules/`, `.venv/`, `*.mdx` and `*.sops`) apply to every scan, and its `--ignore-default-excludes` has no effect. Unpacked files that they match are scanned under a neutral name. Any path in the history that they match makes the scan fail, and so does an output directory under such a path.
+  - `ggshield secret scan docker` reads only the layers that `COPY` or `ADD` made. It skips system paths (`usr/`, `lib/`, `bin/` and others) and binary files, the image's jars among them, and it skips a layer it found clean before. So the scan opens every layer in full as well, and a layer skipped as scanned before makes it fail.
+  - An archive nested more than 6 deep makes the scan fail.
+
+  It exits 0 only when every scan is complete and finds 0 incidents. The summary counts the binary files that ggshield cannot decode. The reports in `--output` contain the matched values, so keep that directory private. The summary has no values. It records the date, the scanned commit, the ggshield version, the quota, the packages' digests, and each finding's location and ignore SHA.
+
+  A release's image and chart are scanned before `scripts/release/publish-ghcr.sh` makes them public, from the release registry by the digests of `release/<release>/manifest.json`, and scanned again from GHCR afterwards ([Publishing to GHCR](docs/development.md#publishing-to-ghcr)):
+
+  ```bash
+  crane pull <release registry>/colvenna-catalog@<image digest> <directory>/image.tar
+  crane pull <release registry>/charts/colvenna-catalog@<chart digest> <directory>/chart.tar
+  python3 scripts/security/ggshield_scan.py --output <new private directory> --path <directory>
+  ```
+
+- **Each commit and each push (best effort):** `pre-commit install` enables the [ggshield hooks](.pre-commit-config.yaml), with the other hooks. They use the `ggshield` on `PATH` and refuse any version other than the one in the lock file.
+  - The `ggshield` hook scans the staged changes.
+  - The `ggshield-push` hook scans the commits about to be published. It covers at most `max_commits_for_hook` commits of a push (1000, set in `.gitguardian.yaml`), and ggshield lets a push through with only a warning when it cannot work out the commit range. When one push updates several refs (`git push --all`, or several branches or tags), pre-commit hands ggshield only the first, so push them one at a time.
+  - Without an API key, they stop with ggshield's error.
+  - `SKIP=ggshield,ggshield-push` or `git push --no-verify` skips them. The ggshield workflow and the publication scan still apply; they cannot be skipped.
+- **Each push and pull request:** the [ggshield workflow](.github/workflows/ggshield.yml) runs `ggshield secret scan ci` on the new commits, with the `GITGUARDIAN_API_KEY` Actions secret, which the repository's owner sets. A manual run scans the whole history. Its check, `ggshield`, is one of those the ruleset on `main` requires ([CI](#ci)). Pull requests from forks get no secrets, so for them the job only notes this, and a maintainer scans such a change before merging it.
+- **A finding:**
+  - A real credential is revoked or rotated first, then the history is reviewed. It is never ignored.
+  - Any other finding (a test value, a public example, a false positive) is added to `.gitguardian.yaml` by its ignore SHA, with a name that gives the file and the reason. The addition is reviewed in its pull request, and the record in [the security scans](docs/security/scans.md) gives it.
+  - No path or detector is ignored.
+  - A tracked file's name should avoid credential words such as "secret", "token" or "password" where a file pairs it with a hash, as a manifest of paths and their SHA-256 does: ggshield 1.56.1 has reported a path with "secret" in it, paired with its SHA-256, as a secret. Rename the file rather than ignore the pair, which would need a new entry each time the file changed.
+- **Deployment values:** ggshield does not look for account IDs, ARNs, endpoints or internal addresses. The `deployment-values` hooks ([Placeholders only](docs/development.md#placeholders-only)) check the tracked files and the commit messages; for what the publication scan fetched, a maintainer searches its output too:
+  - Each account that a deployment of yours used must appear 0 times anywhere.
+  - In the first-party content, list the accounts named in ARNs, the AWS endpoint hosts and the private IPv4 addresses, and review each one. The first-party content is the histories, the release assets and the GitHub text.
+  - The packages' layers carry third-party software (Ubuntu, the JRE, the jars), which names documentation and AWS-owned accounts and endpoints, so only your account is searched there. What the image adds of this repository's own is built from the tracked tree, which the hooks check.
+
+  Expected hits are documentation examples (such as `123456789012` and `example.com`), accounts and endpoints that AWS owns, and example addresses:
+
+  ```bash
+  ACCOUNT=<your deployment account ID>; DIR=<the scan's output directory>
+  histories() { for git in "$DIR"/mirror.git "$DIR"/wiki.git; do if [ -d "$git" ]; then git -C "$git" log --all -p; fi; done; }
+  first_party() { histories; grep -rhI '' "$DIR/unpacked/release-assets" "$DIR/unpacked/GitHub-text" 2>/dev/null; }
+  { first_party; grep -rhI '' "$DIR/unpacked/packages" "$DIR/unpacked/workflow-artifacts" 2>/dev/null; } | grep -c "$ACCOUNT"  # must be 0
+  first_party | grep -oE 'arn:aws[a-z-]*:[a-z0-9-]*:[a-z0-9-]*:[0-9]{12}:' | grep -oE '[0-9]{12}' | sort | uniq -c
+  first_party | grep -oE '[a-z0-9.-]+\.(amazonaws\.com|cloudfront\.net|awsapps\.com)' | sort | uniq -c
+  first_party | grep -oE '\b(10\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])|192\.168)\.[0-9]+\.[0-9]+\b' | sort | uniq -c
+  ```
 
 ## Behaviour on AWS
 

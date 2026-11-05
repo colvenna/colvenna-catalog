@@ -26,3 +26,6 @@ cdk.out/
 
 # Python bytecode (tests/deploy)
 __pycache__/
+
+# ggshield's cache of what it last found, with the values (ggshield would add it here itself)
+.cache_ggshield

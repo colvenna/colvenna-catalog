@@ -1,6 +1,6 @@
 # Security scans
 
-The [1.0 design](../design/v1.0-design.md) (section 9.4) makes a release depend on security scans (ASH, Trivy, cdk-nag, licenses) without an unhandled finding. This page says what is scanned and how, how a finding is handled, what the scanners cannot see, and the baseline #18 set. A candidate's own record follows it (section 7).
+The [1.0 design](../design/v1.0-design.md) (section 9.4) makes a release depend on security scans (ASH, Trivy, cdk-nag, licenses) without an unhandled finding, and on ggshield's publication scan finding 0. This page says what is scanned and how, how a finding is handled, what the scanners cannot see, and the baseline #18 set. A candidate's own record follows it (section 7).
 
 ## 1. What is scanned
 
@@ -11,6 +11,7 @@ The [1.0 design](../design/v1.0-design.md) (section 9.4) makes a release depend 
 | Trivy and grype | The server's image, built as a release builds it (`mvn package`, then `docker buildx` for `linux/amd64`) | none | none: every image finding is real |
 | Trivy and grype | What Apache Paimon's jars in the image bundle, as their `META-INF/NOTICE` files list it ([`bundled_sbom.py`](../../scripts/security/bundled_sbom.py) writes it as a CycloneDX SBOM) | none | none |
 | cdk-nag (AWS Solutions rules) | Every synthesis of the `aws-test` job: the six product stacks (the network stack in both modes), the test environment and the serverless test driver | [`deploy/aws/src/nag.ts`](../../deploy/aws/src/nag.ts): an unacknowledged finding fails the synthesis, so the deploy | `acknowledge(...)` beside the resource, with the reason (and `appliesTo` for IAM findings); each synthesis keeps its `NagReport.csv` |
+| ggshield 1.56.1, GitGuardian's secret scanner: the publication scan, [`ggshield_scan.py`](../../scripts/security/ggshield_scan.py) | Everything the public can fetch: the history of every ref (pull requests' refs, and the heads that force pushes replaced, among them), every version of the GHCR image and chart with every layer opened (the image with `ggshield secret scan docker` as well), the release assets, the workflow artifacts and the GitHub text. Before that, each commit and push (the hooks, best effort) and each push and pull request (the `ggshield` check) | [`.gitguardian.yaml`](../../.gitguardian.yaml) | An entry of its `ignored_matches`, by ignore SHA, with a name that gives the file and the reason; no path and no detector is ignored |
 | Licenses | `scripts/release/licenses.py scan`: the image's runtime jars, what they bundle, which carry no license file, and the CDK app's lockfile, against the record [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md); `licenses.py image`: the image's `/licenses/` against the same record; and the image's Ubuntu packages (Trivy) | [Licenses](../development.md#licenses) | not applicable: licenses are recorded as found |
 
 ## 2. Running the scans
@@ -26,6 +27,18 @@ ASH_REPO=<ash-repo> scripts/security/scan.sh <out dir>
 - It needs Docker, Trivy, JDK 21 with Maven, Node 22 with npm, `jq` and `python3`. The first run builds ASH's image (about 4.5 GB); a run takes about 12 minutes.
 - `<out dir>` must be new or empty, and outside the repository. It gets `summary.txt` (the counts of each scan), `versions.txt` (the tools, and the commit), `exit-codes.tsv`, `logs/`, and each scan's raw results (`ash/`, `trivy/`, `image/`, `bundled/`, `cdk-nag/`, `licenses/`), with the tree scanned in `src/`. Raw results are kept by the maintainer, outside the repository; records cite them by name, never copy them.
 - Findings do not fail the run: exit 1 means a scan or the build failed, or that `THIRD_PARTY_NOTICES.md` is not the license scan's or the image's `/licenses/`; 2 that the run was refused.
+
+The publication scan runs on its own, before a release and before anything is made public ([Secret scanning](../../CONTRIBUTING.md#secret-scanning) has its options and what it fetches):
+
+```bash
+scripts/install-tools.sh
+python3 scripts/security/ggshield_scan.py --output <new private directory>
+```
+
+- It scans what the public can fetch, not `HEAD`, and sends it to GitGuardian's API under the maintainer's key: a full scan uses about 500 of the workspace's API calls (`ggshield quota`).
+- It needs the pinned ggshield (`scripts/security/ggshield-requirements.lock`), gh, crane and, for the image, Docker.
+- Its `summary.txt` gives the date, the scanned commit, the ggshield version, the quota, the packages' digests and each scan's count, and no value. It ends with `VERDICT: CLEAN` (exit 0) only when every scan is complete and finds 0. The record of a release, or of a repository made public, gives that summary's counts.
+- Before a release is published to GHCR, it scans the release's image and chart, pulled from the release registry by their digests (`--path`); after, it scans them again from GHCR ([Publishing to GHCR](../development.md#publishing-to-ghcr)).
 
 ## 3. How a finding is handled
 
@@ -46,6 +59,10 @@ ASH_REPO=<ash-repo> scripts/security/scan.sh <out dir>
   - Every suppression must be in use: ASH lists the entries it applied (`used_suppressions` in `ash/ash_aggregated_results.json`), and a mark is in use when its line, without the mark, is a finding.
 - **Otherwise it stays visible** in the scanners' output, and the record lists it with what uses the component, how it can be reached, and the decision on it: accepted for the candidate, with the owner's sign-off, or blocking. Until the owner decides, it is pending, and no candidate with it can be GO.
 - cdk-nag findings are acknowledged in the CDK code beside the resource, with the reason.
+- A ggshield finding is never left visible: the publication scan must find 0.
+  - A real credential is revoked or rotated first, then the history is reviewed. It is never ignored.
+  - A verified false positive (a test value, a public example, a value that is not a credential) gets an entry in `.gitguardian.yaml`, by its ignore SHA, with a name that gives the file and the reason. Each entry is reviewed in its pull request, and its record here lists it (section 5.4 has the 30 of #111).
+  - No path and no detector is ignored.
 - Licenses are recorded as the listings find them, with no legal review (the maintainer's decision).
 
 ## 4. What the scanners cannot see
@@ -59,6 +76,11 @@ ASH_REPO=<ash-repo> scripts/security/scan.sh <out dir>
 | The compatibility matrix's flows (`tests/compat/flows`) declare Flink, Spark and Paimon as `provided`, which Trivy does not resolve | Nothing of theirs ships: the flows run on the engines' official images with the cell's pinned Paimon jars, wherever the matrix's user runs them |
 | The Temurin JRE comes as files, not as a package; neither scanner matches it | The base image is pinned by digest and moved to Temurin's latest build of the same tag at each candidate |
 | Trivy's secret scanner skips AWS's documented example keys; bandit rates `shell=True` with a literal command LOW | Positive controls at the baseline (section 5) |
+| ggshield 1.56.1 leaves content out without notice: its path scan drops 208 extensions unread (`.svg`, `.pdf` and `.jar` among them) and skips texts over 1 MiB; its default exclusions (`vendor/`, `.venv/`, `*.mdx` and others) apply to every scan and cannot be turned off; and it exits 0 when part of a scan failed | The publication scan prepares what it would leave out (parts, `.txt` names, neutral names), and fails on a reported error, on a skipped file that is not binary, and on a path of the history that the exclusions match ([Secret scanning](../../CONTRIBUTING.md#secret-scanning)) |
+| `ggshield secret scan docker` reads only the layers that `COPY` or `ADD` made, skips system paths (`usr/`, `lib/`, `bin/` and others) and binary files, the image's jars among them, and skips a layer it found clean before | The publication scan opens every layer of every version in full and scans its files, jars opened; it runs the Docker scan with an empty layer cache, and fails if a layer is skipped as scanned before |
+| The hooks are a best effort: the pre-push hook covers at most 1000 commits of a push (`max_commits_for_hook`), passes with a warning when it cannot work out the commit range, and gets only the first ref of a push; either can be skipped | The `ggshield` check scans each push and pull request again, and the publication scan the whole history before anything is made public |
+| ggshield does not look for deployment values (account IDs, ARNs, endpoints, internal addresses) | The `deployment-values` hooks, and the maintainer's search of what the publication scan fetched ([Secret scanning](../../CONTRIBUTING.md#secret-scanning)) |
+| Workflow run logs are public, and no scan reads them | GitHub masks the secrets it passes to a job in its log; the only one is `GITGUARDIAN_API_KEY`, which only the `ggshield` check gets |
 
 ## 5. The baseline
 
@@ -156,6 +178,16 @@ The repository was made public on 2026-11-04 at 04:52 UTC. GitGuardian then repo
   - GitGuardian documents this file for ggshield only ([configuration](https://docs.gitguardian.com/ggshield-docs/configuration)). For the repositories it monitors, it documents exclusions set in its dashboard ([exclusion rules](https://docs.gitguardian.com/secrets-detection/customize-detection/exclusion-rules)).
 
 Rescanned at this change's head: detect-secrets, through ASH, has 0 actionable findings, and the four hex-string entries of `.ash/.ash.yaml` are all in use, the new one for each of the file's 30 ignore SHAs. Trivy's secret scanner reports nothing. The counts, and those of ggshield, are in the pull request.
+
+### 5.5 The publication scan, the hooks and the `ggshield` check ([#113](https://github.com/colvenna/colvenna-catalog/issues/113))
+
+On 2026-11-04, before the repository was made public again, the whole history, the image and the chart were scanned with ggshield 1.56.1 and `main`'s `.gitguardian.yaml` (`99c0d0b`), and found 0 incidents ([#113](https://github.com/colvenna/colvenna-catalog/issues/113) has the counts). #113 makes that gate permanent:
+
+- [`ggshield_scan.py`](../../scripts/security/ggshield_scan.py), the publication scan, scans everything the public can fetch: the history of every ref, the GHCR packages' every version and layer, the release assets, the workflow artifacts and the GitHub text. It fails wherever ggshield would leave something out without notice (section 4). [`test_ggshield_scan.py`](../../scripts/security/test_ggshield_scan.py), in the `deploy-test` job, tests it offline: archives and layers opened, parts and their lines, the names, the registry's digests and tags, and what makes a summary incomplete.
+- The hooks `ggshield` and `ggshield-push` ([`.pre-commit-config.yaml`](../../.pre-commit-config.yaml)) scan each commit and each push, as a best effort, with the ggshield that [`ggshield-requirements.lock`](../../scripts/security/ggshield-requirements.lock) pins and hash-locks; `.gitguardian.yaml` raises their limit to 1000 commits a push.
+- The `ggshield` check ([`ggshield.yml`](../../.github/workflows/ggshield.yml)) scans each push and pull request, with the `GITGUARDIAN_API_KEY` Actions secret. The ruleset on `main` requires it with `ci.yml`'s eight jobs ([CI](../../CONTRIBUTING.md#ci)).
+
+This change's head was scanned with the publication scan, using its own `.gitguardian.yaml`; its counts are in its pull request and on #113.
 
 ## 6. Open findings and their handling
 
