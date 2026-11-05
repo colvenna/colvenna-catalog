@@ -61,7 +61,7 @@ python3 scripts/security/ggshield_scan.py --output <new private directory>
 - cdk-nag findings are acknowledged in the CDK code beside the resource, with the reason.
 - A ggshield finding is never left visible: the publication scan must find 0.
   - A real credential is revoked or rotated first, then the history is reviewed. It is never ignored.
-  - A verified false positive (a test value, a public example, a value that is not a credential) gets an entry in `.gitguardian.yaml`, by its ignore SHA, with a name that gives the file and the reason. Each entry is reviewed in its pull request, and its record here lists it (section 5.4 has the 30 of #111).
+  - A verified false positive (a test value, a public example, a value that is not a credential) gets an entry in `.gitguardian.yaml`, by its ignore SHA, with a name that gives the file and the reason. Each entry is reviewed in its pull request, and its record here lists it (section 5.4 has the 30 of #111, section 5.5 the 8 of #113).
   - No path and no detector is ignored.
 - Licenses are recorded as the listings find them, with no legal review (the maintainer's decision).
 
@@ -196,7 +196,17 @@ Issue #113 makes that gate permanent:
 - The hooks `ggshield` and `ggshield-push` ([`.pre-commit-config.yaml`](../../.pre-commit-config.yaml)) scan each commit and each push, as a best effort, with the ggshield that [`ggshield-requirements.lock`](../../scripts/security/ggshield-requirements.lock) pins and hash-locks; `.gitguardian.yaml` raises their limit to 1000 commits a push.
 - The `ggshield` check ([`ggshield.yml`](../../.github/workflows/ggshield.yml)) scans each push and pull request, with the `GITGUARDIAN_API_KEY` Actions secret. The ruleset on `main` requires it with `ci.yml`'s eight jobs, from #113's merge on ([CI](../../CONTRIBUTING.md#ci)).
 
-The publication scan of #113's pull request at its final head, with that head's `.gitguardian.yaml`, is recorded in the pull request and on #113: the date, the commit, the ggshield version and each scan's count.
+On 2026-11-05 the publication scan of #113's pull request, at `8a8df81` with that head's `.gitguardian.yaml`, found 0 in the history (324 commits, and their 327 commits and tags as objects), the Docker scan, the release assets (none) and the GitHub text (217 documents). It found 11 findings in the image's layers, 8 values, each checked by hand. None is a credential. They are third-party files of the image's Ubuntu base, which the Docker-only scans of 2026-11-04 never read: those skip `usr/`, `var/` and the layers that `RUN` made. Each package's file is byte-identical to the file in that package as Ubuntu publishes it, at the version the image's dpkg status lists (`apt-get download`):
+
+| Findings | Detector | File in the image | What they are |
+| --- | --- | --- | --- |
+| 1 | Generic Password | `usr/share/lintian/overrides/base-passwd`, base-passwd 3.6.3build1 | A lintian override that names its package |
+| 3 | Generic High Entropy Secret (2), Generic Password (1) | `usr/share/info/gnupg.info-2.gz`, gnupg 2.4.4-2ubuntu17.6 | Two example key fingerprints in the manual's `gpg-card` output, and an entry of its index |
+| 4 | Generic Password | `var/log/apt/history.log` and `var/log/dpkg.log`, in the first two layers | The package name `base-passwd` with its architecture, in the logs of the base image's package installs |
+| 1 | Generic High Entropy Secret | `usr/sbin/pam-auth-update`, libpam-runtime 1.5.3-5ubuntu5.7 | The MD5 checksum of a stock PAM profile |
+| 2 | Generic Password | `usr/lib/x86_64-linux-gnu/perl-base/Cwd.pm`, perl-base 5.38.2-3.2ubuntu0.6 | A variable named `pwd` set from a command, on OS/2 and on Windows |
+
+`.gitguardian.yaml` ignores them by their 8 ignore SHAs, each with its file in the image and its reason. The configuration changed only by these additions to `ignored_matches`, the image and the chart are pinned by digest, and the full run found exactly these 11. So the files that held them are scanned again with the new configuration, with the commits added since, instead of the whole image. The results, with the date, the commits and the ggshield version, are in the pull request and on #113.
 
 ## 6. Open findings and their handling
 
