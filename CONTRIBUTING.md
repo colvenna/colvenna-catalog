@@ -117,7 +117,7 @@ export PATH="$HOME/.venvs/ggshield/bin:$PATH" GITGUARDIAN_API_KEY=...  # or: ggs
   ```
 
   It scans everything the public can fetch:
-  - an anonymous mirror clone (every branch, tag and `refs/pull/*`), plus each pull-request head that a force push replaced and GitHub still serves; and the wiki when it is enabled. An enabled wiki that cannot be cloned makes the scan fail, and so do enabled discussions, which it does not fetch;
+  - an anonymous mirror clone (every branch, tag and `refs/pull/*`), plus each pull-request head that a force push replaced and GitHub still serves; and the wiki when it is enabled. ggshield's history scan reads the commits' changes only, so each commit's message and each annotated tag is scanned as a file of its own. An enabled wiki that cannot be cloned makes the scan fail, and so do enabled discussions, which it does not fetch;
   - every version of the repository's GHCR packages (those linked to it, and those named after it), the image `ghcr.io/colvenna/colvenna-catalog` and the chart `ghcr.io/colvenna/charts/colvenna-catalog`. Each manifest and blob is fetched by its digest and checked against it, and each tag must resolve to its version's digest. Each image is also scanned with `ggshield secret scan docker`, with an empty layer cache;
   - the release assets and workflow artifacts as published, the packages' layers, and any `--path`, with every archive opened (zip, jar, wheel, tar, gzip);
   - the GitHub text: issues, pull requests, comments, reviews, release notes and commit comments.
@@ -136,7 +136,7 @@ export PATH="$HOME/.venvs/ggshield/bin:$PATH" GITGUARDIAN_API_KEY=...  # or: ggs
 
   It exits 0 only when every scan is complete and finds 0 incidents. The summary counts the binary files that ggshield cannot decode, and those over 1 MiB. The reports in `--output` contain the matched values, so keep that directory private. The summary has no values. It records the date, the commit whose `.gitguardian.yaml` it used, the refs and commits of the history, the ggshield version, the quota, the packages' digests (and whether each release's image and chart, by the digests of its `release/<release>/manifest.json`, are among them), and each finding's location and ignore SHA.
 
-  A release's image and chart are scanned before `scripts/release/publish-ghcr.sh` makes them public, from the release registry by the digests of `release/<release>/manifest.json`, and scanned again from GHCR afterwards, when the summary must also say that each release's image and chart were scanned. That scan reads the releases from `release/` of the branch it uses, so it runs once the release's pull request has merged, or with `--branch release-<release>` ([Publishing to GHCR](docs/development.md#publishing-to-ghcr)):
+  A release's image and chart are scanned before `scripts/release/publish-ghcr.sh` makes them public, from the release registry by the digests of `release/<release>/manifest.json`, and scanned again from GHCR afterwards, when the summary must also say that each release's image and chart were scanned. That scan reads the releases from `release/` of the branch it uses, so it runs once the release's pull request has merged, or with `--branch release-<release>`. The counts of both summaries go on the release's pull request, the second as a comment if it has merged by then ([Publishing to GHCR](docs/development.md#publishing-to-ghcr)):
 
   ```bash
   crane pull <release registry>/colvenna-catalog@<image digest> <directory>/image.tar

@@ -1,5 +1,6 @@
 """Offline tests of the publication scan (ggshield_scan.py) and the ggshield hooks (ggshield_hook.py): what runs
 without ggshield, GitHub or a registry (#113)."""
+import contextlib
 import gzip
 import hashlib
 import io
@@ -363,6 +364,39 @@ class ExclusionTest(unittest.TestCase):
             found = ggshield_scan.excluded_history_paths(work, lambda path: path.startswith("vendor/"))
 
             self.assertEqual(found, [("vendor/settings.py", "ggshield's default exclusions")])
+
+
+class HistoryMessagesTest(unittest.TestCase):
+    def test_each_commit_message_and_annotated_tag_is_written_to_its_own_file(self):
+        with tempfile.TemporaryDirectory() as work, tempfile.TemporaryDirectory() as messages:
+            def git(*args):
+                return subprocess.run(["git", "-C", work, "-c", "user.name=test", "-c", "user.email=test@example.com",
+                                       *args], check=True, capture_output=True, text=True).stdout.strip()
+
+            subprocess.run(["git", "init", "--quiet", work], check=True)
+            git("commit", "--quiet", "--allow-empty", "-m", "first", "-m", "token: made-up-0123")
+            git("commit", "--quiet", "--allow-empty", "-m", "second")
+            git("tag", "-a", "v1.0.0", "-m", "release v1.0.0, notes: made-up-4567")
+            git("tag", "light")
+            out = Path(messages, "repository")
+
+            count = ggshield_scan.history_messages(work, out)
+
+            written = {path.name: path.read_text() for path in out.iterdir()}
+            self.assertEqual(count, 3)
+            self.assertEqual(sorted(name.split("-")[0] for name in written), ["commit", "commit", "tag"])
+            self.assertIn("first\n\ntoken: made-up-0123", "".join(written.values()))
+            self.assertIn("release v1.0.0, notes: made-up-4567", "".join(written.values()))
+
+
+class RepositoryTest(unittest.TestCase):
+    def test_the_repository_must_be_owner_and_name(self):
+        self.assertEqual(ggshield_scan.owner_and_name("colvenna/colvenna-catalog"), ("colvenna", "colvenna-catalog"))
+        for wrong in ("colvenna", "colvenna/", "/colvenna-catalog", "colvenna/colvenna-catalog/extra"):
+            with self.assertRaises(ValueError):
+                ggshield_scan.owner_and_name(wrong)
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            ggshield_scan.main(["--output", "/nonexistent/scan", "--repository", "colvenna"])
 
 
 class OutputTest(unittest.TestCase):

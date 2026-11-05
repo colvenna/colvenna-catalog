@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """The publication scan (#113): ggshield, GitGuardian's command-line scanner, over everything the public can
-fetch from the repository, with the .gitguardian.yaml of the scanned branch (main by default). Nothing is
-made public, and no release is made, before it finds 0 (CONTRIBUTING.md#secret-scanning).
+fetch from the repository, with the .gitguardian.yaml of the scanned branch (main by default), whose
+release/ names the releases the summary looks for on GHCR. Nothing is made public, and no release is made,
+before it finds 0 (CONTRIBUTING.md#secret-scanning).
 
 It scans:
   - history: an anonymous `git clone --mirror` (every branch, tag and refs/pull/*), plus each pull-request
-    head that a force push replaced and GitHub still serves by its SHA; and the wiki, when it is enabled;
+    head that a force push replaced and GitHub still serves by its SHA; and the wiki, when it is enabled.
+    ggshield's history scan reads the commits' changes only, so their messages and the annotated tags are
+    scanned as files of their own;
   - the GHCR packages of the repository (the image and the chart), every version: each manifest and blob
     fetched by its digest and checked against it, each tag checked to resolve to its version's digest.
     An image is scanned with `ggshield secret scan docker` too, with an empty layer cache;
@@ -335,11 +338,31 @@ def ggshield_rules(binary):
 def excluded_history_paths(clone, excluded):
     """(path, why) of each path any commit of the clone touches that ggshield's default exclusions skip:
     unquoted, so that a non-ASCII path is matched as ggshield sees it, and merge commits' paths included
-    (-m: against each parent, a superset of the combined diff ggshield scans)."""
+    (-m: against each parent, a superset of the combined diff, `diff --cc`, that ggshield scans for a merge;
+    core/scan/commit_utils.py at v1.56.1)."""
     listing = run([*GIT, "-C", str(clone), "-c", "core.quotePath=false", "log", "-m", "-z", "--all", "--format=",
                    "--name-only"])
     paths = {path.strip("\n") for path in listing.split("\0")} - {""}
     return [(path, "ggshield's default exclusions") for path in sorted(paths) if excluded(path)]
+
+
+def history_messages(clone, out):
+    """Write each commit's message and each annotated tag of the clone to a file of its own in out, and
+    count them: ggshield's history scan skips a commit's header, its message included (PatchHeader in
+    core/scan/commit_utils.py at v1.56.1), and reads no tag."""
+    out.mkdir(parents=True, exist_ok=True)
+    count = 0
+    log = run([*GIT, "-C", str(clone), "log", "--all", "-z", "--format=%H%n%B"], text=False)
+    for record in log.split(b"\0"):
+        sha, _, message = record.strip(b"\n").partition(b"\n")
+        if sha:
+            (out / f"commit-{sha.decode()}.txt").write_bytes(message)
+            count += 1
+    refs = run([*GIT, "-C", str(clone), "for-each-ref", "--format=%(objecttype) %(objectname)"]).split("\n")
+    for sha in sorted({line.split(" ")[1] for line in refs if line.startswith("tag ")}):
+        (out / f"tag-{sha}.txt").write_bytes(run([*GIT, "-C", str(clone), "cat-file", "tag", sha], text=False))
+        count += 1
+    return count
 
 
 def check_output(out, excluded):
@@ -368,8 +391,17 @@ def owner_and_name(repository):
     """The owner and the name of a repository given as OWNER/NAME."""
     owner, _, name = repository.partition("/")
     if not owner or not name or "/" in name:
-        sys.exit(f"{repository}: give the repository as OWNER/NAME")
+        raise ValueError(f"{repository}: give the repository as OWNER/NAME")
     return owner, name
+
+
+def repository_argument(repository):
+    """--repository, checked to be OWNER/NAME before anything is fetched."""
+    try:
+        owner_and_name(repository)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
+    return repository
 
 
 def mirror(url, clone, failure=None):
@@ -514,20 +546,20 @@ def fetch_artifact(crane, image, digest, out, seen):
         return []
     seen.add(digest)
     data = run([crane, "manifest", f"{image}@{digest}"], text=False)
-    expected = digest_hex(digest)
-    if hashlib.sha256(data).hexdigest() != expected:
+    manifest_hex = digest_hex(digest)
+    if hashlib.sha256(data).hexdigest() != manifest_hex:
         sys.exit(f"{image}@{digest}: the registry served a manifest of another digest")
-    (out / f"{expected}.manifest.json").write_bytes(data)
+    (out / f"{manifest_hex}.manifest.json").write_bytes(data)
     manifest = json.loads(data)
     if "manifests" in manifest:
         return [found for child in manifest["manifests"]
                 for found in fetch_artifact(crane, image, child["digest"], out, seen)]
     for blob in [manifest["config"], *manifest.get("layers", [])]:
-        expected = digest_hex(blob["digest"])
-        target = out / (expected + blob_suffix(blob.get("mediaType", "")))
+        blob_hex = digest_hex(blob["digest"])
+        target = out / (blob_hex + blob_suffix(blob.get("mediaType", "")))
         if not target.exists():
             download([crane, "blob", f"{image}@{blob['digest']}"], target)
-            if sha256_file(target) != expected:
+            if sha256_file(target) != blob_hex:
                 sys.exit(f"{image}@{blob['digest']}: the registry served a blob of another digest")
             if target.name.endswith(TAR_SUFFIXES) and not tarfile.is_tarfile(target):
                 sys.exit(f"{image}@{blob['digest']}: a layer of media type {blob['mediaType']} is not a tar archive")
@@ -617,8 +649,9 @@ def default_crane():
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--output", type=Path, required=True, help="a new private directory for the reports")
-    parser.add_argument("--repository", default="colvenna/colvenna-catalog")
-    parser.add_argument("--branch", default="main", help="the branch whose .gitguardian.yaml applies")
+    parser.add_argument("--repository", type=repository_argument, default="colvenna/colvenna-catalog")
+    parser.add_argument("--branch", default="main",
+                        help="the branch whose .gitguardian.yaml applies, and whose release/ names the releases")
     parser.add_argument("--path", type=Path, action="append", default=[], help="a local file or directory")
     parser.add_argument("--ggshield", default=shutil.which("ggshield") or "ggshield")
     parser.add_argument("--crane", default=default_crane(), help="crane (default: scripts/install-tools.sh's)")
@@ -646,6 +679,7 @@ def main(argv=None):
     header.append(f"configuration: .gitguardian.yaml of {args.branch} {branch_sha}")
 
     scans = [ggshield.scan("history", "repo", str(clone), unscanned=excluded_history_paths(clone, rules.excluded))]
+    messages = history_messages(clone, out / "history-messages" / "repository")
     settings = json.loads(run(["gh", "api", f"repos/{args.repository}"]))
     if settings["has_discussions"]:
         sys.exit("the repository's discussions are enabled, and the scan does not fetch them: disable them, or "
@@ -656,6 +690,8 @@ def main(argv=None):
                failure="the wiki is enabled but has no clone to scan: disable it, or add a page and scan again")
         header.append(f"wiki: {describe_refs(wiki)}")
         scans.append(ggshield.scan("wiki", "repo", str(wiki), unscanned=excluded_history_paths(wiki, rules.excluded)))
+        messages += history_messages(wiki, out / "history-messages" / "wiki")
+    header.append(f"history messages: {messages} commit messages and annotated tags")
     images, described, digests = fetch_packages(args.repository, args.crane, out / "packages")
     header.append("packages: " + ("; ".join(described) or "none"))
     header += releases_on_ghcr(clone, branch_sha, digests)
@@ -663,8 +699,9 @@ def main(argv=None):
     download_releases(args.repository, out / "releases")
     download_workflow_artifacts(args.repository, out / "workflow-artifacts")
     texts = download_github_text(args.repository, out / "github-text")
-    groups = [("release assets", [out / "releases"]), ("workflow artifacts", [out / "workflow-artifacts"]),
-              ("packages", [out / "packages"]), ("GitHub text", [out / "github-text"])]
+    groups = [("history messages", [out / "history-messages"]), ("release assets", [out / "releases"]),
+              ("workflow artifacts", [out / "workflow-artifacts"]), ("packages", [out / "packages"]),
+              ("GitHub text", [out / "github-text"])]
     groups += [("paths", args.path)] if args.path else []
     for scope, sources in groups:
         unpacked = out / "unpacked" / slug(scope)
