@@ -58,8 +58,9 @@ run_job() { # <job> <command...>
 }
 
 # pre-commit, then the tests of its old-name and deployment-values hooks (scripts/rename,
-# scripts/redaction), as the CI job runs them.
-run_job pre-commit bash -c "pre-commit run --all-files --show-diff-on-failure \
+# scripts/redaction), as the CI job runs them: without the ggshield hook, as there (the ggshield workflow,
+# which this does not run, scans the commits).
+run_job pre-commit bash -c "SKIP=ggshield pre-commit run --all-files --show-diff-on-failure \
   && python3 -m unittest discover -s scripts/rename -p 'test_*.py' \
   && python3 -m unittest discover -s scripts/redaction -p 'test_*.py'"
 run_job shellcheck bash -c "git ls-files -z '*.sh' | xargs -0 -r shellcheck -x"

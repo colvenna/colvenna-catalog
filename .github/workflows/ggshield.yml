@@ -1,0 +1,61 @@
+# ggshield, GitGuardian's command-line scanner, on the commits of every push and pull request, with the
+# repository's .gitguardian.yaml (#113); a manual run scans the whole history. A push publishes its commits
+# (the repository is public), so this scans them again after the hooks; the publication scan,
+# scripts/security/ggshield_scan.py, is the gate before a release or anything else is made public
+# (CONTRIBUTING.md#secret-scanning). Not a job of ci.yml: it runs on every branch, and needs the
+# GITGUARDIAN_API_KEY Actions secret, which scripts/ci-local.sh has no use for.
+name: ggshield
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ggshield:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install ggshield from its hash-locked file
+        run: |
+          python -m venv "$RUNNER_TEMP/ggshield"
+          "$RUNNER_TEMP/ggshield/bin/python" -m pip install --require-hashes --only-binary=:all: \
+            -r scripts/security/ggshield-requirements.lock
+      - name: Scan with the repository's .gitguardian.yaml
+        env:
+          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+          FROM_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          # ggshield's commit range (core/git_hooks/ci/commit_range.py at v1.56.1): a pull request's base
+          # branch, else the commits of the push (GITHUB_PUSH_BASE_SHA), else everything not on the default
+          # branch. After a force push the checkout lacks the replaced commit, which GitHub still serves by
+          # SHA: it is fetched, so that only the new commits are scanned; a commit it cannot fetch is
+          # dropped, and the default branch is the base. A new branch (all zeros) has that base too.
+          GITHUB_PUSH_BASE_SHA: ${{ github.event.before }}
+          GITHUB_DEFAULT_BRANCH: origin/${{ github.event.repository.default_branch }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ -z "$GITGUARDIAN_API_KEY" ]; then
+            if [ "$FROM_FORK" = true ]; then
+              echo "::notice::Actions gives a pull request from a fork no secrets, so a maintainer scans it before merging (CONTRIBUTING.md#secret-scanning)."
+              exit 0
+            fi
+            echo "::error::The GITGUARDIAN_API_KEY Actions secret is not set (CONTRIBUTING.md#secret-scanning)."
+            exit 1
+          fi
+          if [ -n "$GITHUB_PUSH_BASE_SHA" ] && ! git cat-file -e "$GITHUB_PUSH_BASE_SHA^{commit}" 2>/dev/null \
+            && ! git fetch --quiet --no-tags origin "$GITHUB_PUSH_BASE_SHA" 2>/dev/null; then
+            unset GITHUB_PUSH_BASE_SHA
+          fi
+          if [ "$EVENT" = workflow_dispatch ]; then
+            "$RUNNER_TEMP/ggshield/bin/ggshield" secret scan repo .
+          else
+            "$RUNNER_TEMP/ggshield/bin/ggshield" secret scan ci
+          fi

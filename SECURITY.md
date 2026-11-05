@@ -8,6 +8,8 @@ Upgrades in 1.x: a release upgrades online from the release before it, in both f
 
 How the server authenticates, authorizes, audits and issues per-table credentials is in the [LLD](docs/design/colvenna-catalog-lld.md) (in Chinese). The security scans a release depends on, their baseline and the findings left visible are in [docs/security/scans.md](docs/security/scans.md).
 
+Secrets are scanned for with ggshield, GitGuardian's command-line scanner, before each release and before anything is made public. The scan covers the repository's history, its GHCR image and chart, its release assets and its GitHub text. Local hooks scan each commit and each push as a best effort, and CI scans each push and pull request again. [`.gitguardian.yaml`](.gitguardian.yaml) lists each value checked by hand and found not to be a credential, by hash only; see [CONTRIBUTING.md](CONTRIBUTING.md#secret-scanning).
+
 ## Reporting a vulnerability
 
 Do not put tokens, passwords, keys, cloud credentials, deployment values (account IDs, domains, ARNs, internal addresses) or exploit details in an ordinary issue or pull request.

@@ -1,7 +1,10 @@
 # Locally: after `pre-commit install`, every commit is checked; `pre-commit run --all-files` checks
-# everything. CI runs the same configuration (.github/workflows/ci.yml), as does scripts/ci-local.sh.
-# pre-commit install puts in the commit-msg hook too: a commit message holds no deployment value (#99).
-default_install_hook_types: [pre-commit, commit-msg]
+# everything. CI runs the same configuration (.github/workflows/ci.yml), as does scripts/ci-local.sh,
+# both with SKIP=ggshield: the ggshield workflow scans their commits instead.
+# pre-commit install puts in the commit-msg hook too: a commit message holds no deployment value (#99);
+# and the pre-push hook (#113): the hooks that run at pre-push check what a push changes, ggshield-push
+# its commits.
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
 # Only the hooks that say so run on a commit message (the redaction check); the rest on files.
 default_stages: [pre-commit, pre-push, manual]
 repos:
@@ -62,3 +65,24 @@ repos:
         entry: python3 scripts/redaction/redaction.py
         language: system
         stages: [commit-msg]
+
+  # ggshield, GitGuardian's command-line scanner, with .gitguardian.yaml (#113): the staged changes before a
+  # commit, and the commits about to be pushed (the repository is public: a push publishes them). A best
+  # effort before the ggshield workflow and the publication scan (CONTRIBUTING.md#secret-scanning).
+  # scripts/security/ggshield_hook.py runs the ggshield on PATH, and only at the version that
+  # scripts/security/ggshield-requirements.lock pins; ggshield needs a GitGuardian API key
+  # (GITGUARDIAN_API_KEY, or `ggshield auth login`). SKIP=ggshield,ggshield-push skips them.
+  - repo: local
+    hooks:
+      - id: ggshield
+        name: ggshield (the staged changes)
+        entry: python3 scripts/security/ggshield_hook.py pre-commit
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: ggshield-push
+        name: ggshield (the commits to push)
+        entry: python3 scripts/security/ggshield_hook.py pre-push
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

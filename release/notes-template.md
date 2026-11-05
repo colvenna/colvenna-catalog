@@ -95,7 +95,8 @@ As the manifest's `configurations` says:
 | UAT: <Region 2> | PASS <#>, FAIL <#>, BLOCKED <#>, NOT_RUN <#> (<#> required cases) | <the UAT report's section> |
 | Performance acceptance | <met / not met> | <the performance document's section> |
 | Security scans (ASH, Trivy, grype, cdk-nag, licenses) | <no unhandled finding / unhandled findings>: `scripts/security/scan.sh` on `{{built_from_short}}` | [`docs/security/{{candidate}}.md`](https://github.com/colvenna/colvenna-catalog/blob/<commit>/docs/security/{{candidate}}.md) |
-| CI | <`PASS`: GitHub Actions, every job of `ci.yml`, on each pull request's exact head SHA; or name each pull request merged `WAIVED` (Actions could not run; `scripts/ci-local.sh` on its exact SHA instead), with its reason> | <each pull request's checks, and any waiver's record> |
+| Publication scan (ggshield) | <0 incidents, `VERDICT: CLEAN` / findings>: `scripts/security/ggshield_scan.py`, with the image and the chart above pulled from the release registry by their digests (`--path`) | <the scan's record ([what it gives](https://github.com/colvenna/colvenna-catalog/blob/<commit>/docs/security/scans.md#2-running-the-scans)), in `docs/security/{{candidate}}.md`> |
+| CI | <`PASS`: GitHub Actions, every job of `ci.yml` and `ggshield`, on each pull request's exact head SHA; or name each pull request merged `WAIVED` (Actions could not run; `scripts/ci-local.sh` and a ggshield scan of its commits on its exact SHA instead), with its reason> | <each pull request's checks, and any waiver's record> |
 | Release verdict | <GO / NO-GO> | <the release check report's link> |
 
 ## 6. Changes

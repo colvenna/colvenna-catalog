@@ -23,7 +23,11 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
       - run: pip install pre-commit==4.6.0
+      # The ggshield hook scans staged changes, which CI has none of: the ggshield workflow (ggshield.yml)
+      # scans the commits instead (#113).
       - run: pre-commit run --all-files --show-diff-on-failure
+        env:
+          SKIP: ggshield
       # The check that the old name stays gone (#31), which pre-commit runs as the old-name hook.
       - run: python3 -m unittest discover -s scripts/rename -p 'test_*.py'
       # The check that no deployment value is in the repository (#99), the deployment-values hook.
@@ -53,7 +57,8 @@ jobs:
   # the Helm recovery, the entry points' arguments and the release install, with stub commands where
   # AWS or Kubernetes would be; the release manifest's schema and validation, the third-party record
   # (THIRD_PARTY_NOTICES.md against the tree) and the links (scripts/release); and the security scans'
-  # own helper (scripts/security).
+  # own helpers (scripts/security): the Paimon listing, the ASH settings' checks, and the publication scan
+  # and the ggshield hooks (#113).
   deploy-test:
     runs-on: ubuntu-latest
     steps:

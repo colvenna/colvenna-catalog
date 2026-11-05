@@ -1,12 +1,20 @@
 # ggshield settings (GitGuardian's command-line scanner, configuration version 2):
 # https://docs.gitguardian.com/ggshield-docs/configuration
 # Each finding of ggshield's scan of the whole history (2026-11-04) was checked by hand: none is a
-# credential (docs/security/scans.md, section 5.4; https://github.com/colvenna/colvenna-catalog/issues/111).
+# credential (docs/security/scans.md, section 5.4;
+# https://github.com/colvenna/colvenna-catalog/issues/111).
+# So was each finding of the publication scan of 2026-11-05, which opened every layer of the image:
+# third-party files of its Ubuntu base, each identical to its Ubuntu package, or the base image's
+# own install logs (section 5.5; https://github.com/colvenna/colvenna-catalog/issues/113).
 # Each is ignored by its ignore SHA, ggshield's SHA-256 of the matched string and its type
 # (get_ignore_sha, https://github.com/GitGuardian/ggshield/blob/v1.56.1/ggshield/core/filter.py), so
 # this file holds no value. Nothing else is ignored, no path and no detector: any other value is
-# reported. Each name gives the finding's file in the history, not a line.
+# reported. Each name gives the finding's file, in the history or in the image, not a line. Add an
+# entry only for a value checked by hand and reviewed in its pull request
+# (CONTRIBUTING.md#secret-scanning, #113); a real credential is revoked or rotated, never ignored.
 version: 2
+# The pre-push hook scans at most this many commits of a push (ggshield's default is 50).
+max_commits_for_hook: 1000
 secret:
   ignored_matches:
     - name: "a database name where the detector expects a password (Generic Password; deploy/aws/functions/ops.ts)"
@@ -69,3 +77,19 @@ secret:
       match: fdc97e0e6bee2052eb01f8566417c6953da166b43c6db95523ca949d52e1542d
     - name: "a Doris BE heartbeat token of a destroyed test cluster (Generic High Entropy Secret; docs/compat/runs/20261101T051609Z-44be/raw/doris-4.1.5/be.log)"
       match: 6104d8fbe1f8f477d404e33baf750445525e7b224c34bf9b8067039828181e9b
+    - name: "the image's base layer: a lintian override that names its package, read as a password; identical to Ubuntu's base-passwd 3.6.3build1 (Generic Password; usr/share/lintian/overrides/base-passwd)"
+      match: bbcfd8693fabe3145b6ade32a4ca2956ce12752cec91ffaefd0f829393c5d4b4
+    - name: "the image's second layer: an example keygrip in the GnuPG manual's gpg-card output; identical to Ubuntu's gnupg 2.4.4-2ubuntu17.6 (Generic High Entropy Secret; usr/share/info/gnupg.info-2.gz)"
+      match: 85aaaaa7206a5e11e7ee04b89424b014f67f08e39cf54ceac9046697cbe41ece
+    - name: "the image's second layer: another example keygrip in the same gpg-card output of the GnuPG manual; identical to Ubuntu's gnupg 2.4.4-2ubuntu17.6 (Generic High Entropy Secret; usr/share/info/gnupg.info-2.gz)"
+      match: 0aea548231204d985587567ff11fb4177ebf621abd36511cea68b563b6d7b441
+    - name: "the image's second layer: an entry of the GnuPG manual's index, read as a password; identical to Ubuntu's gnupg 2.4.4-2ubuntu17.6 (Generic Password; usr/share/info/gnupg.info-2.gz)"
+      match: 9b7f9dbee28d0074dec36a04a35472c541faf657565d1aab64db9e2ea49c32ca
+    - name: "the image's first two layers: the architecture after the package names passwd and base-passwd, in the logs of the base image's package installs, read as a password (Generic Password; var/log/apt/history.log and var/log/dpkg.log)"
+      match: b4377b2928fdf928b75cc48771051ec4343beb40ae9976d43ccd685aeea71335
+    - name: "the image's base layer: the MD5 checksum of a stock PAM profile; identical to Ubuntu's libpam-runtime 1.5.3-5ubuntu5.7 (Generic High Entropy Secret; usr/sbin/pam-auth-update)"
+      match: 5c653b2b449cbc86c6094427ef3049124694a0bfa044865ae9ca42cf5b2e6bc6
+    - name: "the image's base layer: Perl's Cwd module sets a variable named pwd from a command, on OS/2; identical to Ubuntu's perl-base 5.38.2-3.2ubuntu0.6 (Generic Password; usr/lib/x86_64-linux-gnu/perl-base/Cwd.pm)"
+      match: 675148119068015ffe01dedf3a478a0debc415f5ffadc0b8632d91eb4c265383
+    - name: "the image's base layer: the same module's variable named pwd, on Windows; identical to Ubuntu's perl-base 5.38.2-3.2ubuntu0.6 (Generic Password; usr/lib/x86_64-linux-gnu/perl-base/Cwd.pm)"
+      match: 35c07eabc0658848184c2fd24d19fcc75d0cddd9c31d2655ae9b0b16a37df1f7
